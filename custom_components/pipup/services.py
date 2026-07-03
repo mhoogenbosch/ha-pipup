@@ -93,7 +93,7 @@ DISMISS_SCHEMA = vol.Schema(
 
 async def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list:
     """Resolve targeted devices to loaded PiPup coordinators."""
-    entry_ids = await async_extract_config_entry_ids(hass, call)
+    entry_ids = await async_extract_config_entry_ids(call)
     coordinators = []
     for entry_id in entry_ids:
         entry = hass.config_entries.async_get_entry(entry_id)
