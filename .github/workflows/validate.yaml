@@ -18,6 +18,8 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
+          # brands: custom repo, (nog) niet in home-assistant/brands
+          ignore: brands
 
       - name: Hassfest Validation
         uses: home-assistant/actions/hassfest@master

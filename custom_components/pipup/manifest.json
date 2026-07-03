@@ -4,10 +4,14 @@
   "version": "1.0.0",
   "documentation": "https://github.com/mhoogenbosch/ha-pipup",
   "issue_tracker": "https://github.com/mhoogenbosch/ha-pipup/issues",
-  "codeowners": ["@mhoogenbosch"],
+  "codeowners": [
+    "@mhoogenbosch"
+  ],
   "config_flow": true,
   "iot_class": "local_polling",
-  "after_dependencies": ["camera", "stream"],
-  "requirements": [],
-  "generated_with": "aurora@aurora-smart-home (ha-integration-dev skill) | https://github.com/tonylofgren/aurora-smart-home"
+  "after_dependencies": [
+    "camera",
+    "stream"
+  ],
+  "requirements": []
 }
