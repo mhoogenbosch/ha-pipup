@@ -14,6 +14,9 @@ DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=15)
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_DEFAULT_POSITION: Final = "default_position"
 DEFAULT_POSITION: Final = "top_right"
+CONF_NAME_SUFFIX: Final = "name_suffix"
+# internal marker: which suffix we last applied to the entity registry names
+CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
 
 SERVICE_SHOW: Final = "show"
 SERVICE_DISMISS: Final = "dismiss"

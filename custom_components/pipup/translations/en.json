@@ -7,7 +7,11 @@
         "data": {
           "host": "Host",
           "port": "Port",
-          "name": "Name"
+          "name": "Name",
+          "name_suffix": "Name suffix"
+        },
+        "data_description": {
+          "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
         }
       }
     },
@@ -23,7 +27,11 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "name_suffix": "Name suffix"
+        },
+        "data_description": {
+          "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
         }
       }
     }

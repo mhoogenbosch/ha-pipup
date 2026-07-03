@@ -10,9 +10,16 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN  # noqa: F401
+from .const import (  # noqa: F401
+    CONF_NAME_SUFFIX,
+    CONF_NAME_SUFFIX_APPLIED,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .coordinator import PiPupCoordinator
 from .services import async_setup_services
 
@@ -42,8 +49,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    _async_apply_name_suffix(hass, entry)
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _async_apply_name_suffix(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Append the configured suffix to the entity names in the registry.
+
+    Turns e.g. "Popup" into "Popup Veranda" so multiple PiPup devices stay
+    distinguishable in target pickers. Only names we set ourselves (or unset
+    names) are touched — manual renames by the user are left alone. Clearing
+    the suffix removes our names again.
+    """
+    suffix = (entry.options.get(CONF_NAME_SUFFIX) or "").strip()
+    applied = entry.options.get(CONF_NAME_SUFFIX_APPLIED) or ""
+
+    registry = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        base = entity.original_name
+        if not base:
+            continue
+        ours = f"{base} {applied}" if applied else None
+        if suffix:
+            new_name = f"{base} {suffix}"
+            if (entity.name is None or entity.name == ours) and entity.name != new_name:
+                registry.async_update_entity(entity.entity_id, name=new_name)
+        elif ours and entity.name == ours:
+            registry.async_update_entity(entity.entity_id, name=None)
+
+    if applied != suffix:
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, CONF_NAME_SUFFIX_APPLIED: suffix}
+        )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -> None:
@@ -52,6 +91,8 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
     Other option changes (e.g. the default-position select) apply at
     call time and don't need a reload.
     """
+    _async_apply_name_suffix(hass, entry)
+
     coordinator = entry.runtime_data
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
     desired = (

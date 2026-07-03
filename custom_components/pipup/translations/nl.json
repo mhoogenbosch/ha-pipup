@@ -7,7 +7,11 @@
         "data": {
           "host": "Host",
           "port": "Poort",
-          "name": "Naam"
+          "name": "Naam",
+          "name_suffix": "Naam-achtervoegsel"
+        },
+        "data_description": {
+          "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten."
         }
       }
     },
@@ -23,7 +27,11 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Polling-interval (seconden)"
+          "scan_interval": "Polling-interval (seconden)",
+          "name_suffix": "Naam-achtervoegsel"
+        },
+        "data_description": {
+          "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten."
         }
       }
     }

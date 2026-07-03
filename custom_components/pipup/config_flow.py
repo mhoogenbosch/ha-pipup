@@ -20,7 +20,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
-from .const import CONF_SCAN_INTERVAL, DEFAULT_PORT, DOMAIN
+from .const import CONF_NAME_SUFFIX, CONF_SCAN_INTERVAL, DEFAULT_PORT, DOMAIN
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -29,6 +29,7 @@ STEP_USER_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=65535)
         ),
         vol.Optional(CONF_NAME): str,
+        vol.Optional(CONF_NAME_SUFFIX): str,
     }
 )
 
@@ -60,9 +61,13 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 title = user_input.get(CONF_NAME) or f"PiPup {host}"
+                options = {}
+                if suffix := (user_input.get(CONF_NAME_SUFFIX) or "").strip():
+                    options[CONF_NAME_SUFFIX] = suffix
                 return self.async_create_entry(
                     title=title,
                     data={CONF_HOST: host, CONF_PORT: port},
+                    options=options,
                     description_placeholders={
                         "version": state.get("version", "?")
                     },
@@ -87,7 +92,14 @@ class PiPupOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            # merge into the existing options: other keys (default position
+            # select, applied-suffix marker) must survive this form
+            options = dict(self.config_entry.options)
+            options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 15)
+            options[CONF_NAME_SUFFIX] = (
+                user_input.get(CONF_NAME_SUFFIX) or ""
+            ).strip()
+            return self.async_create_entry(title="", data=options)
 
         return self.async_show_form(
             step_id="init",
@@ -99,6 +111,14 @@ class PiPupOptionsFlow(OptionsFlow):
                             CONF_SCAN_INTERVAL, 15
                         ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+                    vol.Optional(
+                        CONF_NAME_SUFFIX,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_NAME_SUFFIX, ""
+                            )
+                        },
+                    ): str,
                 }
             ),
         )
