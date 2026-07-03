@@ -5,16 +5,24 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN  # noqa: F401
+from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN  # noqa: F401
 from .coordinator import PiPupCoordinator
 from .services import async_setup_services
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.UPDATE,
+]
 
 type PiPupConfigEntry = ConfigEntry[PiPupCoordinator]
 
@@ -39,8 +47,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -> None:
-    """Reload on options change (polling interval)."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Reload when the polling interval changed.
+
+    Other option changes (e.g. the default-position select) apply at
+    call time and don't need a reload.
+    """
+    coordinator = entry.runtime_data
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
+    desired = (
+        timedelta(seconds=scan_interval) if scan_interval else DEFAULT_SCAN_INTERVAL
+    )
+    if coordinator.update_interval != desired:
+        await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> bool:

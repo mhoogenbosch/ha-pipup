@@ -12,6 +12,8 @@ DEFAULT_PORT: Final = 7979
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=15)
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_DEFAULT_POSITION: Final = "default_position"
+DEFAULT_POSITION: Final = "top_right"
 
 SERVICE_SHOW: Final = "show"
 SERVICE_DISMISS: Final = "dismiss"

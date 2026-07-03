@@ -32,6 +32,42 @@
     "binary_sensor": {
       "popup": {
         "name": "Popup"
+      },
+      "screen": {
+        "name": "Scherm"
+      }
+    },
+    "sensor": {
+      "current_popup": {
+        "name": "Huidige popup"
+      },
+      "popups_shown": {
+        "name": "Popups getoond"
+      },
+      "uptime": {
+        "name": "App-uptime"
+      }
+    },
+    "button": {
+      "dismiss": {
+        "name": "Popup sluiten"
+      }
+    },
+    "select": {
+      "default_position": {
+        "name": "Standaardpositie",
+        "state": {
+          "top_right": "Rechtsboven",
+          "top_left": "Linksboven",
+          "bottom_right": "Rechtsonder",
+          "bottom_left": "Linksonder",
+          "center": "Midden"
+        }
+      }
+    },
+    "update": {
+      "app_update": {
+        "name": "PiPup-app"
       }
     }
   },
@@ -75,7 +111,7 @@
         },
         "position": {
           "name": "Positie",
-          "description": "Hoek of midden van het scherm."
+          "description": "Hoek of midden van het scherm. Zonder waarde wordt de ingestelde standaardpositie van het apparaat gebruikt (select-entiteit)."
         },
         "camera_entity": {
           "name": "Camera",

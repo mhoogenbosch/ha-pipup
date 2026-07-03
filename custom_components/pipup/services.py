@@ -22,6 +22,8 @@ from .const import (
     ATTR_BACKGROUND_COLOR,
     ATTR_CAMERA_ENTITY,
     ATTR_CAMERA_MODE,
+    CONF_DEFAULT_POSITION,
+    DEFAULT_POSITION,
     ATTR_DURATION,
     ATTR_IMAGE_URL,
     ATTR_MEDIA_HEIGHT,
@@ -58,7 +60,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_POPUP_ID): vol.All(
             cv.string, vol.Match(r"^[a-zA-Z0-9_-]{1,64}$")
         ),
-        vol.Optional(ATTR_POSITION, default="top_right"): vol.In(POSITIONS),
+        vol.Optional(ATTR_POSITION): vol.In(POSITIONS),
         vol.Optional(ATTR_TITLE_COLOR): vol.Match(COLOR_REGEX),
         vol.Optional(ATTR_TITLE_SIZE): vol.Coerce(float),
         vol.Optional(ATTR_MESSAGE_COLOR): vol.Match(COLOR_REGEX),
@@ -159,7 +161,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
         payload: dict[str, Any] = {
             "duration": data[ATTR_DURATION],
-            "position": POSITIONS[data[ATTR_POSITION]],
         }
         if popup_id := data.get(ATTR_POPUP_ID):
             payload["id"] = popup_id
@@ -190,18 +191,24 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
         errors: list[str] = []
         for coordinator in coordinators:
+            # position: explicit in the call, else the device's configured
+            # default (select entity / config entry options)
+            position = data.get(ATTR_POSITION) or coordinator.config_entry.options.get(
+                CONF_DEFAULT_POSITION, DEFAULT_POSITION
+            )
+            device_payload = {**payload, "position": POSITIONS[position]}
             try:
                 if snapshot is not None:
                     fields = {
                         key: str(value)
-                        for key, value in payload.items()
+                        for key, value in device_payload.items()
                         if key != "media"
                     }
                     if width := data.get(ATTR_MEDIA_WIDTH):
                         fields["imageWidth"] = str(width)
                     await coordinator.client.notify_image(fields, snapshot)
                 else:
-                    await coordinator.client.notify(payload)
+                    await coordinator.client.notify(device_payload)
                 await coordinator.async_refresh_soon()
             except PiPupError as err:
                 errors.append(str(err))

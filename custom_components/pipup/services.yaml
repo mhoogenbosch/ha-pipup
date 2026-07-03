@@ -25,7 +25,6 @@ show:
       selector:
         text:
     position:
-      default: top_right
       selector:
         select:
           options:

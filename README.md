@@ -12,12 +12,19 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 
 ## Features
 
-- Config flow per TV (host + port), device with a **Popup** binary sensor
-  (on = a popup is visible; attributes: `popup_id`, `duration`, `indefinite`, `elapsed`).
+- Config flow per TV (host + port); each TV becomes a device with:
+  - **Popup** binary sensor (on = a popup is visible; attributes: `popup_id`, `duration`, `indefinite`, `elapsed`)
+  - **Screen** binary sensor (TV screen on/interactive — requires app ≥ 0.2.3)
+  - **Current popup** sensor (the visible popup id) and **Popups shown** counter
+  - **Default position** select — the position used when `pipup.show` is called without one
+  - **Dismiss popup** button
+  - **PiPup app** update entity (checks the fork's GitHub releases)
+  - **App uptime** diagnostic sensor and a diagnostics download
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
   - `popup_id` → re-sending the same id+content only extends the timer (stream keeps playing, no flicker)
   - `camera_entity` → shows a camera live stream (HLS via Home Assistant) or snapshot, no URLs needed
+  - `position` is optional — omitted means the device's configured default position
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 
 ## Installation

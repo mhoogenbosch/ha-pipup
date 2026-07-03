@@ -32,6 +32,42 @@
     "binary_sensor": {
       "popup": {
         "name": "Popup"
+      },
+      "screen": {
+        "name": "Screen"
+      }
+    },
+    "sensor": {
+      "current_popup": {
+        "name": "Current popup"
+      },
+      "popups_shown": {
+        "name": "Popups shown"
+      },
+      "uptime": {
+        "name": "App uptime"
+      }
+    },
+    "button": {
+      "dismiss": {
+        "name": "Dismiss popup"
+      }
+    },
+    "select": {
+      "default_position": {
+        "name": "Default position",
+        "state": {
+          "top_right": "Top right",
+          "top_left": "Top left",
+          "bottom_right": "Bottom right",
+          "bottom_left": "Bottom left",
+          "center": "Center"
+        }
+      }
+    },
+    "update": {
+      "app_update": {
+        "name": "PiPup app"
       }
     }
   },
@@ -75,7 +111,7 @@
         },
         "position": {
           "name": "Position",
-          "description": "Corner or center of the screen."
+          "description": "Corner or center of the screen. When omitted, the device's configured default position (select entity) is used."
         },
         "camera_entity": {
           "name": "Camera",
