@@ -1,0 +1,87 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add PiPup device",
+        "description": "Connect to a TV running the PiPup fork (https://github.com/mhoogenbosch/PiPup).",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "name": "Name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to PiPup on this host/port",
+      "unsupported_version": "This device runs the original PiPup without /state support; install the fork APK first"
+    },
+    "abort": {
+      "already_configured": "This PiPup device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "popup": {
+        "name": "Popup"
+      }
+    }
+  },
+  "selector": {
+    "position": {
+      "options": {
+        "top_right": "Top right",
+        "top_left": "Top left",
+        "bottom_right": "Bottom right",
+        "bottom_left": "Bottom left",
+        "center": "Center"
+      }
+    },
+    "camera_mode": {
+      "options": {
+        "stream": "Live stream (HLS)",
+        "snapshot": "Snapshot"
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "Show popup",
+      "description": "Shows a popup on the targeted PiPup device(s). Duration 0 keeps it visible until dismissed.",
+      "fields": {
+        "title": { "name": "Title", "description": "Popup title." },
+        "message": { "name": "Message", "description": "Popup message." },
+        "duration": { "name": "Duration", "description": "Seconds to show the popup; 0 = until dismissed or replaced." },
+        "popup_id": { "name": "Popup ID", "description": "Identifier: re-sending the same ID and content only extends the timer (no flicker); dismiss can target this ID." },
+        "position": { "name": "Position", "description": "Corner or center of the screen." },
+        "camera_entity": { "name": "Camera", "description": "Camera entity to show; overrides the media URLs." },
+        "camera_mode": { "name": "Camera mode", "description": "Live stream (HLS via Home Assistant) or a single snapshot." },
+        "image_url": { "name": "Image URL", "description": "Image to show." },
+        "video_url": { "name": "Video URL", "description": "Video to play (HLS/MP4/RTSP support depends on the TV)." },
+        "web_url": { "name": "Web URL", "description": "Web page to render (JavaScript and autoplay enabled)." },
+        "media_width": { "name": "Media width", "description": "Media width in pixels (default 640)." },
+        "media_height": { "name": "Media height", "description": "Web view height in pixels (default 360)." },
+        "title_color": { "name": "Title color", "description": "#RRGGBB or #AARRGGBB." },
+        "title_size": { "name": "Title size", "description": "Title text size." },
+        "message_color": { "name": "Message color", "description": "#RRGGBB or #AARRGGBB." },
+        "message_size": { "name": "Message size", "description": "Message text size." },
+        "background_color": { "name": "Background color", "description": "#RRGGBB or #AARRGGBB (default #CC000000)." }
+      }
+    },
+    "dismiss": {
+      "name": "Dismiss popup",
+      "description": "Removes the visible popup on the targeted PiPup device(s).",
+      "fields": {
+        "popup_id": { "name": "Popup ID", "description": "Only dismiss when the visible popup has this ID." }
+      }
+    }
+  }
+}

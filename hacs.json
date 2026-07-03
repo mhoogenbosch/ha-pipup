@@ -1,0 +1,6 @@
+{
+  "name": "PiPup",
+  "render_readme": true,
+  "homeassistant": "2025.1.0",
+  "generated_with": "aurora@aurora-smart-home (ha-integration-dev skill) | https://github.com/tonylofgren/aurora-smart-home"
+}
