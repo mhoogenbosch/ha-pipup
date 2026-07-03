@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "PiPup-apparaat toevoegen",
-        "description": "Verbind met een TV waarop de PiPup-fork draait (https://github.com/mhoogenbosch/PiPup).",
+        "description": "Verbind met een TV waarop de PiPup-fork draait (zie de integratie-documentatie).",
         "data": {
           "host": "Host",
           "port": "Poort",
@@ -57,30 +57,84 @@
       "name": "Popup tonen",
       "description": "Toont een popup op de gekozen PiPup-apparaten. Duur 0 houdt de popup zichtbaar tot hij wordt gesloten.",
       "fields": {
-        "title": { "name": "Titel", "description": "Titel van de popup." },
-        "message": { "name": "Bericht", "description": "Berichttekst van de popup." },
-        "duration": { "name": "Duur", "description": "Aantal seconden; 0 = tonen tot sluiten of vervangen." },
-        "popup_id": { "name": "Popup-ID", "description": "Identifier: opnieuw sturen met dezelfde ID en inhoud verlengt alleen de timer (geen flikkering); sluiten kan gericht op deze ID." },
-        "position": { "name": "Positie", "description": "Hoek of midden van het scherm." },
-        "camera_entity": { "name": "Camera", "description": "Camera-entiteit om te tonen; gaat vóór de media-URL's." },
-        "camera_mode": { "name": "Cameramodus", "description": "Livestream (HLS via Home Assistant) of een enkele momentopname." },
-        "image_url": { "name": "Afbeeldings-URL", "description": "Te tonen afbeelding." },
-        "video_url": { "name": "Video-URL", "description": "Af te spelen video (HLS/MP4/RTSP-ondersteuning hangt van de TV af)." },
-        "web_url": { "name": "Web-URL", "description": "Webpagina om te renderen (JavaScript en autoplay ingeschakeld)." },
-        "media_width": { "name": "Mediabreedte", "description": "Breedte in pixels (standaard 640)." },
-        "media_height": { "name": "Mediahoogte", "description": "Hoogte van de webview in pixels (standaard 360)." },
-        "title_color": { "name": "Titelkleur", "description": "#RRGGBB of #AARRGGBB." },
-        "title_size": { "name": "Titelgrootte", "description": "Tekstgrootte van de titel." },
-        "message_color": { "name": "Berichtkleur", "description": "#RRGGBB of #AARRGGBB." },
-        "message_size": { "name": "Berichtgrootte", "description": "Tekstgrootte van het bericht." },
-        "background_color": { "name": "Achtergrondkleur", "description": "#RRGGBB of #AARRGGBB (standaard #CC000000)." }
+        "title": {
+          "name": "Titel",
+          "description": "Titel van de popup."
+        },
+        "message": {
+          "name": "Bericht",
+          "description": "Berichttekst van de popup."
+        },
+        "duration": {
+          "name": "Duur",
+          "description": "Aantal seconden; 0 = tonen tot sluiten of vervangen."
+        },
+        "popup_id": {
+          "name": "Popup-ID",
+          "description": "Identifier: opnieuw sturen met dezelfde ID en inhoud verlengt alleen de timer (geen flikkering); sluiten kan gericht op deze ID."
+        },
+        "position": {
+          "name": "Positie",
+          "description": "Hoek of midden van het scherm."
+        },
+        "camera_entity": {
+          "name": "Camera",
+          "description": "Camera-entiteit om te tonen; gaat vóór de media-URL's."
+        },
+        "camera_mode": {
+          "name": "Cameramodus",
+          "description": "Livestream (HLS via Home Assistant) of een enkele momentopname."
+        },
+        "image_url": {
+          "name": "Afbeeldings-URL",
+          "description": "Te tonen afbeelding."
+        },
+        "video_url": {
+          "name": "Video-URL",
+          "description": "Af te spelen video (HLS/MP4/RTSP-ondersteuning hangt van de TV af)."
+        },
+        "web_url": {
+          "name": "Web-URL",
+          "description": "Webpagina om te renderen (JavaScript en autoplay ingeschakeld)."
+        },
+        "media_width": {
+          "name": "Mediabreedte",
+          "description": "Breedte in pixels (standaard 640)."
+        },
+        "media_height": {
+          "name": "Mediahoogte",
+          "description": "Hoogte van de webview in pixels (standaard 360)."
+        },
+        "title_color": {
+          "name": "Titelkleur",
+          "description": "#RRGGBB of #AARRGGBB."
+        },
+        "title_size": {
+          "name": "Titelgrootte",
+          "description": "Tekstgrootte van de titel."
+        },
+        "message_color": {
+          "name": "Berichtkleur",
+          "description": "#RRGGBB of #AARRGGBB."
+        },
+        "message_size": {
+          "name": "Berichtgrootte",
+          "description": "Tekstgrootte van het bericht."
+        },
+        "background_color": {
+          "name": "Achtergrondkleur",
+          "description": "#RRGGBB of #AARRGGBB (standaard #CC000000)."
+        }
       }
     },
     "dismiss": {
       "name": "Popup sluiten",
       "description": "Verwijdert de zichtbare popup op de gekozen PiPup-apparaten.",
       "fields": {
-        "popup_id": { "name": "Popup-ID", "description": "Alleen sluiten wanneer de zichtbare popup deze ID heeft." }
+        "popup_id": {
+          "name": "Popup-ID",
+          "description": "Alleen sluiten wanneer de zichtbare popup deze ID heeft."
+        }
       }
     }
   }

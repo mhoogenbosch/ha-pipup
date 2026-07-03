@@ -2,8 +2,9 @@
 # https://github.com/tonylofgren/aurora-smart-home
 show:
   target:
-    device:
+    entity:
       integration: pipup
+      domain: binary_sensor
   fields:
     title:
       selector:
@@ -94,8 +95,9 @@ show:
 
 dismiss:
   target:
-    device:
+    entity:
       integration: pipup
+      domain: binary_sensor
   fields:
     popup_id:
       selector:

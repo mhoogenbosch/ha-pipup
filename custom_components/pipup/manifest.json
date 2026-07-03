@@ -1,17 +1,17 @@
 {
   "domain": "pipup",
   "name": "PiPup",
-  "version": "1.0.0",
-  "documentation": "https://github.com/mhoogenbosch/ha-pipup",
-  "issue_tracker": "https://github.com/mhoogenbosch/ha-pipup/issues",
-  "codeowners": [
-    "@mhoogenbosch"
-  ],
-  "config_flow": true,
-  "iot_class": "local_polling",
   "after_dependencies": [
     "camera",
     "stream"
   ],
-  "requirements": []
+  "codeowners": [
+    "@mhoogenbosch"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/mhoogenbosch/ha-pipup",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/mhoogenbosch/ha-pipup/issues",
+  "requirements": [],
+  "version": "1.0.0"
 }
