@@ -36,6 +36,7 @@ ATTR_VIDEO_URL: Final = "video_url"
 ATTR_WEB_URL: Final = "web_url"
 ATTR_MEDIA_WIDTH: Final = "media_width"
 ATTR_MEDIA_HEIGHT: Final = "media_height"
+ATTR_MUTED: Final = "muted"
 ATTR_CAMERA_ENTITY: Final = "camera_entity"
 ATTR_CAMERA_MODE: Final = "camera_mode"
 

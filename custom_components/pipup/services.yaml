@@ -34,6 +34,10 @@ show:
             - bottom_left
             - center
           translation_key: position
+    muted:
+      default: true
+      selector:
+        boolean:
     camera_entity:
       selector:
         entity:

@@ -30,6 +30,7 @@ from .const import (
     ATTR_MEDIA_WIDTH,
     ATTR_MESSAGE,
     ATTR_MESSAGE_COLOR,
+    ATTR_MUTED,
     ATTR_MESSAGE_SIZE,
     ATTR_POPUP_ID,
     ATTR_POSITION,
@@ -75,6 +76,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MEDIA_HEIGHT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
+        vol.Optional(ATTR_MUTED, default=True): cv.boolean,
         vol.Optional(ATTR_CAMERA_ENTITY): cv.entity_id,
         vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_STREAM): vol.In(
             [CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
@@ -119,11 +121,12 @@ def _build_media(
     """Build the PiPup media payload from action data (URL variants)."""
     width = data.get(ATTR_MEDIA_WIDTH, 640)
     height = data.get(ATTR_MEDIA_HEIGHT, 360)
+    muted = data.get(ATTR_MUTED, True)
 
     if url := data.get(ATTR_WEB_URL):
-        return {"web": {"uri": url, "width": width, "height": height}}
+        return {"web": {"uri": url, "width": width, "height": height, "muted": muted}}
     if url := data.get(ATTR_VIDEO_URL):
-        return {"video": {"uri": url, "width": width}}
+        return {"video": {"uri": url, "width": width, "muted": muted}}
     if url := data.get(ATTR_IMAGE_URL):
         return {"image": {"uri": url, "width": width}}
     return None
@@ -149,7 +152,8 @@ async def _camera_media(
     stream_path = await async_request_stream(hass, entity_id, "hls")
     base_url = get_url(hass, allow_external=False, prefer_external=False)
     width = data.get(ATTR_MEDIA_WIDTH, 640)
-    return {"video": {"uri": f"{base_url}{stream_path}", "width": width}}
+    muted = data.get(ATTR_MUTED, True)
+    return {"video": {"uri": f"{base_url}{stream_path}", "width": width, "muted": muted}}
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:

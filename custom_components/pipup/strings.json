@@ -168,6 +168,10 @@
         "background_color": {
           "name": "Background color",
           "description": "#RRGGBB or #AARRGGBB (default #CC000000)."
+        },
+        "muted": {
+          "name": "Mute audio",
+          "description": "Mutes audio in video/web streams (default on — audio in a popup can freeze the video on some TVs). Set to off to keep sound."
         }
       }
     },

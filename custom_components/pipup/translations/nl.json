@@ -168,6 +168,10 @@
         "background_color": {
           "name": "Achtergrondkleur",
           "description": "#RRGGBB of #AARRGGBB (standaard #CC000000)."
+        },
+        "muted": {
+          "name": "Audio dempen",
+          "description": "Dempt audio in video/web-streams (standaard aan — audio in een popup kan het beeld op sommige TV’s laten bevriezen). Zet uit als je wél geluid wilt."
         }
       }
     },
