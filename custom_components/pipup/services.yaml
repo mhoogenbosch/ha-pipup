@@ -14,7 +14,6 @@ show:
         text:
           multiline: true
     duration:
-      default: 30
       selector:
         number:
           min: 0
@@ -35,7 +34,6 @@ show:
             - center
           translation_key: position
     muted:
-      default: true
       selector:
         boolean:
     camera_entity:

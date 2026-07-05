@@ -22,16 +22,14 @@ from .const import (
     ATTR_BACKGROUND_COLOR,
     ATTR_CAMERA_ENTITY,
     ATTR_CAMERA_MODE,
-    CONF_DEFAULT_POSITION,
-    DEFAULT_POSITION,
     ATTR_DURATION,
     ATTR_IMAGE_URL,
     ATTR_MEDIA_HEIGHT,
     ATTR_MEDIA_WIDTH,
     ATTR_MESSAGE,
     ATTR_MESSAGE_COLOR,
-    ATTR_MUTED,
     ATTR_MESSAGE_SIZE,
+    ATTR_MUTED,
     ATTR_POPUP_ID,
     ATTR_POSITION,
     ATTR_TITLE,
@@ -41,6 +39,17 @@ from .const import (
     ATTR_WEB_URL,
     CAMERA_MODE_SNAPSHOT,
     CAMERA_MODE_STREAM,
+    CONF_DEFAULT_BACKGROUND_COLOR,
+    CONF_DEFAULT_DURATION,
+    CONF_DEFAULT_MEDIA_HEIGHT,
+    CONF_DEFAULT_MEDIA_WIDTH,
+    CONF_DEFAULT_MESSAGE_COLOR,
+    CONF_DEFAULT_MESSAGE_SIZE,
+    CONF_DEFAULT_MUTED,
+    CONF_DEFAULT_POSITION,
+    CONF_DEFAULT_TITLE_COLOR,
+    CONF_DEFAULT_TITLE_SIZE,
+    DEFAULT_POSITION,
     DOMAIN,
     POSITIONS,
     SERVICE_DISMISS,
@@ -51,11 +60,13 @@ _LOGGER = logging.getLogger(__name__)
 
 COLOR_REGEX = r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$|^#[0-9a-fA-F]{8}$"
 
+# NB: geen schema-defaults voor duration/position/muted e.d. — een niet
+# meegegeven veld valt terug op de per-apparaat default (options flow).
 SHOW_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_TITLE): cv.string,
         vol.Optional(ATTR_MESSAGE): cv.string,
-        vol.Optional(ATTR_DURATION, default=30): vol.All(
+        vol.Optional(ATTR_DURATION): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=86400)
         ),
         vol.Optional(ATTR_POPUP_ID): vol.All(
@@ -76,7 +87,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MEDIA_HEIGHT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
-        vol.Optional(ATTR_MUTED, default=True): cv.boolean,
+        vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_CAMERA_ENTITY): cv.entity_id,
         vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_STREAM): vol.In(
             [CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
@@ -115,27 +126,71 @@ async def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list
     return coordinators
 
 
-def _build_media(
-    hass: HomeAssistant, data: dict[str, Any]
-) -> dict[str, Any] | None:
-    """Build the PiPup media payload from action data (URL variants)."""
-    width = data.get(ATTR_MEDIA_WIDTH, 640)
-    height = data.get(ATTR_MEDIA_HEIGHT, 360)
-    muted = data.get(ATTR_MUTED, True)
+def _device_payload(
+    data: dict[str, Any],
+    opts: dict[str, Any],
+    stream_uri: str | None,
+) -> dict[str, Any]:
+    """Build the notify payload for one device.
 
-    if url := data.get(ATTR_WEB_URL):
-        return {"web": {"uri": url, "width": width, "height": height, "muted": muted}}
-    if url := data.get(ATTR_VIDEO_URL):
-        return {"video": {"uri": url, "width": width, "muted": muted}}
-    if url := data.get(ATTR_IMAGE_URL):
-        return {"image": {"uri": url, "width": width}}
-    return None
+    Every field falls back to the device's configured default (options
+    flow) when not given in the action call.
+    """
+
+    def pick(attr: str, conf: str, fallback: Any) -> Any:
+        if attr in data:
+            return data[attr]
+        value = opts.get(conf)
+        # 0 / "" mean "not configured" for sizes and colors
+        return value if value not in (None, 0, 0.0, "") else fallback
+
+    payload: dict[str, Any] = {
+        "duration": pick(ATTR_DURATION, CONF_DEFAULT_DURATION, 30),
+        "position": POSITIONS[
+            data.get(ATTR_POSITION)
+            or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
+        ],
+    }
+    if popup_id := data.get(ATTR_POPUP_ID):
+        payload["id"] = popup_id
+    if title := data.get(ATTR_TITLE):
+        payload["title"] = title
+    if message := data.get(ATTR_MESSAGE):
+        payload["message"] = message
+
+    if color := pick(ATTR_TITLE_COLOR, CONF_DEFAULT_TITLE_COLOR, None):
+        payload["titleColor"] = color
+    if size := pick(ATTR_TITLE_SIZE, CONF_DEFAULT_TITLE_SIZE, None):
+        payload["titleSize"] = size
+    if color := pick(ATTR_MESSAGE_COLOR, CONF_DEFAULT_MESSAGE_COLOR, None):
+        payload["messageColor"] = color
+    if size := pick(ATTR_MESSAGE_SIZE, CONF_DEFAULT_MESSAGE_SIZE, None):
+        payload["messageSize"] = size
+    if color := pick(ATTR_BACKGROUND_COLOR, CONF_DEFAULT_BACKGROUND_COLOR, None):
+        payload["backgroundColor"] = color
+
+    width = pick(ATTR_MEDIA_WIDTH, CONF_DEFAULT_MEDIA_WIDTH, 640)
+    height = pick(ATTR_MEDIA_HEIGHT, CONF_DEFAULT_MEDIA_HEIGHT, 360)
+    muted = data.get(ATTR_MUTED, opts.get(CONF_DEFAULT_MUTED, True))
+
+    if stream_uri:
+        payload["media"] = {"video": {"uri": stream_uri, "width": width, "muted": muted}}
+    elif url := data.get(ATTR_WEB_URL):
+        payload["media"] = {
+            "web": {"uri": url, "width": width, "height": height, "muted": muted}
+        }
+    elif url := data.get(ATTR_VIDEO_URL):
+        payload["media"] = {"video": {"uri": url, "width": width, "muted": muted}}
+    elif url := data.get(ATTR_IMAGE_URL):
+        payload["media"] = {"image": {"uri": url, "width": width}}
+
+    return payload
 
 
 async def _camera_media(
     hass: HomeAssistant, data: dict[str, Any]
-) -> dict[str, Any] | bytes:
-    """Resolve a camera entity to a stream URL payload or snapshot bytes."""
+) -> tuple[str | None, bytes | None]:
+    """Resolve a camera entity to a stream URL or snapshot bytes."""
     # Imported here so the camera/stream components stay optional.
     from homeassistant.components.camera import (  # noqa: PLC0415
         async_get_image,
@@ -147,13 +202,11 @@ async def _camera_media(
 
     if mode == CAMERA_MODE_SNAPSHOT:
         image = await async_get_image(hass, entity_id)
-        return image.content
+        return None, image.content
 
     stream_path = await async_request_stream(hass, entity_id, "hls")
     base_url = get_url(hass, allow_external=False, prefer_external=False)
-    width = data.get(ATTR_MEDIA_WIDTH, 640)
-    muted = data.get(ATTR_MUTED, True)
-    return {"video": {"uri": f"{base_url}{stream_path}", "width": width, "muted": muted}}
+    return f"{base_url}{stream_path}", None
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -163,56 +216,31 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         coordinators = await _coordinators_for_call(hass, call)
         data = call.data
 
-        payload: dict[str, Any] = {
-            "duration": data[ATTR_DURATION],
-        }
-        if popup_id := data.get(ATTR_POPUP_ID):
-            payload["id"] = popup_id
-        if title := data.get(ATTR_TITLE):
-            payload["title"] = title
-        if message := data.get(ATTR_MESSAGE):
-            payload["message"] = message
-        if color := data.get(ATTR_TITLE_COLOR):
-            payload["titleColor"] = color
-        if size := data.get(ATTR_TITLE_SIZE):
-            payload["titleSize"] = size
-        if color := data.get(ATTR_MESSAGE_COLOR):
-            payload["messageColor"] = color
-        if size := data.get(ATTR_MESSAGE_SIZE):
-            payload["messageSize"] = size
-        if color := data.get(ATTR_BACKGROUND_COLOR):
-            payload["backgroundColor"] = color
-
+        stream_uri: str | None = None
         snapshot: bytes | None = None
         if data.get(ATTR_CAMERA_ENTITY):
-            media = await _camera_media(hass, data)
-            if isinstance(media, bytes):
-                snapshot = media
-            else:
-                payload["media"] = media
-        elif media := _build_media(hass, data):
-            payload["media"] = media
+            stream_uri, snapshot = await _camera_media(hass, data)
 
         errors: list[str] = []
         for coordinator in coordinators:
-            # position: explicit in the call, else the device's configured
-            # default (select entity / config entry options)
-            position = data.get(ATTR_POSITION) or coordinator.config_entry.options.get(
-                CONF_DEFAULT_POSITION, DEFAULT_POSITION
-            )
-            device_payload = {**payload, "position": POSITIONS[position]}
+            opts = dict(coordinator.config_entry.options)
+            payload = _device_payload(data, opts, stream_uri)
             try:
                 if snapshot is not None:
                     fields = {
                         key: str(value)
-                        for key, value in device_payload.items()
+                        for key, value in payload.items()
                         if key != "media"
                     }
-                    if width := data.get(ATTR_MEDIA_WIDTH):
-                        fields["imageWidth"] = str(width)
+                    fields["imageWidth"] = str(
+                        payload.get("media", {}).get("image", {}).get("width")
+                        or data.get(ATTR_MEDIA_WIDTH)
+                        or opts.get(CONF_DEFAULT_MEDIA_WIDTH)
+                        or 640
+                    )
                     await coordinator.client.notify_image(fields, snapshot)
                 else:
-                    await coordinator.client.notify(device_payload)
+                    await coordinator.client.notify(payload)
                 await coordinator.async_refresh_soon()
             except PiPupError as err:
                 errors.append(str(err))

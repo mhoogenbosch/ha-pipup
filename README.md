@@ -27,6 +27,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   - `position` is optional — omitted means the device's configured default position
   - `muted: true` **by default** (requires app ≥ 0.2.4) — audio in a popup can freeze video playback
     on some TVs; pass `muted: false` when you do want sound
+  - **per-device defaults for everything** — duration, position, muted, media size, colors and text
+    sizes are configurable per TV in the integration options (Settings → Devices & Services →
+    PiPup → Configure); action fields act as one-off overrides
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 
 ## Installation

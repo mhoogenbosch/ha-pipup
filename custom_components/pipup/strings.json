@@ -28,7 +28,17 @@
       "init": {
         "data": {
           "scan_interval": "Polling interval (seconds)",
-          "name_suffix": "Name suffix"
+          "name_suffix": "Name suffix",
+          "default_position": "Default position",
+          "default_duration": "Default duration (s, 0 = until dismissed)",
+          "default_muted": "Mute audio by default",
+          "default_media_width": "Default media width (px)",
+          "default_media_height": "Default media height (px)",
+          "default_title_size": "Default title size (0 = app default)",
+          "default_message_size": "Default message size (0 = app default)",
+          "default_title_color": "Default title color (#RRGGBB, empty = app default)",
+          "default_message_color": "Default message color (#RRGGBB, empty = app default)",
+          "default_background_color": "Default background color (#AARRGGBB, empty = app default)"
         },
         "data_description": {
           "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
@@ -111,7 +121,7 @@
         },
         "duration": {
           "name": "Duration",
-          "description": "Seconds to show the popup; 0 = until dismissed or replaced."
+          "description": "Seconds to show the popup; 0 = until dismissed or replaced. When omitted, the device default (integration settings) is used."
         },
         "popup_id": {
           "name": "Popup ID",
@@ -171,7 +181,7 @@
         },
         "muted": {
           "name": "Mute audio",
-          "description": "Mutes audio in video/web streams (default on — audio in a popup can freeze the video on some TVs). Set to off to keep sound."
+          "description": "Mutes audio in video/web streams. When omitted, the device default applies (integration settings; audio can freeze video on some TVs)."
         }
       }
     },

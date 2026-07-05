@@ -20,7 +20,24 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
-from .const import CONF_NAME_SUFFIX, CONF_SCAN_INTERVAL, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_DEFAULT_BACKGROUND_COLOR,
+    CONF_DEFAULT_DURATION,
+    CONF_DEFAULT_MEDIA_HEIGHT,
+    CONF_DEFAULT_MEDIA_WIDTH,
+    CONF_DEFAULT_MESSAGE_COLOR,
+    CONF_DEFAULT_MESSAGE_SIZE,
+    CONF_DEFAULT_MUTED,
+    CONF_DEFAULT_POSITION,
+    CONF_DEFAULT_TITLE_COLOR,
+    CONF_DEFAULT_TITLE_SIZE,
+    CONF_NAME_SUFFIX,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_PORT,
+    DEFAULT_POSITION,
+    DOMAIN,
+    POSITIONS,
+)
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -85,37 +102,114 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PiPupOptionsFlow(OptionsFlow):
-    """Options flow: polling interval."""
+    """Options flow: polling, entity names and per-device popup defaults."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-            # merge into the existing options: other keys (default position
-            # select, applied-suffix marker) must survive this form
+            # merge into the existing options: keys not in this form
+            # (applied-suffix marker) must survive
             options = dict(self.config_entry.options)
             options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 15)
             options[CONF_NAME_SUFFIX] = (
                 user_input.get(CONF_NAME_SUFFIX) or ""
             ).strip()
+            options[CONF_DEFAULT_POSITION] = user_input.get(
+                CONF_DEFAULT_POSITION, DEFAULT_POSITION
+            )
+            options[CONF_DEFAULT_DURATION] = user_input.get(
+                CONF_DEFAULT_DURATION, 30
+            )
+            options[CONF_DEFAULT_MUTED] = user_input.get(CONF_DEFAULT_MUTED, True)
+            options[CONF_DEFAULT_MEDIA_WIDTH] = user_input.get(
+                CONF_DEFAULT_MEDIA_WIDTH, 640
+            )
+            options[CONF_DEFAULT_MEDIA_HEIGHT] = user_input.get(
+                CONF_DEFAULT_MEDIA_HEIGHT, 360
+            )
+            options[CONF_DEFAULT_TITLE_SIZE] = user_input.get(
+                CONF_DEFAULT_TITLE_SIZE, 0
+            )
+            options[CONF_DEFAULT_MESSAGE_SIZE] = user_input.get(
+                CONF_DEFAULT_MESSAGE_SIZE, 0
+            )
+            # colors: empty = no default (app decides)
+            for key in (
+                CONF_DEFAULT_TITLE_COLOR,
+                CONF_DEFAULT_MESSAGE_COLOR,
+                CONF_DEFAULT_BACKGROUND_COLOR,
+            ):
+                value = (user_input.get(key) or "").strip()
+                if value:
+                    options[key] = value
+                else:
+                    options.pop(key, None)
             return self.async_create_entry(title="", data=options)
 
+        opts = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL, 15
-                        ),
+                        default=opts.get(CONF_SCAN_INTERVAL, 15),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
                     vol.Optional(
                         CONF_NAME_SUFFIX,
                         description={
-                            "suggested_value": self.config_entry.options.get(
-                                CONF_NAME_SUFFIX, ""
+                            "suggested_value": opts.get(CONF_NAME_SUFFIX, "")
+                        },
+                    ): str,
+                    vol.Optional(
+                        CONF_DEFAULT_POSITION,
+                        default=opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION),
+                    ): vol.In(list(POSITIONS)),
+                    vol.Optional(
+                        CONF_DEFAULT_DURATION,
+                        default=opts.get(CONF_DEFAULT_DURATION, 30),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=86400)),
+                    vol.Optional(
+                        CONF_DEFAULT_MUTED,
+                        default=opts.get(CONF_DEFAULT_MUTED, True),
+                    ): bool,
+                    vol.Optional(
+                        CONF_DEFAULT_MEDIA_WIDTH,
+                        default=opts.get(CONF_DEFAULT_MEDIA_WIDTH, 640),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3840)),
+                    vol.Optional(
+                        CONF_DEFAULT_MEDIA_HEIGHT,
+                        default=opts.get(CONF_DEFAULT_MEDIA_HEIGHT, 360),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=2160)),
+                    vol.Optional(
+                        CONF_DEFAULT_TITLE_SIZE,
+                        default=opts.get(CONF_DEFAULT_TITLE_SIZE, 0),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=96)),
+                    vol.Optional(
+                        CONF_DEFAULT_MESSAGE_SIZE,
+                        default=opts.get(CONF_DEFAULT_MESSAGE_SIZE, 0),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=96)),
+                    vol.Optional(
+                        CONF_DEFAULT_TITLE_COLOR,
+                        description={
+                            "suggested_value": opts.get(CONF_DEFAULT_TITLE_COLOR, "")
+                        },
+                    ): str,
+                    vol.Optional(
+                        CONF_DEFAULT_MESSAGE_COLOR,
+                        description={
+                            "suggested_value": opts.get(
+                                CONF_DEFAULT_MESSAGE_COLOR, ""
+                            )
+                        },
+                    ): str,
+                    vol.Optional(
+                        CONF_DEFAULT_BACKGROUND_COLOR,
+                        description={
+                            "suggested_value": opts.get(
+                                CONF_DEFAULT_BACKGROUND_COLOR, ""
                             )
                         },
                     ): str,
