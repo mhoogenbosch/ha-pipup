@@ -23,7 +23,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
   - `popup_id` → re-sending the same id+content only extends the timer (stream keeps playing, no flicker)
-  - `camera_entity` → shows a camera live stream (HLS via Home Assistant) or snapshot, no URLs needed
+  - `camera_entity` → shows the camera without any URLs; `camera_mode` picks **mjpeg** (default —
+    software-decoded, audio-free, safe while the TV is playing video), **stream** (HLS, hardware
+    decoder — can freeze concurrent live-TV playback on some devices) or **snapshot**
   - `position` is optional — omitted means the device's configured default position
   - `muted: true` **by default** (requires app ≥ 0.2.4) — audio in a popup can freeze video playback
     on some TVs; pass `muted: false` when you do want sound

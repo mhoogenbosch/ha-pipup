@@ -101,7 +101,8 @@
     },
     "camera_mode": {
       "options": {
-        "stream": "Live stream (HLS)",
+        "mjpeg": "MJPEG (safe next to live TV)",
+        "stream": "Live stream (HLS — can freeze live TV)",
         "snapshot": "Snapshot"
       }
     }
@@ -137,7 +138,7 @@
         },
         "camera_mode": {
           "name": "Camera mode",
-          "description": "Live stream (HLS via Home Assistant) or a single snapshot."
+          "description": "How the camera is shown. MJPEG (default) is software-decoded and audio-free — safe while the TV plays video. HLS uses a hardware decoder and can freeze concurrent playback on some TVs."
         },
         "image_url": {
           "name": "Image URL",

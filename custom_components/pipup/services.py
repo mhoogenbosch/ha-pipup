@@ -37,6 +37,7 @@ from .const import (
     ATTR_TITLE_SIZE,
     ATTR_VIDEO_URL,
     ATTR_WEB_URL,
+    CAMERA_MODE_MJPEG,
     CAMERA_MODE_SNAPSHOT,
     CAMERA_MODE_STREAM,
     CONF_DEFAULT_BACKGROUND_COLOR,
@@ -89,8 +90,8 @@ SHOW_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_CAMERA_ENTITY): cv.entity_id,
-        vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_STREAM): vol.In(
-            [CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
+        vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_MJPEG): vol.In(
+            [CAMERA_MODE_MJPEG, CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
         ),
     },
     extra=vol.ALLOW_EXTRA,  # allow target fields (device_id etc.)
@@ -130,6 +131,7 @@ def _device_payload(
     data: dict[str, Any],
     opts: dict[str, Any],
     stream_uri: str | None,
+    web_uri: str | None = None,
 ) -> dict[str, Any]:
     """Build the notify payload for one device.
 
@@ -175,6 +177,10 @@ def _device_payload(
 
     if stream_uri:
         payload["media"] = {"video": {"uri": stream_uri, "width": width, "muted": muted}}
+    elif web_uri:
+        payload["media"] = {
+            "web": {"uri": web_uri, "width": width, "height": height, "muted": muted}
+        }
     elif url := data.get(ATTR_WEB_URL):
         payload["media"] = {
             "web": {"uri": url, "width": width, "height": height, "muted": muted}
@@ -189,8 +195,14 @@ def _device_payload(
 
 async def _camera_media(
     hass: HomeAssistant, data: dict[str, Any]
-) -> tuple[str | None, bytes | None]:
-    """Resolve a camera entity to a stream URL or snapshot bytes."""
+) -> tuple[str | None, str | None, bytes | None]:
+    """Resolve a camera entity to (video_uri, web_uri, snapshot_bytes).
+
+    Default is MJPEG via HA's camera proxy (rendered in the popup's web
+    view): software-decoded and audio-free, so it cannot stall live-TV
+    playback on the device. 'stream' (HLS) uses a hardware decoder via
+    VideoView and is known to freeze concurrent video on some TVs.
+    """
     # Imported here so the camera/stream components stay optional.
     from homeassistant.components.camera import (  # noqa: PLC0415
         async_get_image,
@@ -198,15 +210,29 @@ async def _camera_media(
     )
 
     entity_id = data[ATTR_CAMERA_ENTITY]
-    mode = data.get(ATTR_CAMERA_MODE, CAMERA_MODE_STREAM)
+    mode = data.get(ATTR_CAMERA_MODE, CAMERA_MODE_MJPEG)
+    base_url = get_url(hass, allow_external=False, prefer_external=False)
 
     if mode == CAMERA_MODE_SNAPSHOT:
         image = await async_get_image(hass, entity_id)
-        return None, image.content
+        return None, None, image.content
+
+    if mode == CAMERA_MODE_MJPEG:
+        from datetime import timedelta  # noqa: PLC0415
+
+        from homeassistant.components.http.auth import (  # noqa: PLC0415
+            async_sign_path,
+        )
+
+        signed = async_sign_path(
+            hass,
+            f"/api/camera_proxy_stream/{entity_id}",
+            timedelta(hours=24),
+        )
+        return None, f"{base_url}{signed}", None
 
     stream_path = await async_request_stream(hass, entity_id, "hls")
-    base_url = get_url(hass, allow_external=False, prefer_external=False)
-    return f"{base_url}{stream_path}", None
+    return f"{base_url}{stream_path}", None, None
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -217,14 +243,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         data = call.data
 
         stream_uri: str | None = None
+        web_uri: str | None = None
         snapshot: bytes | None = None
         if data.get(ATTR_CAMERA_ENTITY):
-            stream_uri, snapshot = await _camera_media(hass, data)
+            stream_uri, web_uri, snapshot = await _camera_media(hass, data)
 
         errors: list[str] = []
         for coordinator in coordinators:
             opts = dict(coordinator.config_entry.options)
-            payload = _device_payload(data, opts, stream_uri)
+            payload = _device_payload(data, opts, stream_uri, web_uri)
             try:
                 if snapshot is not None:
                     fields = {

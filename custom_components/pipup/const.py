@@ -50,6 +50,7 @@ ATTR_CAMERA_ENTITY: Final = "camera_entity"
 ATTR_CAMERA_MODE: Final = "camera_mode"
 
 CAMERA_MODE_STREAM: Final = "stream"
+CAMERA_MODE_MJPEG: Final = "mjpeg"
 CAMERA_MODE_SNAPSHOT: Final = "snapshot"
 
 POSITIONS: Final = {

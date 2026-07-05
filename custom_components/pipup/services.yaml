@@ -41,10 +41,11 @@ show:
         entity:
           domain: camera
     camera_mode:
-      default: stream
+      default: mjpeg
       selector:
         select:
           options:
+            - mjpeg
             - stream
             - snapshot
           translation_key: camera_mode

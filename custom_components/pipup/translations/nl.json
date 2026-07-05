@@ -101,7 +101,8 @@
     },
     "camera_mode": {
       "options": {
-        "stream": "Livestream (HLS)",
+        "mjpeg": "MJPEG (veilig naast live TV)",
+        "stream": "Livestream (HLS — kan live TV bevriezen)",
         "snapshot": "Momentopname"
       }
     }
@@ -137,7 +138,7 @@
         },
         "camera_mode": {
           "name": "Cameramodus",
-          "description": "Livestream (HLS via Home Assistant) of een enkele momentopname."
+          "description": "Hoe de camera wordt getoond. MJPEG (standaard) is software-gedecodeerd en zonder audio — veilig terwijl de TV video afspeelt. HLS gebruikt een hardware-decoder en kan gelijktijdige weergave op sommige TV’s bevriezen."
         },
         "image_url": {
           "name": "Afbeeldings-URL",
