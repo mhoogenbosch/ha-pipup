@@ -48,6 +48,8 @@ ATTR_MEDIA_HEIGHT: Final = "media_height"
 ATTR_MUTED: Final = "muted"
 ATTR_CAMERA_ENTITY: Final = "camera_entity"
 ATTR_CAMERA_MODE: Final = "camera_mode"
+ATTR_TTS: Final = "tts"
+ATTR_TTS_LANGUAGE: Final = "tts_language"
 
 CAMERA_MODE_STREAM: Final = "stream"
 CAMERA_MODE_MJPEG: Final = "mjpeg"

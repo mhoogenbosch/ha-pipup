@@ -1,6 +1,18 @@
 {
   "config": {
+    "flow_title": "PiPup {name}",
     "step": {
+      "zeroconf_confirm": {
+        "title": "Discovered PiPup device",
+        "description": "Add \"{name}\" ({host})?",
+        "data": {
+          "name": "Name",
+          "name_suffix": "Name suffix"
+        },
+        "data_description": {
+          "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
+        }
+      },
       "user": {
         "title": "Add PiPup device",
         "description": "Connect to a TV running the PiPup fork (see the integration documentation).",
@@ -53,6 +65,14 @@
       },
       "screen": {
         "name": "Screen"
+      },
+      "connectivity": {
+        "name": "Connectivity"
+      }
+    },
+    "notify": {
+      "notify": {
+        "name": "Notification"
       }
     },
     "sensor": {
@@ -183,6 +203,14 @@
         "muted": {
           "name": "Mute audio",
           "description": "Mutes audio in video/web streams. When omitted, the device default applies (integration settings; audio can freeze video on some TVs)."
+        },
+        "tts": {
+          "name": "Speak text",
+          "description": "Text spoken aloud on the TV when the popup appears (app 0.2.5 or newer)."
+        },
+        "tts_language": {
+          "name": "Speech language",
+          "description": "BCP-47 language tag for the spoken text (e.g. nl-NL); device default when omitted."
         }
       }
     },

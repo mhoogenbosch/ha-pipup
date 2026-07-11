@@ -12,9 +12,17 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 
 ## Features
 
-- Config flow per TV (host + port); each TV becomes a device with:
+- Config flow per TV (host + port) **with automatic mDNS discovery** (app ≥ 0.2.5 advertises
+  `_pipup._tcp`); discovered TVs carry a stable device id, so the config entry **follows the TV
+  across DHCP address changes** (existing host:port entries migrate automatically on first contact).
+  Each TV becomes a device with:
   - **Popup** binary sensor (on = a popup is visible; attributes: `popup_id`, `duration`, `indefinite`, `elapsed`)
   - **Screen** binary sensor (TV screen on/interactive — requires app ≥ 0.2.3)
+  - **Connectivity** binary sensor — FireTV sticks cut their network in standby; entities now stay
+    available with their last state (popup/screen report *unknown*) and this sensor tells you
+    whether the TV currently answers, so automations can trigger on its off→on edge
+  - **Notification** notify entity — the TV works as a standard `notify.send_message` target
+    (text-only popups honoring the per-device defaults)
   - **Current popup** sensor (the visible popup id) and **Popups shown** counter
   - **Default position** select — the position used when `pipup.show` is called without one
   - **Dismiss popup** button
@@ -32,6 +40,8 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   - **per-device defaults for everything** — duration, position, muted, media size, colors and text
     sizes are configurable per TV in the integration options (Settings → Devices & Services →
     PiPup → Configure); action fields act as one-off overrides
+  - `tts` → text spoken aloud on the TV when the popup appears (app ≥ 0.2.5); optional
+    `tts_language` takes a BCP-47 tag such as `nl-NL` (device default when omitted)
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 
 ## Installation

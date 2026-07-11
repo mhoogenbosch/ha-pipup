@@ -10,7 +10,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (  # noqa: F401
@@ -26,6 +26,7 @@ from .services import async_setup_services
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
+    Platform.NOTIFY,
     Platform.SELECT,
     Platform.SENSOR,
     Platform.UPDATE,
@@ -45,6 +46,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
     coordinator = PiPupCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
+    # app >= 0.2.5 reports a stable device id: adopt it as the entry unique_id
+    # (must happen before the platforms build their entity unique_ids)
+    _async_migrate_unique_id(hass, entry, coordinator.data.get("id"))
+
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -53,6 +58,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _async_migrate_unique_id(
+    hass: HomeAssistant, entry: ConfigEntry, device_id: str | None
+) -> None:
+    """Move the entry from a host:port unique_id to the device's stable id.
+
+    Entity unique_ids and the device registry identifier are prefixed with the
+    entry unique_id, so those must migrate along or every entity would be
+    orphaned and recreated.
+    """
+    old = entry.unique_id or entry.entry_id
+    if not device_id or entry.unique_id == device_id:
+        return
+    for other in hass.config_entries.async_entries(DOMAIN):
+        if other.entry_id != entry.entry_id and other.unique_id == device_id:
+            return  # would collide; leave the old unique_id in place
+
+    ent_reg = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity.unique_id.startswith(f"{old}_"):
+            ent_reg.async_update_entity(
+                entity.entity_id,
+                new_unique_id=f"{device_id}_{entity.unique_id[len(old) + 1:]}",
+            )
+
+    dev_reg = dr.async_get(hass)
+    if device := dev_reg.async_get_device(identifiers={(DOMAIN, old)}):
+        dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, device_id)})
+
+    hass.config_entries.async_update_entry(entry, unique_id=device_id)
 
 
 def _async_apply_name_suffix(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -36,6 +36,13 @@ show:
     muted:
       selector:
         boolean:
+    tts:
+      selector:
+        text:
+    tts_language:
+      example: nl-NL
+      selector:
+        text:
     camera_entity:
       selector:
         entity:

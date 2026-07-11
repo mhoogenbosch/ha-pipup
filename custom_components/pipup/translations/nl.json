@@ -1,6 +1,18 @@
 {
   "config": {
+    "flow_title": "PiPup {name}",
     "step": {
+      "zeroconf_confirm": {
+        "title": "PiPup-apparaat gevonden",
+        "description": "\"{name}\" ({host}) toevoegen?",
+        "data": {
+          "name": "Naam",
+          "name_suffix": "Naam-achtervoegsel"
+        },
+        "data_description": {
+          "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten."
+        }
+      },
       "user": {
         "title": "PiPup-apparaat toevoegen",
         "description": "Verbind met een TV waarop de PiPup-fork draait (zie de integratie-documentatie).",
@@ -53,6 +65,14 @@
       },
       "screen": {
         "name": "Scherm"
+      },
+      "connectivity": {
+        "name": "Bereikbaar"
+      }
+    },
+    "notify": {
+      "notify": {
+        "name": "Melding"
       }
     },
     "sensor": {
@@ -183,6 +203,14 @@
         "muted": {
           "name": "Audio dempen",
           "description": "Dempt audio in video/web-streams. Zonder waarde geldt de apparaat-standaard (integratie-instellingen; audio kan het beeld op sommige TV’s bevriezen)."
+        },
+        "tts": {
+          "name": "Tekst uitspreken",
+          "description": "Tekst die op de TV wordt uitgesproken wanneer de popup verschijnt (app 0.2.5 of nieuwer)."
+        },
+        "tts_language": {
+          "name": "Spraaktaal",
+          "description": "BCP-47-taalcode voor de uitgesproken tekst (bv. nl-NL); zonder waarde geldt de apparaat-standaard."
         }
       }
     },

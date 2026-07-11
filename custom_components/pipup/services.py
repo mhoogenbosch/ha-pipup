@@ -35,6 +35,8 @@ from .const import (
     ATTR_TITLE,
     ATTR_TITLE_COLOR,
     ATTR_TITLE_SIZE,
+    ATTR_TTS,
+    ATTR_TTS_LANGUAGE,
     ATTR_VIDEO_URL,
     ATTR_WEB_URL,
     CAMERA_MODE_MJPEG,
@@ -89,6 +91,8 @@ SHOW_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
+        vol.Optional(ATTR_TTS): cv.string,
+        vol.Optional(ATTR_TTS_LANGUAGE): cv.string,
         vol.Optional(ATTR_CAMERA_ENTITY): cv.entity_id,
         vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_MJPEG): vol.In(
             [CAMERA_MODE_MJPEG, CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
@@ -159,6 +163,10 @@ def _device_payload(
         payload["title"] = title
     if message := data.get(ATTR_MESSAGE):
         payload["message"] = message
+    if tts := data.get(ATTR_TTS):
+        payload["tts"] = tts  # spoken on the device (app >= 0.2.5)
+        if language := data.get(ATTR_TTS_LANGUAGE):
+            payload["ttsLanguage"] = language
 
     if color := pick(ATTR_TITLE_COLOR, CONF_DEFAULT_TITLE_COLOR, None):
         payload["titleColor"] = color

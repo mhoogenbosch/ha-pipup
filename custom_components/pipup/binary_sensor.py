@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -25,7 +26,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up the PiPup binary sensors."""
     coordinator: PiPupCoordinator = entry.runtime_data
-    entities = [PiPupPopupSensor(coordinator, entry)]
+    entities = [
+        PiPupPopupSensor(coordinator, entry),
+        PiPupConnectivitySensor(coordinator, entry),
+    ]
     # Needs the fork app >= 0.2.3.
     if "screenOn" in coordinator.data:
         entities.append(PiPupScreenSensor(coordinator, entry))
@@ -42,8 +46,10 @@ class PiPupPopupSensor(PiPupEntity, BinarySensorEntity):
         super().__init__(coordinator, entry, "popup")
 
     @property
-    def is_on(self) -> bool:
-        """Return True when a popup is visible."""
+    def is_on(self) -> bool | None:
+        """Return True when a popup is visible; unknown when unreachable."""
+        if not self.coordinator.online:
+            return None
         return bool(self.coordinator.data.get("visible"))
 
     @property
@@ -72,6 +78,30 @@ class PiPupScreenSensor(PiPupEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Return True when the screen is interactive."""
+        """Return True when the screen is interactive; unknown when unreachable."""
+        if not self.coordinator.online:
+            return None
         value = self.coordinator.data.get("screenOn")
         return bool(value) if value is not None else None
+
+
+class PiPupConnectivitySensor(PiPupEntity, BinarySensorEntity):
+    """On when the PiPup server on the TV answers /state polls.
+
+    FireTV sticks cut their network in standby, so this doubles as a
+    wake/sleep signal — automate on the off→on edge instead of on
+    entities becoming unavailable.
+    """
+
+    _attr_translation_key = "connectivity"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry, "connectivity")
+
+    @property
+    def is_on(self) -> bool:
+        """Return True when the device answered the last poll."""
+        return self.coordinator.online

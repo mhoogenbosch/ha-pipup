@@ -25,7 +25,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Polls /state of a single PiPup device."""
+    """Polls /state of a single PiPup device.
+
+    FireTV sticks cut their network entirely in standby, so after the first
+    successful refresh a failed poll only flips ``online`` to False and keeps
+    the last data — entities stay available instead of flapping to
+    unavailable; the connectivity sensor reflects reachability.
+    """
 
     config_entry: ConfigEntry
 
@@ -36,6 +42,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             entry.data[CONF_HOST],
             entry.data[CONF_PORT],
         )
+        self.online = False
 
         scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
         update_interval = (
@@ -55,9 +62,17 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch /state from the device."""
         try:
-            return await self.client.state()
+            data = await self.client.state()
         except PiPupError as err:
-            raise UpdateFailed(str(err)) from err
+            self.online = False
+            if self.data is None:
+                # first refresh: fail so setup retries until the TV answers
+                # (conditional entities and the id migration need real data)
+                raise UpdateFailed(str(err)) from err
+            _LOGGER.debug("PiPup at %s unreachable: %s", self.client.host, err)
+            return self.data
+        self.online = True
+        return data
 
     async def async_refresh_soon(self) -> None:
         """Refresh state right after a show/dismiss call."""

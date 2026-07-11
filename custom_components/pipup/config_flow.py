@@ -18,6 +18,7 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .const import (
@@ -56,6 +57,12 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize discovery state."""
+        self._host: str | None = None
+        self._port: int = DEFAULT_PORT
+        self._name: str | None = None
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -66,9 +73,6 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
             host = user_input[CONF_HOST].strip()
             port = user_input[CONF_PORT]
 
-            await self.async_set_unique_id(f"{host}:{port}")
-            self._abort_if_unique_id_configured()
-
             client = PiPupClient(async_get_clientsession(self.hass), host, port)
             try:
                 state = await client.state()
@@ -77,6 +81,15 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
             except PiPupError:
                 errors["base"] = "cannot_connect"
             else:
+                # app >= 0.2.5 reports a stable id: use it so the entry
+                # follows the device across DHCP address changes
+                await self.async_set_unique_id(state.get("id") or f"{host}:{port}")
+                self._abort_if_unique_id_configured(
+                    updates={CONF_HOST: host, CONF_PORT: port}
+                )
+                # entries created before the app reported ids match on host
+                self._async_abort_entries_match({CONF_HOST: host})
+
                 title = user_input.get(CONF_NAME) or f"PiPup {host}"
                 options = {}
                 if suffix := (user_input.get(CONF_NAME_SUFFIX) or "").strip():
@@ -92,6 +105,65 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+        )
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """Handle a TV discovered over mDNS (_pipup._tcp)."""
+        host = discovery_info.host
+        port = discovery_info.port or DEFAULT_PORT
+        properties = discovery_info.properties
+
+        # the app advertises its stable id and device name as TXT records
+        await self.async_set_unique_id(properties.get("id") or f"{host}:{port}")
+        self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
+        # entries created before the app reported ids still key on host:port
+        self._async_abort_entries_match({CONF_HOST: host})
+
+        self._host = host
+        self._port = port
+        self._name = properties.get("name") or host
+        self.context["title_placeholders"] = {"name": self._name}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm adding a discovered TV."""
+        assert self._host is not None
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            client = PiPupClient(
+                async_get_clientsession(self.hass), self._host, self._port
+            )
+            try:
+                await client.state()
+            except PiPupUnsupportedError:
+                errors["base"] = "unsupported_version"
+            except PiPupError:
+                errors["base"] = "cannot_connect"
+            else:
+                options = {}
+                if suffix := (user_input.get(CONF_NAME_SUFFIX) or "").strip():
+                    options[CONF_NAME_SUFFIX] = suffix
+                return self.async_create_entry(
+                    title=user_input.get(CONF_NAME) or f"PiPup {self._name}",
+                    data={CONF_HOST: self._host, CONF_PORT: self._port},
+                    options=options,
+                )
+
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_NAME): str,
+                    vol.Optional(CONF_NAME_SUFFIX): str,
+                }
+            ),
+            description_placeholders={"name": self._name or "", "host": self._host},
+            errors=errors,
         )
 
     @staticmethod
