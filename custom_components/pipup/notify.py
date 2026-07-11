@@ -5,7 +5,7 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
-from homeassistant.components.notify import NotifyEntity
+from homeassistant.components.notify import NotifyEntity, NotifyEntityFeature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -35,6 +35,7 @@ class PiPupNotifyEntity(PiPupEntity, NotifyEntity):
     """
 
     _attr_translation_key = "notify"
+    _attr_supported_features = NotifyEntityFeature.TITLE
 
     def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
         """Initialize the notify entity."""
