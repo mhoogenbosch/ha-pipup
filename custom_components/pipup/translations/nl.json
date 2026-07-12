@@ -229,7 +229,7 @@
         },
         "buttons": {
           "name": "Knoppen",
-          "description": "Maximaal 3 knoppen, te bedienen met de afstandsbediening (OK kiest, BACK sluit). Lijst van {id, label}; een druk vuurt het pipup_button-event in Home Assistant en sluit de popup. App 0.3.0 of nieuwer."
+          "description": "Maximaal 3 knoppen, te bedienen met de afstandsbediening (OK kiest, BACK sluit). Een lijst van objecten met een id en een label; een druk vuurt het pipup_button-event in Home Assistant en sluit de popup. App 0.3.0 of nieuwer."
         }
       }
     },

@@ -63,7 +63,16 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 
 ## Configuration
 
-Settings → Devices & Services → Add Integration → **PiPup** → enter the TV's IP and port (default 7979).
+TVs running the fork app ≥ 0.2.5 are **discovered automatically** — they show up under
+Settings → Devices & Services as a discovered PiPup device; press *Configure*, optionally set a
+name and a name suffix, done. Because entries key on the app's stable device id, they keep
+working when the TV gets a different DHCP address.
+
+Manual fallback (older app, or discovery blocked between VLANs): Settings → Devices & Services →
+Add Integration → **PiPup** → enter the TV's IP and port (default 7979).
+
+Per-TV popup defaults (position, duration, muted, sizes, colors) live under *Configure* on each
+entry; action fields override them per call.
 
 ## Examples
 
@@ -192,11 +201,11 @@ actions:
 ```yaml
 triggers:
   - trigger: state
-    entity_id: binary_sensor.oprit_motion
+    entity_id: binary_sensor.driveway_motion
     to: "on"
     id: motion_on
   - trigger: state
-    entity_id: binary_sensor.oprit_motion
+    entity_id: binary_sensor.driveway_motion
     to: "off"
     for: "00:00:15"
     id: motion_off
@@ -206,28 +215,34 @@ actions:
         sequence:
           - action: pipup.show
             target:
-              device_id: abcdef1234567890
+              entity_id: binary_sensor.pipup_living_room_popup
             data:
-              title: Beweging op de oprit
+              title: Motion on the driveway
               duration: 0            # until dismissed
-              popup_id: oprit
-              camera_entity: camera.oprit
-              camera_mode: stream
+              popup_id: driveway
+              camera_entity: camera.driveway   # camera_mode defaults to mjpeg (safe next to live TV)
       - conditions: "{{ trigger.id == 'motion_off' }}"
         sequence:
           - action: pipup.dismiss
             target:
-              device_id: abcdef1234567890
+              entity_id: binary_sensor.pipup_living_room_popup
             data:
-              popup_id: oprit        # never cancels an unrelated popup
+              popup_id: driveway     # never cancels an unrelated popup
 ```
+
+When you show indefinite (`duration: 0`) popups, make the automation `mode: queued` and put
+`continue_on_error: true` on the pipup actions — with the default `mode: single` a dismiss that
+fires while a show is still running is silently dropped, leaving the popup on screen.
 
 ## Troubleshooting
 
 - **"unsupported_version" while adding** — the TV runs the original PiPup; sideload the
   [fork APK](https://github.com/mhoogenbosch/PiPup/releases) first.
-- **Entities unavailable** — the PiPup service on the TV is not running (open the PiPup app once
-  after boot) or the TV is off/asleep.
+- **Connectivity sensor off / popup & screen "unknown"** — the TV is off/asleep (FireTV sticks cut
+  their network entirely in standby) or the PiPup service is not running (open the app once after
+  boot). Entities keep their last state on purpose; automate on the connectivity sensor's off→on edge.
+- **Buttons don't react to the remote** — buttons require app ≥ 0.3.0; also note the popup takes
+  input focus while buttons are visible (BACK gives control back to the TV app).
 - **Camera stream does not play** — the TV must be able to reach your Home Assistant internal URL;
   check Settings → System → Network → Home Assistant URL. Snapshot mode (`camera_mode: snapshot`)
   works without any URL reachability.
