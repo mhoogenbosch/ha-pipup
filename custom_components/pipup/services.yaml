@@ -43,6 +43,21 @@ show:
       example: nl-NL
       selector:
         text:
+    urgency:
+      selector:
+        select:
+          options:
+            - info
+            - warning
+            - critical
+          translation_key: urgency
+    show_progress:
+      selector:
+        boolean:
+    buttons:
+      example: "[{id: unlock, label: Voordeur openen}]"
+      selector:
+        object:
     camera_entity:
       selector:
         entity:

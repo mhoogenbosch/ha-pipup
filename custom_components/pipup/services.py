@@ -10,6 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components import webhook as webhook_component
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
@@ -20,6 +21,7 @@ from homeassistant.helpers.service import async_extract_config_entry_ids
 from .api import PiPupError
 from .const import (
     ATTR_BACKGROUND_COLOR,
+    ATTR_BUTTONS,
     ATTR_CAMERA_ENTITY,
     ATTR_CAMERA_MODE,
     ATTR_DURATION,
@@ -32,11 +34,13 @@ from .const import (
     ATTR_MUTED,
     ATTR_POPUP_ID,
     ATTR_POSITION,
+    ATTR_SHOW_PROGRESS,
     ATTR_TITLE,
     ATTR_TITLE_COLOR,
     ATTR_TITLE_SIZE,
     ATTR_TTS,
     ATTR_TTS_LANGUAGE,
+    ATTR_URGENCY,
     ATTR_VIDEO_URL,
     ATTR_WEB_URL,
     CAMERA_MODE_MJPEG,
@@ -54,9 +58,12 @@ from .const import (
     CONF_DEFAULT_TITLE_SIZE,
     DEFAULT_POSITION,
     DOMAIN,
+    EVENT_BUTTON,
     POSITIONS,
     SERVICE_DISMISS,
     SERVICE_SHOW,
+    URGENCIES,
+    WEBHOOK_ID,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,6 +100,22 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_TTS): cv.string,
         vol.Optional(ATTR_TTS_LANGUAGE): cv.string,
+        vol.Optional(ATTR_URGENCY): vol.In(URGENCIES),
+        vol.Optional(ATTR_SHOW_PROGRESS): cv.boolean,
+        vol.Optional(ATTR_BUTTONS): vol.All(
+            cv.ensure_list,
+            [
+                vol.Schema(
+                    {
+                        vol.Required("id"): vol.All(
+                            cv.string, vol.Match(r"^[a-zA-Z0-9_-]{1,32}$")
+                        ),
+                        vol.Required("label"): cv.string,
+                    }
+                )
+            ],
+            vol.Length(min=1, max=3),
+        ),
         vol.Optional(ATTR_CAMERA_ENTITY): cv.entity_id,
         vol.Optional(ATTR_CAMERA_MODE, default=CAMERA_MODE_MJPEG): vol.In(
             [CAMERA_MODE_MJPEG, CAMERA_MODE_STREAM, CAMERA_MODE_SNAPSHOT]
@@ -136,6 +159,7 @@ def _device_payload(
     opts: dict[str, Any],
     stream_uri: str | None,
     web_uri: str | None = None,
+    callback_url: str | None = None,
 ) -> dict[str, Any]:
     """Build the notify payload for one device.
 
@@ -167,6 +191,16 @@ def _device_payload(
         payload["tts"] = tts  # spoken on the device (app >= 0.2.5)
         if language := data.get(ATTR_TTS_LANGUAGE):
             payload["ttsLanguage"] = language
+
+    # app >= 0.3.0
+    if urgency := data.get(ATTR_URGENCY):
+        payload["urgency"] = urgency
+    if data.get(ATTR_SHOW_PROGRESS):
+        payload["showProgress"] = True
+    if buttons := data.get(ATTR_BUTTONS):
+        payload["buttons"] = buttons
+        if callback_url:
+            payload["callback"] = callback_url
 
     if color := pick(ATTR_TITLE_COLOR, CONF_DEFAULT_TITLE_COLOR, None):
         payload["titleColor"] = color
@@ -243,8 +277,41 @@ async def _camera_media(
     return f"{base_url}{stream_path}", None, None
 
 
+async def _handle_button_webhook(hass: HomeAssistant, webhook_id: str, request) -> None:
+    """Fire a pipup_button event for a button press POSTed by the app."""
+    try:
+        data = await request.json()
+    except ValueError:
+        _LOGGER.warning("Invalid JSON on %s webhook", webhook_id)
+        return
+    _LOGGER.debug("Popup button pressed: %s", data)
+    hass.bus.async_fire(
+        EVENT_BUTTON,
+        {
+            "popup_id": data.get("popup"),
+            "button": data.get("button"),
+            "label": data.get("label"),
+            "device_id": data.get("device"),
+            "device_name": data.get("name"),
+        },
+    )
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
-    """Register the pipup.show and pipup.dismiss actions."""
+    """Register the pipup.show/pipup.dismiss actions and the button webhook."""
+
+    try:
+        webhook_component.async_register(
+            hass,
+            DOMAIN,
+            "PiPup buttons",
+            WEBHOOK_ID,
+            _handle_button_webhook,
+            local_only=True,
+            allowed_methods=["POST"],
+        )
+    except ValueError:
+        _LOGGER.debug("Webhook %s already registered", WEBHOOK_ID)
 
     async def handle_show(call: ServiceCall) -> None:
         coordinators = await _coordinators_for_call(hass, call)
@@ -256,10 +323,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         if data.get(ATTR_CAMERA_ENTITY):
             stream_uri, web_uri, snapshot = await _camera_media(hass, data)
 
+        callback_url: str | None = None
+        if data.get(ATTR_BUTTONS):
+            base_url = get_url(hass, allow_external=False, prefer_external=False)
+            callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}"
+
         errors: list[str] = []
         for coordinator in coordinators:
             opts = dict(coordinator.config_entry.options)
-            payload = _device_payload(data, opts, stream_uri, web_uri)
+            payload = _device_payload(data, opts, stream_uri, web_uri, callback_url)
             try:
                 if snapshot is not None:
                     fields = {

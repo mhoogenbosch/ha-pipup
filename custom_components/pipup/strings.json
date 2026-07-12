@@ -125,6 +125,13 @@
         "stream": "Live stream (HLS — can freeze live TV)",
         "snapshot": "Snapshot"
       }
+    },
+    "urgency": {
+      "options": {
+        "info": "Info (blue border)",
+        "warning": "Warning (orange border)",
+        "critical": "Critical (red border)"
+      }
     }
   },
   "services": {
@@ -211,6 +218,18 @@
         "tts_language": {
           "name": "Speech language",
           "description": "BCP-47 language tag for the spoken text (e.g. nl-NL); device default when omitted."
+        },
+        "urgency": {
+          "name": "Urgency",
+          "description": "Styling preset: colored border by severity (app 0.3.0 or newer)."
+        },
+        "show_progress": {
+          "name": "Show countdown bar",
+          "description": "Animated bar showing the remaining duration (finite durations only; app 0.3.0 or newer)."
+        },
+        "buttons": {
+          "name": "Buttons",
+          "description": "Up to 3 buttons operated with the TV remote (OK selects, BACK dismisses). List of {id, label}; a press fires the pipup_button event in Home Assistant and closes the popup. App 0.3.0 or newer."
         }
       }
     },

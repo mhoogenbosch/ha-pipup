@@ -125,6 +125,13 @@
         "stream": "Livestream (HLS — kan live TV bevriezen)",
         "snapshot": "Momentopname"
       }
+    },
+    "urgency": {
+      "options": {
+        "info": "Info (blauwe rand)",
+        "warning": "Waarschuwing (oranje rand)",
+        "critical": "Kritiek (rode rand)"
+      }
     }
   },
   "services": {
@@ -211,6 +218,18 @@
         "tts_language": {
           "name": "Spraaktaal",
           "description": "BCP-47-taalcode voor de uitgesproken tekst (bv. nl-NL); zonder waarde geldt de apparaat-standaard."
+        },
+        "urgency": {
+          "name": "Urgentie",
+          "description": "Opmaak-preset: gekleurde rand naar ernst (app 0.3.0 of nieuwer)."
+        },
+        "show_progress": {
+          "name": "Aftelbalk tonen",
+          "description": "Geanimeerde balk met de resterende duur (alleen bij eindige duur; app 0.3.0 of nieuwer)."
+        },
+        "buttons": {
+          "name": "Knoppen",
+          "description": "Maximaal 3 knoppen, te bedienen met de afstandsbediening (OK kiest, BACK sluit). Lijst van {id, label}; een druk vuurt het pipup_button-event in Home Assistant en sluit de popup. App 0.3.0 of nieuwer."
         }
       }
     },

@@ -9,11 +9,14 @@
     "@mhoogenbosch"
   ],
   "config_flow": true,
+  "dependencies": [
+    "webhook"
+  ],
   "documentation": "https://github.com/mhoogenbosch/ha-pipup",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/mhoogenbosch/ha-pipup/issues",
   "requirements": [],
-  "version": "1.5.1",
+  "version": "1.6.0",
   "zeroconf": [
     "_pipup._tcp.local."
   ]

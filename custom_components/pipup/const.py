@@ -50,6 +50,15 @@ ATTR_CAMERA_ENTITY: Final = "camera_entity"
 ATTR_CAMERA_MODE: Final = "camera_mode"
 ATTR_TTS: Final = "tts"
 ATTR_TTS_LANGUAGE: Final = "tts_language"
+ATTR_BUTTONS: Final = "buttons"
+ATTR_SHOW_PROGRESS: Final = "show_progress"
+ATTR_URGENCY: Final = "urgency"
+
+URGENCIES: Final = ["info", "warning", "critical"]
+
+# webhook that receives popup-button presses from the app; fires EVENT_BUTTON
+WEBHOOK_ID: Final = "pipup_buttons"
+EVENT_BUTTON: Final = "pipup_button"
 
 CAMERA_MODE_STREAM: Final = "stream"
 CAMERA_MODE_MJPEG: Final = "mjpeg"
