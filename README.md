@@ -59,7 +59,129 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 
 Settings → Devices & Services → Add Integration → **PiPup** → enter the TV's IP and port (default 7979).
 
-## Example: show camera while there is motion
+## Examples
+
+Real-world recipes from the household this integration was built for. All popup styling
+(position, colors, size) falls back to the per-device defaults, so the calls stay short.
+
+### House-wide announcement ("dinner is ready") with TTS
+
+One script pops a message on *every* TV — straight through games and headphone sessions —
+and speaks it out loud (app ≥ 0.2.5). Unreachable/sleeping TVs are skipped silently.
+
+```yaml
+script:
+  announce:
+    alias: House announcement
+    fields:
+      message: {required: true}
+    sequence:
+      - action: pipup.show
+        continue_on_error: true    # sleeping TVs must not abort the rest
+        target:
+          entity_id:
+            - binary_sensor.pipup_living_room_popup
+            - binary_sensor.pipup_kids_room_popup
+            - binary_sensor.pipup_bedroom_popup
+        data:
+          popup_id: announce
+          title: "📢 Announcement"
+          message: "{{ message }}"
+          duration: 15
+          tts: "{{ message }}"
+          tts_language: nl-NL
+          muted: false
+```
+
+Wire it to a dashboard button with `tap_action` → `perform-action: script.announce`,
+`data: {message: "Dinner is ready!"}` — add a `confirmation:` so nobody summons the
+whole house by accident.
+
+### Info popup with a templated message (energy summary)
+
+The `message` field takes Jinja, so a "mini dashboard" is just a multi-line template.
+With `show_progress: true` (app ≥ 0.3.0) the popup shows a countdown bar.
+
+```yaml
+action: pipup.show
+target:
+  entity_id: binary_sensor.pipup_living_room_popup
+data:
+  popup_id: energy
+  duration: 25
+  position: center
+  title: "⚡ Energy & car"
+  show_progress: true
+  message: >-
+    {% set net = states('sensor.grid_power') | int(0) %}
+    ☀️ Solar: {{ states('sensor.pv_power') | int(0) }} W
+    🏠 House: {{ states('sensor.house_power') | int(0) }} W
+    🔌 Grid: {{ net | abs }} W {{ 'import' if net > 0 else 'export' }}
+    🚗 Battery: {{ states('sensor.car_battery') | int(0) }}%
+```
+
+### Doorbell popup with an "open the door" button
+
+Buttons (app ≥ 0.3.0) are operated with the TV remote: **OK** activates, **BACK** dismisses.
+A press fires the `pipup_button` event, so the acting automation can (and should) filter on
+both the button id *and* the device id — only the intended TV can open the door.
+
+```yaml
+# 1) the doorbell automation shows the popup with a button
+- action: pipup.show
+  target:
+    entity_id: binary_sensor.pipup_living_room_popup
+  data:
+    popup_id: doorbell
+    duration: 45                 # finite: never leave an undismissable popup
+    title: Front door
+    tts: "Someone is at the door"
+    web_url: "http://go2rtc.local:1984/stream.html?src=doorbell&mode=webrtc"
+    media_width: 720
+    media_height: 540
+    buttons:
+      - id: unlock_front_door
+        label: "🔓 Open the door"
+
+# 2) a second automation acts on the press
+triggers:
+  - trigger: event
+    event_type: pipup_button
+    event_data:
+      button: unlock_front_door
+      device_id: "1d91b16a-…"    # the app's stable id — check the Diagnostics download
+actions:
+  - action: lock.open
+    target:
+      entity_id: lock.front_door
+  - action: notify.mobile_app_phone   # audit trail
+    data:
+      message: "Front door opened via the living-room TV"
+```
+
+### Calendar reminder 15 minutes ahead
+
+```yaml
+triggers:
+  - trigger: calendar
+    entity_id: calendar.family
+    event: start
+    offset: "-00:15:00"
+conditions:
+  - "{{ not trigger.calendar_event.all_day }}"   # all-day events would pop at 23:45
+actions:
+  - action: pipup.show
+    target:
+      entity_id: binary_sensor.pipup_living_room_popup
+    data:
+      popup_id: agenda
+      duration: 30
+      show_progress: true
+      title: "📅 Up next ({{ trigger.calendar_event.start | as_timestamp | timestamp_custom('%H:%M') }})"
+      message: "{{ trigger.calendar_event.summary }}"
+```
+
+### Show camera while there is motion
 
 ```yaml
 triggers:
