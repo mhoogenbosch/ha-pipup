@@ -42,6 +42,12 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     PiPup → Configure); action fields act as one-off overrides
   - `tts` → text spoken aloud on the TV when the popup appears (app ≥ 0.2.5); optional
     `tts_language` takes a BCP-47 tag such as `nl-NL` (device default when omitted)
+  - `buttons` → up to 3 remote-operable buttons on the popup (app ≥ 0.3.0): **OK** activates,
+    **BACK** dismisses. A press fires the **`pipup_button` event** (with `popup_id`, `button`,
+    `label`, `device_id`) via an automatically registered local-only webhook — no configuration
+    needed; see the doorbell example below
+  - `show_progress` → animated countdown bar for finite durations (app ≥ 0.3.0)
+  - `urgency` → `info`/`warning`/`critical` colored border presets (app ≥ 0.3.0)
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 
 ## Installation
