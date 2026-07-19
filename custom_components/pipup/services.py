@@ -6,6 +6,7 @@ https://github.com/tonylofgren/aurora-smart-home
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import Any
 
 import voluptuous as vol
@@ -17,6 +18,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.network import get_url
 from homeassistant.helpers.service import async_extract_config_entry_ids
+from homeassistant.util import dt as dt_util
 
 from .api import PiPupError
 from .const import (
@@ -43,6 +45,7 @@ from .const import (
     ATTR_URGENCY,
     ATTR_VIDEO_URL,
     ATTR_WEB_URL,
+    BUTTON_TOKEN_TTL,
     CAMERA_MODE_MJPEG,
     CAMERA_MODE_SNAPSHOT,
     CAMERA_MODE_STREAM,
@@ -56,6 +59,7 @@ from .const import (
     CONF_DEFAULT_POSITION,
     CONF_DEFAULT_TITLE_COLOR,
     CONF_DEFAULT_TITLE_SIZE,
+    DATA_BUTTON_TOKENS,
     DEFAULT_POSITION,
     DOMAIN,
     EVENT_BUTTON,
@@ -154,7 +158,7 @@ async def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list
     return coordinators
 
 
-def _device_payload(
+def build_device_payload(
     data: dict[str, Any],
     opts: dict[str, Any],
     stream_uri: str | None,
@@ -174,8 +178,17 @@ def _device_payload(
         # 0 / "" mean "not configured" for sizes and colors
         return value if value not in (None, 0, 0.0, "") else fallback
 
+    # Duration is special: 0 is a meaningful value (show indefinitely), so only
+    # an absent default falls back — unlike sizes/colors where 0/"" mean "unset".
+    duration_default = opts.get(CONF_DEFAULT_DURATION)
     payload: dict[str, Any] = {
-        "duration": pick(ATTR_DURATION, CONF_DEFAULT_DURATION, 30),
+        "duration": (
+            data[ATTR_DURATION]
+            if ATTR_DURATION in data
+            else duration_default
+            if duration_default is not None
+            else 30
+        ),
         "position": POSITIONS[
             data.get(ATTR_POSITION)
             or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
@@ -266,10 +279,19 @@ async def _camera_media(
             async_sign_path,
         )
 
+        # An indefinite popup (duration <= 0) keeps the same signed URL open for
+        # as long as it is shown, so a 24 h signature would make the stream go
+        # 401 after a day. Sign such popups for much longer.
+        duration = data.get(ATTR_DURATION)
+        expiry = (
+            timedelta(days=30)
+            if duration is not None and duration <= 0
+            else timedelta(hours=24)
+        )
         signed = async_sign_path(
             hass,
             f"/api/camera_proxy_stream/{entity_id}",
-            timedelta(hours=24),
+            expiry,
         )
         return None, f"{base_url}{signed}", None
 
@@ -277,8 +299,42 @@ async def _camera_media(
     return f"{base_url}{stream_path}", None, None
 
 
+def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
+    """Mint a single-use token for a button popup and remember it.
+
+    The token travels in the callback URL and must come back on the button
+    press, so a device on the LAN cannot forge a pipup_button event by POSTing
+    a guessed device id — which matters when button events drive things like a
+    door lock. Expired tokens are swept on each issue.
+    """
+    tokens: dict[str, dict[str, Any]] = hass.data.setdefault(DOMAIN, {}).setdefault(
+        DATA_BUTTON_TOKENS, {}
+    )
+    now = dt_util.utcnow()
+    for tok in [t for t, meta in tokens.items() if meta["expires"] < now]:
+        tokens.pop(tok, None)
+    token = secrets.token_urlsafe(24)
+    tokens[token] = {"popup_id": popup_id, "expires": now + BUTTON_TOKEN_TTL}
+    return token
+
+
 async def _handle_button_webhook(hass: HomeAssistant, webhook_id: str, request) -> None:
-    """Fire a pipup_button event for a button press POSTed by the app."""
+    """Fire a pipup_button event for a button press POSTed by the app.
+
+    The press is only honored when it carries a valid, unexpired, single-use
+    token that this integration handed out when it showed the popup.
+    """
+    token = request.query.get("token")
+    tokens: dict[str, dict[str, Any]] = hass.data.get(DOMAIN, {}).get(
+        DATA_BUTTON_TOKENS, {}
+    )
+    meta = tokens.pop(token, None) if token else None
+    if meta is None or meta["expires"] < dt_util.utcnow():
+        _LOGGER.warning(
+            "Rejecting PiPup button callback with missing/invalid/expired token"
+        )
+        return
+
     try:
         data = await request.json()
     except ValueError:
@@ -323,15 +379,32 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         if data.get(ATTR_CAMERA_ENTITY):
             stream_uri, web_uri, snapshot = await _camera_media(hass, data)
 
-        callback_url: str | None = None
-        if data.get(ATTR_BUTTONS):
-            base_url = get_url(hass, allow_external=False, prefer_external=False)
-            callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}"
+        # Buttons can't ride along in the multipart/snapshot request, so warn
+        # instead of silently dropping them (the app's multipart parser has no
+        # buttons/urgency/showProgress field).
+        if data.get(ATTR_BUTTONS) and snapshot is not None:
+            _LOGGER.warning(
+                "PiPup: buttons are ignored when camera_mode is 'snapshot' "
+                "(multipart upload). Use mjpeg/stream or an image_url for buttons."
+            )
+
+        want_buttons = bool(data.get(ATTR_BUTTONS)) and snapshot is None
+        base_url = (
+            get_url(hass, allow_external=False, prefer_external=False)
+            if want_buttons
+            else None
+        )
 
         errors: list[str] = []
         for coordinator in coordinators:
             opts = dict(coordinator.config_entry.options)
-            payload = _device_payload(data, opts, stream_uri, web_uri, callback_url)
+            # A fresh single-use token per device: the button press must return
+            # it in the callback URL for the pipup_button event to fire.
+            callback_url: str | None = None
+            if want_buttons:
+                token = _issue_button_token(hass, data.get(ATTR_POPUP_ID))
+                callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}?token={token}"
+            payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url)
             try:
                 if snapshot is not None:
                     fields = {

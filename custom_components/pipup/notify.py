@@ -14,7 +14,7 @@ from .api import PiPupError
 from .const import ATTR_MESSAGE, ATTR_TITLE
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
-from .services import _device_payload
+from .services import build_device_payload
 
 
 async def async_setup_entry(
@@ -46,7 +46,7 @@ class PiPupNotifyEntity(PiPupEntity, NotifyEntity):
         data = {ATTR_MESSAGE: message}
         if title:
             data[ATTR_TITLE] = title
-        payload = _device_payload(
+        payload = build_device_payload(
             data, dict(self.coordinator.config_entry.options), None
         )
         try:
