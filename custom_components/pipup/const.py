@@ -59,6 +59,10 @@ URGENCIES: Final = ["info", "warning", "critical"]
 # webhook that receives popup-button presses from the app; fires EVENT_BUTTON
 WEBHOOK_ID: Final = "pipup_buttons"
 EVENT_BUTTON: Final = "pipup_button"
+# hass.data key holding the single-use button-callback tokens
+DATA_BUTTON_TOKENS: Final = "button_tokens"
+# how long a button-callback token stays valid after the popup is shown
+BUTTON_TOKEN_TTL: Final = timedelta(minutes=15)
 
 CAMERA_MODE_STREAM: Final = "stream"
 CAMERA_MODE_MJPEG: Final = "mjpeg"

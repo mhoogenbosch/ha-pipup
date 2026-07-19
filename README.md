@@ -234,6 +234,19 @@ When you show indefinite (`duration: 0`) popups, make the automation `mode: queu
 `continue_on_error: true` on the pipup actions — with the default `mode: single` a dismiss that
 fires while a show is still running is silently dropped, leaving the popup on screen.
 
+## Security
+
+PiPup runs an **unauthenticated** HTTP server on each TV, so any device on the network can show
+popups (including arbitrary JavaScript via a `web` popup). Keep PiPup TVs on a **trusted network
+segment**. See the [app's Security section](https://github.com/mhoogenbosch/PiPup#security).
+
+Button presses arrive over a local-only webhook. To stop a device on the LAN from forging a
+`pipup_button` event (which could drive a security-sensitive automation such as a door lock), this
+integration mints a **single-use token** for every button popup, passes it in the callback URL, and
+rejects any callback whose token is missing, unknown or expired. Traffic to the TV is plain HTTP, so
+the token can still be sniffed within its short window on an untrusted network — another reason to
+keep these devices on a segment you control.
+
 ## Troubleshooting
 
 - **"unsupported_version" while adding** — the TV runs the original PiPup; sideload the

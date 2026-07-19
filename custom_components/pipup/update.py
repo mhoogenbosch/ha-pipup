@@ -14,7 +14,9 @@ from homeassistant.components.update import UpdateEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
+from .const import DOMAIN
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
 
@@ -24,6 +26,35 @@ _LOGGER = logging.getLogger(__name__)
 RELEASES_URL = "https://api.github.com/repos/mhoogenbosch/PiPup/releases/latest"
 RELEASE_PAGE = "https://github.com/mhoogenbosch/PiPup/releases"
 SCAN_INTERVAL = timedelta(hours=6)
+# One TV per config entry, but the latest release is the same for all of them —
+# cache it process-wide so N TVs make one GitHub call per interval, not N.
+_CACHE_KEY = "latest_release_cache"
+_CACHE_TTL = timedelta(hours=6)
+
+
+async def _latest_release_tag(hass: HomeAssistant) -> str | None:
+    """Return the latest fork release tag (without leading v), cached per TTL."""
+    cache = hass.data.setdefault(DOMAIN, {}).get(_CACHE_KEY)
+    now = dt_util.utcnow()
+    if cache and cache["expires"] > now:
+        return cache["tag"]
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(
+            RELEASES_URL, timeout=aiohttp.ClientTimeout(total=15)
+        ) as resp:
+            if resp.status != 200:
+                _LOGGER.debug("GitHub releases returned %s", resp.status)
+                return cache["tag"] if cache else None
+            data = await resp.json()
+    except (aiohttp.ClientError, TimeoutError) as err:
+        _LOGGER.debug("Could not fetch latest PiPup release: %s", err)
+        return cache["tag"] if cache else None
+
+    tag = (data.get("tag_name") or "").lstrip("v") or None
+    hass.data[DOMAIN][_CACHE_KEY] = {"tag": tag, "expires": now + _CACHE_TTL}
+    return tag
 
 
 async def async_setup_entry(
@@ -59,19 +90,5 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         return self._latest
 
     async def async_update(self) -> None:
-        """Fetch the latest release tag (every SCAN_INTERVAL)."""
-        session = async_get_clientsession(self.hass)
-        try:
-            async with session.get(
-                RELEASES_URL, timeout=aiohttp.ClientTimeout(total=15)
-            ) as resp:
-                if resp.status != 200:
-                    _LOGGER.debug("GitHub releases returned %s", resp.status)
-                    return
-                data = await resp.json()
-        except (aiohttp.ClientError, TimeoutError) as err:
-            _LOGGER.debug("Could not fetch latest PiPup release: %s", err)
-            return
-
-        tag = data.get("tag_name") or ""
-        self._latest = tag.lstrip("v") or None
+        """Refresh the latest release tag from the shared cache."""
+        self._latest = await _latest_release_tag(self.hass)
