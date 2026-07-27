@@ -85,6 +85,28 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
+    async def update_app(self) -> None:
+        """Ask the app to download and install the latest release (app >= 0.6.0).
+
+        Returns as soon as the device accepted the request: the install itself
+        runs on the TV and its progress shows up in /state.
+        """
+        try:
+            async with self._session.post(
+                f"{self._base}/update", timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status == 400:
+                    raise PiPupUnsupportedError(
+                        "this PiPup version has no self-update (needs app >= 0.6.0)"
+                    )
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise PiPupError(f"update failed ({resp.status}): {body}")
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
     async def cancel(self, popup_id: str | None = None) -> None:
         """Dismiss the current popup, optionally only when popup_id matches."""
         params = {"id": popup_id} if popup_id else None

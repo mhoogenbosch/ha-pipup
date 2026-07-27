@@ -10,12 +10,14 @@ from datetime import timedelta
 
 import aiohttp
 
-from homeassistant.components.update import UpdateEntity
+from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
+from .api import PiPupError
 from .const import DOMAIN
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
@@ -88,6 +90,30 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
     def latest_version(self) -> str | None:
         """Latest release tag on GitHub (without leading v)."""
         return self._latest
+
+    @property
+    def supported_features(self) -> UpdateEntityFeature:
+        """Offer Install only when the app can update itself (>= 0.6.0)."""
+        if "update" in self.coordinator.data:
+            return UpdateEntityFeature.INSTALL
+        return UpdateEntityFeature(0)
+
+    @property
+    def in_progress(self) -> bool:
+        """True while the TV is downloading/installing the update."""
+        return bool((self.coordinator.data.get("update") or {}).get("installing"))
+
+    async def async_install(self, version: str | None, backup: bool, **kwargs) -> None:
+        """Trigger the app's self-update on the TV.
+
+        On Android 12+ this completes silently; older devices show the system's
+        install confirmation on screen, which has to be accepted with the remote.
+        """
+        try:
+            await self.coordinator.client.update_app()
+        except PiPupError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_refresh_soon()
 
     async def async_update(self) -> None:
         """Refresh the latest release tag from the shared cache."""

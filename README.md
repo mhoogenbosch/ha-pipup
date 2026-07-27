@@ -26,7 +26,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   - **Current popup** sensor (the visible popup id) and **Popups shown** counter
   - **Default position** select — the position used when `pipup.show` is called without one
   - **Dismiss popup** button
-  - **PiPup app** update entity (checks the fork's GitHub releases)
+  - **PiPup app** update entity — checks the fork's GitHub releases and, with app >= 0.6.0,
+    the **Install** button makes the TV update itself (silent on Android 12+, system
+    confirmation on older devices)
   - **App uptime** diagnostic sensor and a diagnostics download
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
