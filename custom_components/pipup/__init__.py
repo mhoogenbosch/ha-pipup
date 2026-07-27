@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
@@ -55,9 +55,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _async_apply_name_suffix(hass, entry)
+    _async_track_sw_version(hass, entry, coordinator)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _async_track_sw_version(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: PiPupCoordinator
+) -> None:
+    """Keep the device's firmware field in sync with the app's reported version.
+
+    DeviceInfo is only written when entities are added, so after a self-update
+    (app >= 0.6.0 updates itself while HA keeps running) the device page kept
+    showing the old version until the entry happened to be reloaded. Watch the
+    coordinator instead and write the new version straight to the registry.
+    """
+    identifiers = {(DOMAIN, entry.unique_id or entry.entry_id)}
+    last_seen: dict[str, str | None] = {"version": None}
+
+    @callback
+    def _sync() -> None:
+        version = coordinator.data.get("version") if coordinator.data else None
+        if not version or version == last_seen["version"]:
+            return
+        registry = dr.async_get(hass)
+        device = registry.async_get_device(identifiers=identifiers)
+        if device is not None and device.sw_version != version:
+            registry.async_update_device(device.id, sw_version=version)
+        last_seen["version"] = version
+
+    _sync()
+    entry.async_on_unload(coordinator.async_add_listener(_sync))
 
 
 def _async_migrate_unique_id(

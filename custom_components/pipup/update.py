@@ -9,6 +9,7 @@ import logging
 from datetime import timedelta
 
 import aiohttp
+from awesomeversion import AwesomeVersion
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.core import HomeAssistant
@@ -34,11 +35,15 @@ _CACHE_KEY = "latest_release_cache"
 _CACHE_TTL = timedelta(hours=6)
 
 
-async def _latest_release_tag(hass: HomeAssistant) -> str | None:
-    """Return the latest fork release tag (without leading v), cached per TTL."""
+async def _latest_release_tag(hass: HomeAssistant, force: bool = False) -> str | None:
+    """Return the latest fork release tag (without leading v), cached per TTL.
+
+    `force` bypasses the cache — used when a device reports a version the cache
+    does not know yet, which can only mean the cached value is out of date.
+    """
     cache = hass.data.setdefault(DOMAIN, {}).get(_CACHE_KEY)
     now = dt_util.utcnow()
-    if cache and cache["expires"] > now:
+    if cache and not force and cache["expires"] > now:
         return cache["tag"]
 
     session = async_get_clientsession(hass)
@@ -116,5 +121,14 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         await self.coordinator.async_refresh_soon()
 
     async def async_update(self) -> None:
-        """Refresh the latest release tag from the shared cache."""
+        """Refresh the latest release tag from the shared cache.
+
+        A TV running a version the cache does not know about means the cache is
+        stale (a release tagged inside the 6h TTL, or the app self-updated
+        first) — refetch immediately so "latest" never lags behind "installed".
+        """
         self._latest = await _latest_release_tag(self.hass)
+        installed = self.installed_version
+        if installed and self._latest and installed != self._latest:
+            if AwesomeVersion(installed) > AwesomeVersion(self._latest):
+                self._latest = await _latest_release_tag(self.hass, force=True)
