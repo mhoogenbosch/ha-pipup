@@ -56,15 +56,34 @@ class PiPupCurrentPopupSensor(PiPupEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Expose popup details."""
-        popup = self.coordinator.data.get("popup")
-        if not popup:
-            return None
-        return {
-            "duration": popup.get("duration"),
-            "indefinite": popup.get("indefinite"),
-            "elapsed": popup.get("elapsed"),
-        }
+        """Expose current-popup details plus the last *received* popup.
+
+        `last_popup` (app >= 0.5.0) survives dismiss/expiry, so you can always
+        see what was actually sent to this TV — id, position, duration, muted,
+        media type/size, tts, buttons and how long ago it arrived.
+        """
+        attrs: dict[str, Any] = {}
+        if popup := self.coordinator.data.get("popup"):
+            attrs.update(
+                {
+                    "duration": popup.get("duration"),
+                    "indefinite": popup.get("indefinite"),
+                    "elapsed": popup.get("elapsed"),
+                }
+            )
+        if last := self.coordinator.data.get("lastPopup"):
+            attrs["last_popup"] = {
+                "id": last.get("id"),
+                "position": last.get("position"),
+                "duration": last.get("duration"),
+                "indefinite": last.get("indefinite"),
+                "muted": last.get("muted"),
+                "media": last.get("media"),
+                "tts": last.get("tts"),
+                "buttons": last.get("buttons"),
+                "seconds_ago": last.get("secondsAgo"),
+            }
+        return attrs or None
 
 
 class PiPupPopupsShownSensor(PiPupEntity, SensorEntity):
