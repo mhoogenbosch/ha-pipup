@@ -28,7 +28,11 @@ _LOGGER = logging.getLogger(__name__)
 # GitHub releases of the PiPup fork; polled sparingly (anonymous rate limit).
 RELEASES_URL = "https://api.github.com/repos/mhoogenbosch/PiPup/releases/latest"
 RELEASE_PAGE = "https://github.com/mhoogenbosch/PiPup/releases"
-SCAN_INTERVAL = timedelta(hours=6)
+# How often each entity re-reads the shared cache. Deliberately shorter than the
+# cache TTL: a poll that finds a live cache entry costs nothing, so a short
+# interval only means a refreshed tag reaches every TV quickly. Equal values
+# would let an entity sit a full cycle behind a cache another entity refreshed.
+SCAN_INTERVAL = timedelta(hours=1)
 # One TV per config entry, but the latest release is the same for all of them —
 # cache it process-wide so N TVs make one GitHub call per interval, not N.
 _CACHE_KEY = "latest_release_cache"
@@ -79,12 +83,25 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
 
     _attr_translation_key = "app_update"
     _attr_release_url = RELEASE_PAGE
-    _attr_should_poll = True
 
     def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
         """Initialize the update entity."""
         super().__init__(coordinator, entry, "app_update")
         self._latest: str | None = None
+
+    @property
+    def should_poll(self) -> bool:
+        """Poll, unlike the other entities on this coordinator.
+
+        This has to be a property. CoordinatorEntity declares should_poll as a
+        cached_property returning False — correct for entities whose data comes
+        from the coordinator, but this one also has to reach GitHub, which the
+        coordinator knows nothing about. A class-level `_attr_should_poll = True`
+        loses to that property and is silently ignored, which is exactly what
+        happened up to 1.8.1: async_update ran once at setup and never again, so
+        latest_version froze at whatever it was when Home Assistant started.
+        """
+        return True
 
     @property
     def installed_version(self) -> str | None:
