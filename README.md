@@ -236,6 +236,79 @@ When you show indefinite (`duration: 0`) popups, make the automation `mode: queu
 `continue_on_error: true` on the pipup actions — with the default `mode: single` a dismiss that
 fires while a show is still running is silently dropped, leaving the popup on screen.
 
+## Device notes: TCL Google TV needs a keep-alive automation
+
+On TCL Google TV sets, PiPup does not stay up by itself. TCL runs a vendor guard
+(`com.tcl.guard`) that both **kills** and **freezes** background apps, so sooner or later the TV
+ends up in a state where the process is still listed but the HTTP server no longer answers: this
+integration then reports the device as unreachable and every `pipup.show` fails, even though the TV
+is online and ADB works. See the
+[app README](https://github.com/mhoogenbosch/PiPup#tcl-google-tvs-vendor-guard-kills-and-freezes-the-app)
+for the mechanism, the required app-ops and how to recognise a frozen process.
+
+What matters here: the app survives only when it runs as a foreground service at
+`oom_score_adj 200`, and that happens **only if it was started from a foreground context**. So the
+recovery command must start the **activity**, not the service — `am start-foreground-service` lands
+on adj 500 and gets frozen again within seconds.
+
+This automation restarts PiPup whenever the integration reports the TV as unreachable while ADB is
+still answering. It needs the [Android TV / ADB integration](https://www.home-assistant.io/integrations/androidtv/)
+for the same TV.
+
+```yaml
+alias: PiPup keep-alive (TCL)
+description: >
+  Restarts PiPup on a TCL Google TV after the vendor guard killed or froze it.
+  Starts the activity (not the service): only a foreground start survives.
+mode: single
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.pipup_living_room_reachable
+    to: "off"
+    for: "00:10:00"
+  - trigger: time_pattern
+    minutes: /15          # retry while PiPup stays down
+  - trigger: time
+    at: "05:00:00"        # daily check
+conditions:
+  # only when the TV itself is reachable — otherwise there is nothing to fix
+  - condition: state
+    entity_id: media_player.android_tv_living_room
+    state: ["idle", "standby", "off", "paused"]
+  - condition: or
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.pipup_living_room_reachable
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.pipup_living_room_reachable
+        state: "unavailable"
+actions:
+  - action: androidtv.adb_command
+    continue_on_error: true
+    target:
+      entity_id: media_player.android_tv_living_room
+    data:
+      command: >-
+        input keyevent KEYCODE_WAKEUP; sleep 2;
+        am start -n nl.rogro82.pipup/.MainActivity; sleep 3;
+        input keyevent KEYCODE_HOME
+```
+
+Notes from running this in practice:
+
+- **Do not gate the command on `ps | grep pipup`.** A frozen process is still listed, so the guard
+  short-circuits exactly when you need the restart. Starting unconditionally is safe.
+- The `state` condition keeps the automation from interrupting viewing: bringing the activity to the
+  front briefly takes over the screen, so skip it while the TV is `playing`.
+- `KEYCODE_WAKEUP` is needed because `am start` does not reach the foreground while the TV is
+  dreaming (screensaver). Note this wakes the screen — that is the price of the recovery.
+- After the app is reachable again, an integration entry that failed to set up earlier stays in
+  `setup_retry`; reload it (Settings → Devices & Services → PiPup → ⋮ → Reload) or the entities
+  remain unavailable. Enabling/disabling the entry does not help — it is already enabled.
+- If you monitor port 7979 externally (e.g. Uptime Kuma), that sensor is a good extra trigger,
+  because it detects a dead server slightly sooner than the coordinator does.
+
 ## Security
 
 PiPup runs an **unauthenticated** HTTP server on each TV, so any device on the network can show
@@ -263,6 +336,14 @@ keep these devices on a segment you control.
   works without any URL reachability.
 - **Popup does not appear at all** — grant the overlay permission once:
   `adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`.
+- **TV is online and ADB works, but PiPup is unreachable (TCL sets)** — the vendor guard froze the
+  process: it is still listed by `ps` while port 7979 no longer answers. Restart PiPup by starting
+  its **activity**, and automate it — see
+  [Device notes: TCL Google TV](#device-notes-tcl-google-tv-needs-a-keep-alive-automation).
+- **Every `pipup.show` fails with "No loaded PiPup devices in the action target"** — either the
+  target is not a PiPup entity/device, or the config entry is not loaded (it stays in `setup_retry`
+  when the TV was unreachable at startup). Reload the entry; the target itself may be perfectly
+  fine. Any entity of the device works as a target, not just the popup sensor.
 
 ## Recovery
 
