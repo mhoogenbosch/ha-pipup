@@ -3,10 +3,25 @@
 name: Validate
 
 on:
+  # Default branch only. A push to a pull-request branch would otherwise start a
+  # second run for the same commit, and the loser of that race reports a
+  # cancelled "validate" check that blocks the pull request indefinitely.
   push:
+    branches: [main]
   pull_request:
+    # Documentation-only changes are covered by validate-docs.yaml, which reports
+    # the same required "validate" check without running HACS/hassfest.
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
