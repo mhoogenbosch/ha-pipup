@@ -1,0 +1,26 @@
+name: Validate (docs)
+
+# Branch protection requires the "validate" status check on main. A required check
+# that never runs leaves a pull request blocked forever, so documentation-only
+# changes — which validate.yaml skips via paths-ignore — get the same check
+# reported by this no-op job instead.
+#
+# Keep the path list here in sync with the paths-ignore list in validate.yaml.
+
+on:
+  pull_request:
+    paths:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: No code changed
+        run: echo "Documentation-only change — HACS/hassfest validation not needed."
