@@ -65,26 +65,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
 def _async_track_sw_version(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: PiPupCoordinator
 ) -> None:
-    """Keep the device's firmware field in sync with the app's reported version.
+    """Keep the device's firmware, model and manufacturer in sync with the app.
 
     DeviceInfo is only written when entities are added, so after a self-update
     (app >= 0.6.0 updates itself while HA keeps running) the device page kept
     showing the old version until the entry happened to be reloaded. Watch the
-    coordinator instead and write the new version straight to the registry.
+    coordinator instead and write the new values straight to the registry.
+
+    Model and manufacturer ride along for a nastier reason: if an entry ever polled
+    the wrong TV (see the mDNS hostname collision in config_flow), the registry kept
+    that TV's hardware on the device page long after the address was corrected.
     """
     identifiers = {(DOMAIN, entry.unique_id or entry.entry_id)}
-    last_seen: dict[str, str | None] = {"version": None}
+    last_seen: dict[str, str | None] = {}
 
     @callback
     def _sync() -> None:
-        version = coordinator.data.get("version") if coordinator.data else None
-        if not version or version == last_seen["version"]:
+        data = coordinator.data or {}
+        device_info = data.get("device") or {}
+        wanted = {
+            "sw_version": data.get("version"),
+            "model": device_info.get("model"),
+            "manufacturer": device_info.get("manufacturer"),
+        }
+        wanted = {k: v for k, v in wanted.items() if v}
+        if not wanted or wanted == last_seen:
             return
         registry = dr.async_get(hass)
         device = registry.async_get_device(identifiers=identifiers)
-        if device is not None and device.sw_version != version:
-            registry.async_update_device(device.id, sw_version=version)
-        last_seen["version"] = version
+        if device is not None:
+            changed = {
+                k: v for k, v in wanted.items() if getattr(device, k, None) != v
+            }
+            if changed:
+                registry.async_update_device(device.id, **changed)
+        last_seen.update(wanted)
 
     _sync()
     entry.async_on_unload(coordinator.async_add_listener(_sync))

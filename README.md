@@ -84,7 +84,16 @@ name and a name suffix, done. Because entries key on the app's stable device id,
 working when the TV gets a different DHCP address.
 
 Manual fallback (older app, or discovery blocked between VLANs): Settings → Devices & Services →
-Add Integration → **PiPup** → enter the TV's IP and port (default 7979).
+Add Integration → **PiPup** → enter the TV's IP and port (default 7979). Adding a TV that is already
+configured is also the way to **correct its address**: the flow recognises the device id and moves the
+existing entry to the new IP instead of creating a second one.
+
+> **Why an address can go wrong** (fixed in 1.9.1): PiPup's mDNS service is registered under the
+> *device* hostname, and Android TVs collide there — several sticks claim `Android.local`,
+> `Android-4.local`, … So resolving one TV's service could hand back another TV's address, and the
+> entry would quietly start polling (and showing popups on) the wrong TV, with its own correct device
+> id in the announcement. Since 1.9.1 a discovered address is verified against the device before an
+> existing entry is moved, and a mismatch aborts with `address_mismatch`.
 
 Per-TV popup defaults (position, duration, muted, sizes, colors, border styling) live under
 *Configure* on each entry; action fields override them per call. Note the difference for the two

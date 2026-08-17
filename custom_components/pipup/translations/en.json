@@ -32,7 +32,8 @@
       "unsupported_version": "This device runs the original PiPup without /state support; install the fork APK first"
     },
     "abort": {
-      "already_configured": "This PiPup device is already configured"
+      "already_configured": "This PiPup device is already configured",
+      "address_mismatch": "The device at this address reports a different PiPup id. Android TVs share generic mDNS hostnames (Android.local), so a discovered service can resolve to another TV's address — ignoring this announcement rather than pointing the entry at the wrong TV."
     }
   },
   "options": {

@@ -119,7 +119,21 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
         properties = discovery_info.properties
 
         # the app advertises its stable id and device name as TXT records
-        await self.async_set_unique_id(properties.get("id") or f"{host}:{port}")
+        device_id = properties.get("id")
+        await self.async_set_unique_id(device_id or f"{host}:{port}")
+
+        # A discovered address cannot be taken at face value. Android TVs register
+        # their mDNS service under the *device* hostname, and those collide: several
+        # sticks here claim `Android.local`, `Android-4.local`, ... - so resolving one
+        # TV's service can hand back another TV's address. That happened in the field:
+        # an entry silently started polling (and showing popups on) a different TV,
+        # with its own correct device id in the TXT record.
+        #
+        # So before moving an existing entry to a new address, ask the device at that
+        # address who it is.
+        if device_id and not await self._async_host_confirms_id(host, port, device_id):
+            return self.async_abort(reason="address_mismatch")
+
         self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
         # entries created before the app reported ids still key on host:port
         self._async_abort_entries_match({CONF_HOST: host})
@@ -129,6 +143,29 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
         self._name = properties.get("name") or host
         self.context["title_placeholders"] = {"name": self._name}
         return await self.async_step_zeroconf_confirm()
+
+    async def _async_host_confirms_id(
+        self, host: str, port: int, device_id: str
+    ) -> bool:
+        """Ask the device at host:port whether it really is device_id.
+
+        Only asked when an entry for this id already exists at a *different* address -
+        the case where trusting a bad mDNS resolution silently moves an entry onto
+        another TV. A device that cannot be reached right now also answers "no", which
+        just means the entry keeps its current address until the next announcement.
+        """
+        entry = next(
+            (e for e in self._async_current_entries() if e.unique_id == device_id),
+            None,
+        )
+        if entry is None or entry.data.get(CONF_HOST) == host:
+            return True  # nothing to move
+        client = PiPupClient(async_get_clientsession(self.hass), host, port)
+        try:
+            state = await client.state()
+        except PiPupError:
+            return False
+        return state.get("id") == device_id
 
     async def async_step_zeroconf_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -142,12 +179,17 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
                 async_get_clientsession(self.hass), self._host, self._port
             )
             try:
-                await client.state()
+                state = await client.state()
             except PiPupUnsupportedError:
                 errors["base"] = "unsupported_version"
             except PiPupError:
                 errors["base"] = "cannot_connect"
             else:
+                # Same mDNS hostname collision as in async_step_zeroconf: creating the
+                # entry against the wrong address would give this TV another TV's id.
+                reported = state.get("id")
+                if reported and self.unique_id and reported != self.unique_id:
+                    return self.async_abort(reason="address_mismatch")
                 options = {}
                 if suffix := (user_input.get(CONF_NAME_SUFFIX) or "").strip():
                     options[CONF_NAME_SUFFIX] = suffix

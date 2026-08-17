@@ -32,7 +32,8 @@
       "unsupported_version": "Dit apparaat draait de originele PiPup zonder /state-ondersteuning; installeer eerst de fork-APK"
     },
     "abort": {
-      "already_configured": "Dit PiPup-apparaat is al geconfigureerd"
+      "already_configured": "Dit PiPup-apparaat is al geconfigureerd",
+      "address_mismatch": "Het toestel op dit adres meldt een andere PiPup-id. Android-tv's delen generieke mDNS-hostnamen (Android.local), waardoor een gevonden service naar het adres van een andere tv kan wijzen — deze aankondiging wordt genegeerd in plaats van de entry op de verkeerde tv te richten."
     }
   },
   "options": {
