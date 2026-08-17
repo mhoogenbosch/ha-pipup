@@ -36,7 +36,11 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   - **Permission problem** diagnostic binary sensor (app ≥ 0.7.0) — on when the app misses a
     permission it needs, with each grant as an attribute. Without the overlay app-op the TV accepts
     every popup with HTTP 200 and shows *nothing*, and `adb install -r` resets it, so this also
-    raises a **repair** with the command to fix it
+    raises a **repair** — one that can now fix itself (app ≥ 0.8.0): pressing *Submit* puts the
+    system's permission screen on the TV, where it takes one press on the remote. The
+    `fixable_on_tv` attribute lists which permissions that works for on this device
+  - **Permission screen** button (app ≥ 0.8.0) — shows PiPup's own permission overview on the TV,
+    with a *Fix* button next to everything that is missing
   - **App uptime** diagnostic sensor and a diagnostics download
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
@@ -64,6 +68,12 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `corner_radius` also works without a border. Sizes are in pixels, and all three are available as
     **per-device defaults** too
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
+- Action **`pipup.fix_permission`** (app ≥ 0.8.0) — put a permission screen on the TV: the app's own
+  overview, the first missing permission, or a specific one. Neither HA nor the app can *grant* these
+  (they are app-ops, i.e. shell/system territory), but walking someone to the exact screen beats
+  telling them to go find an adb prompt. The TV is woken first. Where a device has no such screen —
+  Fire OS answers those intents with placeholders that do nothing — the action fails with the adb
+  command in its message instead of pretending it worked.
 
 ## Installation
 

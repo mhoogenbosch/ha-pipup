@@ -96,6 +96,9 @@
     "button": {
       "dismiss": {
         "name": "Popup sluiten"
+      },
+      "permission_screen": {
+        "name": "Permissiescherm"
       }
     },
     "select": {
@@ -143,6 +146,16 @@
         "info": "Info (blauwe rand)",
         "warning": "Waarschuwing (oranje rand)",
         "critical": "Kritiek (rode rand)"
+      }
+    },
+    "permission": {
+      "options": {
+        "app": "PiPup-overzicht",
+        "next": "Eerste die ontbreekt",
+        "overlay": "Overlay-permissie",
+        "install": "Zelf-updaten",
+        "admin": "Scherm uit (apparaatbeheerder)",
+        "accessibility": "Scherm uit (toegankelijkheid)"
       }
     }
   },
@@ -266,12 +279,35 @@
           "description": "Alleen sluiten wanneer de zichtbare popup deze ID heeft."
         }
       }
+    },
+    "fix_permission": {
+      "name": "Permissie repareren",
+      "description": "Zet een permissiescherm op de tv, zodat je het met de afstandsbediening kunt toekennen. De app kan deze rechten zichzelf niet geven; heeft een toestel zo'n scherm niet, dan toont hij het adb-commando.",
+      "fields": {
+        "permission": {
+          "name": "Permissie",
+          "description": "Welk scherm er opengaat: het overzicht van de app zelf, de eerste die ontbreekt, of een specifieke."
+        }
+      }
     }
   },
   "issues": {
     "no_overlay_permission": {
       "title": "PiPup {name} mist de overlay-permissie",
-      "description": "PiPup op {name} ({host}) heeft de app-op SYSTEM_ALERT_WINDOW niet, en neemt daardoor elke popup aan zonder iets op de tv te tonen. Een app kan dit recht zichzelf niet geven en elke herinstallatie zet het terug. Ken het toe via adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nof draai het installatiescript uit de PiPup-release opnieuw. Deze melding verdwijnt zelf zodra het toestel de permissie meldt."
+      "description": "PiPup op {name} ({host}) heeft de app-op SYSTEM_ALERT_WINDOW niet, en neemt daardoor elke popup aan zonder iets op de tv te tonen. Een app kan dit recht zichzelf niet geven en elke herinstallatie zet het terug. Ken het toe via adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nof draai het installatiescript uit de PiPup-release opnieuw. Deze melding verdwijnt zelf zodra het toestel de permissie meldt.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Permissiescherm op de tv tonen",
+            "description": "Druk op Verzenden en PiPup opent het overlay-permissiescherm op {name}. Pak daarna de afstandsbediening en zet de permissie aan — dat deel kan Home Assistant niet doen, het is een systeemscherm.\\n\\nDe melding verdwijnt vanzelf zodra de tv de permissie meldt."
+          }
+        },
+        "abort": {
+          "use_adb": "Deze tv heeft geen scherm voor die permissie (Fire TV antwoordt bijvoorbeeld met een lege placeholder). Ken 'm toe via adb:\\n\\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`",
+          "cannot_connect": "De tv antwoordde niet. Probeer het opnieuw als hij bereikbaar is.",
+          "not_loaded": "Dit PiPup-apparaat is nu niet geladen."
+        }
+      }
     }
   }
 }

@@ -144,3 +144,21 @@ dismiss:
     popup_id:
       selector:
         text:
+
+fix_permission:
+  target:
+    entity:
+      integration: pipup
+  fields:
+    permission:
+      default: app
+      selector:
+        select:
+          options:
+            - app
+            - next
+            - overlay
+            - install
+            - admin
+            - accessibility
+          translation_key: permission

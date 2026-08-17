@@ -126,7 +126,15 @@ class PiPupPermissionSensor(PiPupEntity, BinarySensorEntity):
         the problem state.
         """
         permissions = self._permissions
+        fixable = permissions.get("fixable")
         return {
+            # which of these the TV can hand to the user on screen (app >= 0.8.0);
+            # the rest needs adb, so a controller should not offer a button for them
+            "fixable_on_tv": (
+                sorted(k for k, v in fixable.items() if v)
+                if isinstance(fixable, dict)
+                else None
+            ),
             "overlay": permissions.get("overlay"),
             "install_packages": permissions.get("installPackages"),
             "auto_start": permissions.get("autoStart"),

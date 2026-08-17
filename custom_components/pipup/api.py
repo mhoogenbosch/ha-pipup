@@ -135,6 +135,36 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
+    async def fix_permission(self, what: str | None = None) -> dict[str, Any]:
+        """Ask the TV to put a permission screen in front of the user (app >= 0.8.0).
+
+        `what` picks a specific permission, "next" the first missing one; omitted opens
+        PiPup's own status screen, which lists them all with their own buttons. The app
+        answers 501 when this device has no such screen - Fire OS resolves those intents
+        to do-nothing placeholders - and its reply then carries the adb command instead.
+        """
+        params = {"what": what} if what else None
+        try:
+            async with self._session.post(
+                f"{self._base}/permissions/fix",
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status in (400, 501):
+                    body = await resp.json(content_type=None)
+                    raise PiPupUnsupportedError(
+                        body.get("adb")
+                        or f"this device cannot open that screen ({resp.status})"
+                    )
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise PiPupError(f"permission fix failed ({resp.status}): {body}")
+                return await resp.json(content_type=None)
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
     async def cancel(self, popup_id: str | None = None) -> None:
         """Dismiss the current popup, optionally only when popup_id matches."""
         params = {"id": popup_id} if popup_id else None
