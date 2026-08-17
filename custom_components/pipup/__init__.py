@@ -188,7 +188,10 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
         timedelta(seconds=scan_interval) if scan_interval else DEFAULT_SCAN_INTERVAL
     )
     if coordinator.update_interval != desired:
-        await hass.config_entries.async_reload(entry.entry_id)
+        # Schedule rather than await: awaiting a reload from inside the entry's own
+        # update listener races with setup-retry (and HA warns that awaiting it here
+        # stops working in 2026.12).
+        hass.config_entries.async_schedule_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> bool:
