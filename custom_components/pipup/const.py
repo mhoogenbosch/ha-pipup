@@ -31,6 +31,7 @@ CONF_NAME_SUFFIX: Final = "name_suffix"
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
 
 SERVICE_SHOW: Final = "show"
+SERVICE_FIX_PERMISSION: Final = "fix_permission"
 SERVICE_DISMISS: Final = "dismiss"
 
 ATTR_TITLE: Final = "title"
@@ -82,6 +83,14 @@ POWER_SETTLE_DELAY: Final = 5
 
 # repair issue raised when the overlay app-op is missing (popups stay invisible)
 ISSUE_NO_OVERLAY: Final = "no_overlay_permission"
+# Same problem, different text: an issue may carry either a description (nothing to
+# press) or a fix flow, never both - and whether the TV can show the screen decides
+# which of the two the user gets.
+ISSUE_NO_OVERLAY_FIXABLE: Final = "no_overlay_permission_fixable"
+
+ATTR_PERMISSION: Final = "permission"
+# "app" opens PiPup's own permission screen, "next" the first missing permission
+PERMISSIONS: Final = ["app", "next", "overlay", "install", "admin", "accessibility"]
 
 CAMERA_MODE_STREAM: Final = "stream"
 CAMERA_MODE_MJPEG: Final = "mjpeg"

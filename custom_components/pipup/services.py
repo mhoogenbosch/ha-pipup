@@ -20,9 +20,10 @@ from homeassistant.helpers.network import get_url
 from homeassistant.helpers.service import async_extract_config_entry_ids
 from homeassistant.util import dt as dt_util
 
-from .api import PiPupError
+from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ATTR_BACKGROUND_COLOR,
+    ATTR_PERMISSION,
     ATTR_BORDER_COLOR,
     ATTR_BORDER_WIDTH,
     ATTR_BUTTONS,
@@ -68,9 +69,11 @@ from .const import (
     DATA_BUTTON_TOKENS,
     DEFAULT_POSITION,
     DOMAIN,
+    PERMISSIONS,
     EVENT_BUTTON,
     POSITIONS,
     SERVICE_DISMISS,
+    SERVICE_FIX_PERMISSION,
     SERVICE_SHOW,
     URGENCIES,
     WEBHOOK_ID,
@@ -139,6 +142,13 @@ SHOW_SCHEMA = vol.Schema(
         ),
     },
     extra=vol.ALLOW_EXTRA,  # allow target fields (device_id etc.)
+)
+
+FIX_PERMISSION_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_PERMISSION, default="app"): vol.In(PERMISSIONS),
+    },
+    extra=vol.ALLOW_EXTRA,
 )
 
 DISMISS_SCHEMA = vol.Schema(
@@ -477,8 +487,34 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         if errors:
             raise HomeAssistantError("; ".join(errors))
 
+    async def handle_fix_permission(call: ServiceCall) -> None:
+        """Put a permission screen on the TV(s) in the target.
+
+        Errors are collected rather than raised per device: with several TVs targeted,
+        the ones that *can* show a screen should still do so, and the message names the
+        ones that need adb (the app returns the exact command).
+        """
+        coordinators = await _coordinators_for_call(hass, call)
+        what = call.data.get(ATTR_PERMISSION, "app")
+
+        errors: list[str] = []
+        for coordinator in coordinators:
+            try:
+                await coordinator.client.fix_permission(None if what == "app" else what)
+            except (PiPupError, PiPupUnsupportedError) as err:
+                errors.append(f"{coordinator.client.host}: {err}")
+
+        if errors:
+            raise HomeAssistantError("; ".join(errors))
+
     hass.services.async_register(
         DOMAIN, SERVICE_SHOW, handle_show, schema=SHOW_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_FIX_PERMISSION,
+        handle_fix_permission,
+        schema=FIX_PERMISSION_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN, SERVICE_DISMISS, handle_dismiss, schema=DISMISS_SCHEMA

@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     ISSUE_NO_OVERLAY,
+    ISSUE_NO_OVERLAY_FIXABLE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,8 +50,6 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             entry.data[CONF_PORT],
         )
         self.online = False
-        # tri-state: None = not yet known, so the first poll always evaluates
-        self._overlay_ok: bool | None = None
 
         scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
         update_interval = (
@@ -95,25 +94,36 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not isinstance(permissions, dict):
             return  # older app: it cannot tell us
         overlay = permissions.get("overlay")
-        if overlay is None or overlay == self._overlay_ok:
+        if overlay is None:
             return
 
-        self._overlay_ok = bool(overlay)
         issue_id = f"{ISSUE_NO_OVERLAY}_{self.config_entry.entry_id}"
+        # Ask the registry rather than remembering the last value: the repair flow
+        # closes the issue while the permission is still missing (someone has to
+        # confirm it on the TV), and this is what raises it again if they did not.
+        exists = ir.async_get(self.hass).async_get_issue(DOMAIN, issue_id) is not None
+
         if overlay:
-            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            if exists:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
             return
+        if exists:
+            return
+        # fixable when the app can open the screen itself (app >= 0.8.0); otherwise only
+        # adb can do it, and then the issue carries the command as its description
+        fixable = bool((permissions.get("fixable") or {}).get("overlay"))
         ir.async_create_issue(
             self.hass,
             DOMAIN,
             issue_id,
-            is_fixable=False,
+            is_fixable=fixable,
             severity=ir.IssueSeverity.WARNING,
-            translation_key=ISSUE_NO_OVERLAY,
+            translation_key=ISSUE_NO_OVERLAY_FIXABLE if fixable else ISSUE_NO_OVERLAY,
             translation_placeholders={
                 "name": self.config_entry.title,
                 "host": self.client.host,
             },
+            data={"entry_id": self.config_entry.entry_id},
             learn_more_url="https://github.com/mhoogenbosch/PiPup#install",
         )
 

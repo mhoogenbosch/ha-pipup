@@ -10,7 +10,11 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+)
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (  # noqa: F401
@@ -34,6 +38,10 @@ PLATFORMS: list[Platform] = [
 ]
 
 type PiPupConfigEntry = ConfigEntry[PiPupCoordinator]
+
+# There is no YAML configuration: async_setup only registers the domain-wide actions,
+# and every device comes from a config entry.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

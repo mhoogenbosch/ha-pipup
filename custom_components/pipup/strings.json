@@ -96,6 +96,9 @@
     "button": {
       "dismiss": {
         "name": "Dismiss popup"
+      },
+      "permission_screen": {
+        "name": "Permission screen"
       }
     },
     "select": {
@@ -143,6 +146,16 @@
         "info": "Info (blue border)",
         "warning": "Warning (orange border)",
         "critical": "Critical (red border)"
+      }
+    },
+    "permission": {
+      "options": {
+        "app": "PiPup overview",
+        "next": "First missing one",
+        "overlay": "Overlay permission",
+        "install": "Self-update permission",
+        "admin": "Screen off (device admin)",
+        "accessibility": "Screen off (accessibility)"
       }
     }
   },
@@ -266,12 +279,38 @@
           "description": "Only dismiss when the visible popup has this ID."
         }
       }
+    },
+    "fix_permission": {
+      "name": "Fix permission",
+      "description": "Puts a permission screen on the TV so it can be granted with the remote. The app cannot grant these itself; where a device has no such screen it shows the adb command instead.",
+      "fields": {
+        "permission": {
+          "name": "Permission",
+          "description": "Which screen to open: the app's own overview, the first missing permission, or a specific one."
+        }
+      }
     }
   },
   "issues": {
     "no_overlay_permission": {
       "title": "PiPup {name} misses the overlay permission",
       "description": "PiPup on {name} ({host}) does not have the SYSTEM_ALERT_WINDOW app-op, so it accepts every popup but shows nothing on the TV. An app cannot grant this to itself and every reinstall resets it. Grant it over adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nor re-run the installer script from the PiPup release. This message disappears by itself once the device reports the permission."
+    },
+    "no_overlay_permission_fixable": {
+      "title": "PiPup {name} misses the overlay permission",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Show the permission screen on the TV",
+            "description": "Press Submit and PiPup opens the overlay permission screen on {name}. Switch to the TV and turn the permission on with the remote — Home Assistant cannot do that part; it is a system screen.\\n\\nThe warning disappears by itself once the TV reports the permission."
+          }
+        },
+        "abort": {
+          "use_adb": "This TV has no screen for that permission (Fire TV, for instance, answers with a placeholder that does nothing). Grant it over adb instead:\\n\\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`",
+          "cannot_connect": "The TV did not answer. Try again when it is reachable.",
+          "not_loaded": "This PiPup device is not loaded right now."
+        }
+      }
     }
   }
 }

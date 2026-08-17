@@ -6,11 +6,12 @@ https://github.com/tonylofgren/aurora-smart-home
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import PiPupError
+from .api import PiPupError, PiPupUnsupportedError
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
 
@@ -20,9 +21,13 @@ async def async_setup_entry(
     entry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the dismiss button."""
+    """Set up the buttons."""
     coordinator: PiPupCoordinator = entry.runtime_data
-    async_add_entities([PiPupDismissButton(coordinator, entry)])
+    buttons: list[ButtonEntity] = [PiPupDismissButton(coordinator, entry)]
+    # Needs the fork app >= 0.8.0.
+    if isinstance((coordinator.data.get("permissions") or {}).get("fixable"), dict):
+        buttons.append(PiPupPermissionScreenButton(coordinator, entry))
+    async_add_entities(buttons)
 
 
 class PiPupDismissButton(PiPupEntity, ButtonEntity):
@@ -38,6 +43,34 @@ class PiPupDismissButton(PiPupEntity, ButtonEntity):
         """Dismiss the current popup."""
         try:
             await self.coordinator.client.cancel()
+        except PiPupError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_refresh_soon()
+
+
+class PiPupPermissionScreenButton(PiPupEntity, ButtonEntity):
+    """Puts PiPup's permission screen on the TV (app >= 0.8.0).
+
+    The app cannot grant its own app-ops - that is shell territory - but it can walk
+    someone to the exact screen, which beats telling a person holding a remote to go
+    find an adb prompt. The TV is woken first, and where a device has no such screen
+    (Fire OS answers those intents with do-nothing placeholders) the app shows the adb
+    command instead.
+    """
+
+    _attr_translation_key = "permission_screen"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, entry, "permission_screen")
+
+    async def async_press(self) -> None:
+        """Show the permission screen on the TV."""
+        try:
+            await self.coordinator.client.fix_permission()
+        except PiPupUnsupportedError as err:
+            raise HomeAssistantError(f"{self.entity_id}: {err}") from err
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_refresh_soon()
