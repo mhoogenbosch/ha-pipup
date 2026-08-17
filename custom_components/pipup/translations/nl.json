@@ -294,7 +294,10 @@
   "issues": {
     "no_overlay_permission": {
       "title": "PiPup {name} mist de overlay-permissie",
-      "description": "PiPup op {name} ({host}) heeft de app-op SYSTEM_ALERT_WINDOW niet, en neemt daardoor elke popup aan zonder iets op de tv te tonen. Een app kan dit recht zichzelf niet geven en elke herinstallatie zet het terug. Ken het toe via adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nof draai het installatiescript uit de PiPup-release opnieuw. Deze melding verdwijnt zelf zodra het toestel de permissie meldt.",
+      "description": "PiPup op {name} ({host}) heeft de app-op SYSTEM_ALERT_WINDOW niet, en neemt daardoor elke popup aan zonder iets op de tv te tonen. Een app kan dit recht zichzelf niet geven en elke herinstallatie zet het terug. Ken het toe via adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nof draai het installatiescript uit de PiPup-release opnieuw. Deze melding verdwijnt zelf zodra het toestel de permissie meldt."
+    },
+    "no_overlay_permission_fixable": {
+      "title": "PiPup {name} mist de overlay-permissie",
       "fix_flow": {
         "step": {
           "confirm": {

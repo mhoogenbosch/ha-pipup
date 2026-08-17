@@ -294,7 +294,10 @@
   "issues": {
     "no_overlay_permission": {
       "title": "PiPup {name} misses the overlay permission",
-      "description": "PiPup on {name} ({host}) does not have the SYSTEM_ALERT_WINDOW app-op, so it accepts every popup but shows nothing on the TV. An app cannot grant this to itself and every reinstall resets it. Grant it over adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nor re-run the installer script from the PiPup release. This message disappears by itself once the device reports the permission.",
+      "description": "PiPup on {name} ({host}) does not have the SYSTEM_ALERT_WINDOW app-op, so it accepts every popup but shows nothing on the TV. An app cannot grant this to itself and every reinstall resets it. Grant it over adb:\n\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`\n\nor re-run the installer script from the PiPup release. This message disappears by itself once the device reports the permission."
+    },
+    "no_overlay_permission_fixable": {
+      "title": "PiPup {name} misses the overlay permission",
       "fix_flow": {
         "step": {
           "confirm": {

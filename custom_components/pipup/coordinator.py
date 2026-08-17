@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     ISSUE_NO_OVERLAY,
+    ISSUE_NO_OVERLAY_FIXABLE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -108,15 +109,16 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if exists:
             return
+        # fixable when the app can open the screen itself (app >= 0.8.0); otherwise only
+        # adb can do it, and then the issue carries the command as its description
+        fixable = bool((permissions.get("fixable") or {}).get("overlay"))
         ir.async_create_issue(
             self.hass,
             DOMAIN,
             issue_id,
-            # fixable when the app can open the screen itself (app >= 0.8.0); otherwise
-            # only adb can do it and the description carries the command
-            is_fixable=bool((permissions.get("fixable") or {}).get("overlay")),
+            is_fixable=fixable,
             severity=ir.IssueSeverity.WARNING,
-            translation_key=ISSUE_NO_OVERLAY,
+            translation_key=ISSUE_NO_OVERLAY_FIXABLE if fixable else ISSUE_NO_OVERLAY,
             translation_placeholders={
                 "name": self.config_entry.title,
                 "host": self.client.host,
