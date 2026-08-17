@@ -29,6 +29,14 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   - **PiPup app** update entity — checks the fork's GitHub releases and, with app >= 0.6.0,
     the **Install** button makes the TV update itself (silent on Android 12+, system
     confirmation on older devices)
+  - **Screen** switch (app ≥ 0.7.0) — turns the TV on (wake) and off (standby) straight through
+    PiPup, so this no longer needs a second ADB/CEC integration. Attributes `can_sleep` and
+    `sleep_method` say what the device can actually do: turning **on** always works, turning **off**
+    needs a one-time adb grant on the TV (see [screen on/off](#screen-onoff))
+  - **Permission problem** diagnostic binary sensor (app ≥ 0.7.0) — on when the app misses a
+    permission it needs, with each grant as an attribute. Without the overlay app-op the TV accepts
+    every popup with HTTP 200 and shows *nothing*, and `adb install -r` resets it, so this also
+    raises a **repair** with the command to fix it
   - **App uptime** diagnostic sensor and a diagnostics download
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
@@ -50,6 +58,11 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     needed; see the doorbell example below
   - `show_progress` → animated countdown bar for finite durations (app ≥ 0.3.0)
   - `urgency` → `info`/`warning`/`critical` colored border presets (app ≥ 0.3.0)
+  - `border_color`, `border_width`, `corner_radius` → style the frame yourself (app ≥ 0.7.0). Each
+    overrides *its part* of the `urgency` preset, so they combine: `urgency: critical` with
+    `border_width: 2` is a thin red border, and `border_width: 0` drops the preset's frame.
+    `corner_radius` also works without a border. Sizes are in pixels, and all three are available as
+    **per-device defaults** too
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 
 ## Installation
@@ -73,8 +86,30 @@ working when the TV gets a different DHCP address.
 Manual fallback (older app, or discovery blocked between VLANs): Settings → Devices & Services →
 Add Integration → **PiPup** → enter the TV's IP and port (default 7979).
 
-Per-TV popup defaults (position, duration, muted, sizes, colors) live under *Configure* on each
-entry; action fields override them per call.
+Per-TV popup defaults (position, duration, muted, sizes, colors, border styling) live under
+*Configure* on each entry; action fields override them per call. Note the difference for the two
+numeric border fields: **empty** means "no default", while **0** is a real value (no border /
+square corners).
+
+### Screen on/off
+
+The **Screen** switch needs app ≥ 0.7.0. Turning the TV *on* works out of the box. Turning it *off*
+is something no sideloaded app may do on its own, so grant one of the two routes once per TV — the
+installer script in the PiPup release does this with `--power`:
+
+```bash
+adb shell dpm set-active-admin nl.rogro82.pipup/.AdminReceiver
+```
+
+Devices without the device-admin feature (a fair number of Android TV boxes; `dpm` still prints
+`Success` there while registering nothing) use the accessibility fallback instead — see the
+[PiPup readme](https://github.com/mhoogenbosch/PiPup#screen-onoff). The switch reports which route
+is active in its `sleep_method` attribute, and `turn_off` on a TV without any route raises an error
+naming the fix rather than failing silently.
+
+Because the app derives the screen state from `PowerManager.isInteractive`, which lags a poll behind
+a fresh wake, the switch trusts its own last command for up to 20 seconds and schedules an extra
+refresh — so it does not visibly bounce back after you flip it.
 
 ## Examples
 

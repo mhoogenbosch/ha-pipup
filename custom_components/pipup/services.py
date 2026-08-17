@@ -23,9 +23,12 @@ from homeassistant.util import dt as dt_util
 from .api import PiPupError
 from .const import (
     ATTR_BACKGROUND_COLOR,
+    ATTR_BORDER_COLOR,
+    ATTR_BORDER_WIDTH,
     ATTR_BUTTONS,
     ATTR_CAMERA_ENTITY,
     ATTR_CAMERA_MODE,
+    ATTR_CORNER_RADIUS,
     ATTR_DURATION,
     ATTR_IMAGE_URL,
     ATTR_MEDIA_HEIGHT,
@@ -50,6 +53,9 @@ from .const import (
     CAMERA_MODE_SNAPSHOT,
     CAMERA_MODE_STREAM,
     CONF_DEFAULT_BACKGROUND_COLOR,
+    CONF_DEFAULT_BORDER_COLOR,
+    CONF_DEFAULT_BORDER_WIDTH,
+    CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
     CONF_DEFAULT_MEDIA_HEIGHT,
     CONF_DEFAULT_MEDIA_WIDTH,
@@ -105,6 +111,13 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_TTS): cv.string,
         vol.Optional(ATTR_TTS_LANGUAGE): cv.string,
         vol.Optional(ATTR_URGENCY): vol.In(URGENCIES),
+        vol.Optional(ATTR_BORDER_COLOR): vol.Match(COLOR_REGEX),
+        vol.Optional(ATTR_BORDER_WIDTH): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=64)
+        ),
+        vol.Optional(ATTR_CORNER_RADIUS): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=128)
+        ),
         vol.Optional(ATTR_SHOW_PROGRESS): cv.boolean,
         vol.Optional(ATTR_BUTTONS): vol.All(
             cv.ensure_list,
@@ -178,6 +191,17 @@ def build_device_payload(
         # 0 / "" mean "not configured" for sizes and colors
         return value if value not in (None, 0, 0.0, "") else fallback
 
+    def pick_numeric(attr: str, conf: str) -> Any:
+        """Like pick(), but for fields where 0 is a real value.
+
+        borderWidth 0 = no border (also switches an urgency border off) and
+        cornerRadius 0 = square corners, so only a genuinely absent value may
+        fall through to the app's own default.
+        """
+        if attr in data:
+            return data[attr]
+        return opts.get(conf)
+
     # Duration is special: 0 is a meaningful value (show indefinitely), so only
     # an absent default falls back — unlike sizes/colors where 0/"" mean "unset".
     duration_default = opts.get(CONF_DEFAULT_DURATION)
@@ -214,6 +238,16 @@ def build_device_payload(
         payload["buttons"] = buttons
         if callback_url:
             payload["callback"] = callback_url
+
+    # app >= 0.7.0: explicit border styling. Each field overrides its part of the
+    # urgency preset, so the two can be combined (critical + thin border, or
+    # border_width 0 to keep the preset's semantics without its frame).
+    if color := pick(ATTR_BORDER_COLOR, CONF_DEFAULT_BORDER_COLOR, None):
+        payload["borderColor"] = color
+    if (width_px := pick_numeric(ATTR_BORDER_WIDTH, CONF_DEFAULT_BORDER_WIDTH)) is not None:
+        payload["borderWidth"] = width_px
+    if (radius := pick_numeric(ATTR_CORNER_RADIUS, CONF_DEFAULT_CORNER_RADIUS)) is not None:
+        payload["cornerRadius"] = radius
 
     if color := pick(ATTR_TITLE_COLOR, CONF_DEFAULT_TITLE_COLOR, None):
         payload["titleColor"] = color

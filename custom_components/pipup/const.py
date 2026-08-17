@@ -23,6 +23,9 @@ CONF_DEFAULT_TITLE_SIZE: Final = "default_title_size"
 CONF_DEFAULT_MESSAGE_COLOR: Final = "default_message_color"
 CONF_DEFAULT_MESSAGE_SIZE: Final = "default_message_size"
 CONF_DEFAULT_BACKGROUND_COLOR: Final = "default_background_color"
+CONF_DEFAULT_BORDER_COLOR: Final = "default_border_color"
+CONF_DEFAULT_BORDER_WIDTH: Final = "default_border_width"
+CONF_DEFAULT_CORNER_RADIUS: Final = "default_corner_radius"
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -53,6 +56,10 @@ ATTR_TTS_LANGUAGE: Final = "tts_language"
 ATTR_BUTTONS: Final = "buttons"
 ATTR_SHOW_PROGRESS: Final = "show_progress"
 ATTR_URGENCY: Final = "urgency"
+# app >= 0.7.0: explicit border styling, each overriding its part of `urgency`
+ATTR_BORDER_COLOR: Final = "border_color"
+ATTR_BORDER_WIDTH: Final = "border_width"
+ATTR_CORNER_RADIUS: Final = "corner_radius"
 
 URGENCIES: Final = ["info", "warning", "critical"]
 
@@ -63,6 +70,18 @@ EVENT_BUTTON: Final = "pipup_button"
 DATA_BUTTON_TOKENS: Final = "button_tokens"
 # how long a button-callback token stays valid after the popup is shown
 BUTTON_TOKEN_TTL: Final = timedelta(minutes=15)
+
+# screen on/off (app >= 0.7.0): /state publishes what the device can actually do
+POWER_STATE_ON: Final = "on"
+POWER_STATE_OFF: Final = "off"
+# how long the screen switch trusts its own optimistic state: the app's screenOn
+# comes from PowerManager.isInteractive and lags a poll behind a fresh wake
+POWER_OPTIMISTIC_TTL: Final = timedelta(seconds=20)
+# extra refresh after a power call, to pick up the real state once it settled
+POWER_SETTLE_DELAY: Final = 5
+
+# repair issue raised when the overlay app-op is missing (popups stay invisible)
+ISSUE_NO_OVERLAY: Final = "no_overlay_permission"
 
 CAMERA_MODE_STREAM: Final = "stream"
 CAMERA_MODE_MJPEG: Final = "mjpeg"
