@@ -33,6 +33,9 @@ async def async_setup_entry(
     # Needs the fork app >= 0.2.3.
     if "screenOn" in coordinator.data:
         entities.append(PiPupScreenSensor(coordinator, entry))
+    # Needs the fork app >= 0.7.0.
+    if isinstance(coordinator.data.get("permissions"), dict):
+        entities.append(PiPupPermissionSensor(coordinator, entry))
     async_add_entities(entities)
 
 
@@ -83,6 +86,53 @@ class PiPupScreenSensor(PiPupEntity, BinarySensorEntity):
             return None
         value = self.coordinator.data.get("screenOn")
         return bool(value) if value is not None else None
+
+
+class PiPupPermissionSensor(PiPupEntity, BinarySensorEntity):
+    """Problem sensor: on when the app misses a permission it needs (app >= 0.7.0).
+
+    Worth an entity because this failure is otherwise invisible: without the overlay
+    app-op the TV accepts every popup with HTTP 200 and simply shows nothing. The
+    app-ops also reset on each reinstall, so this can come back after an update.
+    """
+
+    _attr_translation_key = "permissions"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry, "permissions")
+
+    @property
+    def _permissions(self) -> dict[str, Any]:
+        value = self.coordinator.data.get("permissions")
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True when a required permission is missing."""
+        if not self.coordinator.online:
+            return None
+        complete = self._permissions.get("complete")
+        return not complete if complete is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose each grant separately.
+
+        ``auto_start`` is None on every device without TCL's vendor app-op; that is
+        "not applicable", not a missing grant, and it is deliberately not part of
+        the problem state.
+        """
+        permissions = self._permissions
+        return {
+            "overlay": permissions.get("overlay"),
+            "install_packages": permissions.get("installPackages"),
+            "auto_start": permissions.get("autoStart"),
+            "device_admin": permissions.get("deviceAdmin"),
+            "accessibility": permissions.get("accessibility"),
+        }
 
 
 class PiPupConnectivitySensor(PiPupEntity, BinarySensorEntity):

@@ -23,6 +23,9 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .const import (
     CONF_DEFAULT_BACKGROUND_COLOR,
+    CONF_DEFAULT_BORDER_COLOR,
+    CONF_DEFAULT_BORDER_WIDTH,
+    CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
     CONF_DEFAULT_MEDIA_HEIGHT,
     CONF_DEFAULT_MEDIA_WIDTH,
@@ -212,12 +215,22 @@ class PiPupOptionsFlow(OptionsFlow):
                 CONF_DEFAULT_TITLE_COLOR,
                 CONF_DEFAULT_MESSAGE_COLOR,
                 CONF_DEFAULT_BACKGROUND_COLOR,
+                CONF_DEFAULT_BORDER_COLOR,
             ):
                 value = (user_input.get(key) or "").strip()
                 if value:
                     options[key] = value
                 else:
                     options.pop(key, None)
+            # Border width and corner radius have no "0 means unset" escape - 0 is a
+            # real value there (no border / square corners). An empty field therefore
+            # removes the default instead of storing a zero.
+            for key in (CONF_DEFAULT_BORDER_WIDTH, CONF_DEFAULT_CORNER_RADIUS):
+                value = user_input.get(key)
+                if value is None:
+                    options.pop(key, None)
+                else:
+                    options[key] = value
             return self.async_create_entry(title="", data=options)
 
         opts = self.config_entry.options
@@ -285,6 +298,26 @@ class PiPupOptionsFlow(OptionsFlow):
                             )
                         },
                     ): str,
+                    vol.Optional(
+                        CONF_DEFAULT_BORDER_COLOR,
+                        description={
+                            "suggested_value": opts.get(CONF_DEFAULT_BORDER_COLOR, "")
+                        },
+                    ): str,
+                    # deliberately no default=: an empty field means "no default",
+                    # which is not the same as 0 (= no border / square corners)
+                    vol.Optional(
+                        CONF_DEFAULT_BORDER_WIDTH,
+                        description={
+                            "suggested_value": opts.get(CONF_DEFAULT_BORDER_WIDTH)
+                        },
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=64)),
+                    vol.Optional(
+                        CONF_DEFAULT_CORNER_RADIUS,
+                        description={
+                            "suggested_value": opts.get(CONF_DEFAULT_CORNER_RADIUS)
+                        },
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=128)),
                 }
             ),
         )

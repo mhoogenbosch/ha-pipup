@@ -51,6 +51,24 @@ show:
             - warning
             - critical
           translation_key: urgency
+    border_color:
+      example: "#00E5FF"
+      selector:
+        text:
+    border_width:
+      selector:
+        number:
+          min: 0
+          max: 64
+          unit_of_measurement: px
+          mode: box
+    corner_radius:
+      selector:
+        number:
+          min: 0
+          max: 128
+          unit_of_measurement: px
+          mode: box
     show_progress:
       selector:
         boolean:

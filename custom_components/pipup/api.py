@@ -107,6 +107,34 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
+    async def power(self, state: str) -> dict[str, Any]:
+        """Turn the device's screen on or off (app >= 0.7.0).
+
+        The app answers 501 when it has no granted way to turn the screen off
+        (no device admin, no accessibility service) and 400 when it predates
+        /power entirely - both surface as PiPupUnsupportedError, so the caller
+        can tell "this device cannot" apart from a network failure.
+        """
+        try:
+            async with self._session.post(
+                f"{self._base}/power",
+                params={"state": state},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status in (400, 501):
+                    body = await resp.text()
+                    raise PiPupUnsupportedError(
+                        f"device cannot switch its screen {state}: {body}"
+                    )
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise PiPupError(f"power failed ({resp.status}): {body}")
+                return await resp.json(content_type=None)
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
     async def cancel(self, popup_id: str | None = None) -> None:
         """Dismiss the current popup, optionally only when popup_id matches."""
         params = {"id": popup_id} if popup_id else None

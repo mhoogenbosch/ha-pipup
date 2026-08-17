@@ -12,6 +12,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -19,7 +20,12 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api import PiPupClient, PiPupError
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    ISSUE_NO_OVERLAY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +49,8 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             entry.data[CONF_PORT],
         )
         self.online = False
+        # tri-state: None = not yet known, so the first poll always evaluates
+        self._overlay_ok: bool | None = None
 
         scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
         update_interval = (
@@ -72,7 +80,42 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("PiPup at %s unreachable: %s", self.client.host, err)
             return self.data
         self.online = True
+        self._check_overlay_permission(data)
         return data
+
+    def _check_overlay_permission(self, data: dict[str, Any]) -> None:
+        """Raise/clear a repair issue for a missing overlay app-op (app >= 0.7.0).
+
+        Without SYSTEM_ALERT_WINDOW the TV answers every popup with HTTP 200 and
+        shows nothing, so nothing else in HA would ever reveal this. The app-op also
+        resets on every reinstall, hence a repair rather than a one-off log line.
+        Only touched on a change: the registry is not a polling target.
+        """
+        permissions = data.get("permissions")
+        if not isinstance(permissions, dict):
+            return  # older app: it cannot tell us
+        overlay = permissions.get("overlay")
+        if overlay is None or overlay == self._overlay_ok:
+            return
+
+        self._overlay_ok = bool(overlay)
+        issue_id = f"{ISSUE_NO_OVERLAY}_{self.config_entry.entry_id}"
+        if overlay:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_NO_OVERLAY,
+            translation_placeholders={
+                "name": self.config_entry.title,
+                "host": self.client.host,
+            },
+            learn_more_url="https://github.com/mhoogenbosch/PiPup#install",
+        )
 
     async def async_refresh_soon(self) -> None:
         """Refresh state right after a show/dismiss call."""
