@@ -403,3 +403,9 @@ keep these devices on a segment you control.
 
 Remove the device via Settings → Devices & Services; re-adding it restores everything
 (no state is stored on the TV).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) — every version also has a
+[GitHub release](https://github.com/mhoogenbosch/ha-pipup/releases) with the full story in English and
+Dutch. Features that need a matching app version are marked there.
