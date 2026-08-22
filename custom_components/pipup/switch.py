@@ -52,6 +52,7 @@ class PiPupScreenSwitch(PiPupEntity, SwitchEntity):
         super().__init__(coordinator, entry, "screen_power")
         self._optimistic: bool | None = None
         self._optimistic_until = dt_util.utcnow()
+        self._cancel_settle: callable | None = None
 
     @property
     def _power(self) -> dict[str, Any]:
@@ -113,9 +114,23 @@ class PiPupScreenSwitch(PiPupEntity, SwitchEntity):
 
         await self.coordinator.async_refresh_soon()
         # ...and once more after the device settled, so the optimistic value is
-        # replaced by a measured one instead of just timing out.
-        async_call_later(self.hass, POWER_SETTLE_DELAY, self._settle)
+        # replaced by a measured one instead of just timing out. Cancel any
+        # earlier pending settle first, and cancel on removal: a timer that
+        # outlives the entity would poke an unloaded coordinator.
+        if self._cancel_settle is not None:
+            self._cancel_settle()
+        self._cancel_settle = async_call_later(
+            self.hass, POWER_SETTLE_DELAY, self._settle
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Cancel the pending settle refresh."""
+        if self._cancel_settle is not None:
+            self._cancel_settle()
+            self._cancel_settle = None
+        await super().async_will_remove_from_hass()
 
     @callback
     def _settle(self, _now) -> None:
+        self._cancel_settle = None
         self.hass.async_create_task(self.coordinator.async_refresh_soon())

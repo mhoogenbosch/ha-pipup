@@ -7,6 +7,16 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.11.2] — 2026-08-22 (audit fixes)
+### Fixed
+- **An indefinite camera popup could go dark after 24 hours** when the *per-device default* duration
+  was 0 (indefinite) and the `pipup.show` call did not pass a duration itself: the MJPEG URL was signed
+  for 24 h because only an explicit `duration: 0` in the call got the long signature. Only an explicit,
+  finite duration now gets the short signature; everything else gets 30 days (a longer signature on a
+  short popup costs nothing).
+- The screen switch's settle-refresh timer is now cancelled when the entity is removed (and when a new
+  toggle supersedes it) — it could fire after an entry unload and poke an unloaded coordinator.
+
 ## [v1.11.1] — 2026-08-22 (say why an app update failed)
 ### Added
 - The **PiPup app** update entity now exposes `install_error` (the app's own reason from `/state`,

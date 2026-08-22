@@ -325,12 +325,17 @@ async def _camera_media(
 
         # An indefinite popup (duration <= 0) keeps the same signed URL open for
         # as long as it is shown, so a 24 h signature would make the stream go
-        # 401 after a day. Sign such popups for much longer.
+        # 401 after a day. The call's duration is not the whole story: a missing
+        # duration falls back to the PER-DEVICE default, which since 1.7.0 may
+        # itself be 0 (indefinite) - and this helper cannot know which TV it is
+        # signing for. So only an explicit, finite duration gets the short
+        # signature; everything else gets the long one (a longer signature on a
+        # short popup costs nothing).
         duration = data.get(ATTR_DURATION)
         expiry = (
-            timedelta(days=30)
-            if duration is not None and duration <= 0
-            else timedelta(hours=24)
+            timedelta(hours=24)
+            if duration is not None and duration > 0
+            else timedelta(days=30)
         )
         signed = async_sign_path(
             hass,
