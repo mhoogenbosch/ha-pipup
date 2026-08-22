@@ -7,6 +7,19 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.11.0] — 2026-08-19 (carry the app's permission diagnosis)
+Companion to [app v0.9.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.9.0).
+### Added
+- The **diagnostics download** now includes the app's own permission diagnosis *(app ≥ 0.9.0)*: per
+  permission which activity handles its settings screen, whether that is a vendor placeholder, whether a
+  background activity launch is allowed at all, and how the last fix attempt ended. That file is what to
+  attach to a "the fix button does nothing" report, instead of asking the reporter for adb and a logcat.
+### Changed
+- `pipup.fix_permission` failures now carry the app's own explanation. App ≥ 0.9.0 returns a `reason` —
+  most usefully that Android blocks starting an activity from the background unless the overlay
+  permission is granted, which is exactly the case people press this for — and the message passes that
+  through with the adb command appended, rather than a generic failure.
+
 ## [v1.10.1] — 2026-08-17 (schedule the reload in the update listener)
 ### Fixed
 - Home Assistant logged *"Detected that custom integration 'pipup' has an update listener and should use

@@ -25,4 +25,9 @@ async def async_get_config_entry_diagnostics(
         },
         "state": coordinator.data,
         "last_update_success": coordinator.last_update_success,
+        # Fetched live (app >= 0.9.0): per permission which activity resolves its
+        # settings screen, whether that is a vendor placeholder, whether a background
+        # activity launch is allowed at all, and how the last fix attempt ended. This is
+        # the file to attach to a "the fix button does nothing" report.
+        "permission_diagnose": await coordinator.client.diagnose(),
     }
