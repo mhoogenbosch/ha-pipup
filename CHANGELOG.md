@@ -7,6 +7,15 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.11.1] — 2026-08-22 (say why an app update failed)
+### Added
+- The **PiPup app** update entity now exposes `install_error` (the app's own reason from `/state`,
+  e.g. a failed download or a rejected install session), `install_permission` (false after any
+  `adb install -r`, which resets the app-op) and `requires_remote` (Android < 12 shows the system's
+  install confirmation **on the TV**, which someone has to accept with the remote — without knowing
+  that, a pending install looks like a hang). Field report: "the update failed" with nothing anywhere
+  in HA saying why, while the app had the reason all along.
+
 ## [v1.11.0] — 2026-08-19 (carry the app's permission diagnosis)
 Companion to [app v0.9.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.9.0).
 ### Added
