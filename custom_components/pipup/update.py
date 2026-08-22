@@ -125,6 +125,28 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         """True while the TV is downloading/installing the update."""
         return bool((self.coordinator.data.get("update") or {}).get("installing"))
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str | bool | None]:
+        """Expose why an install did not land.
+
+        Field report: "the update failed" with nothing anywhere in HA saying why,
+        while the app had the reason in /state all along. Two usual causes, both
+        now visible here: a missing install permission (an `adb install -r` resets
+        it), and Android < 12, where the system shows a confirmation dialog ON THE
+        TV that someone has to accept with the remote - `requires_remote` says so
+        up front instead of letting that look like a hang.
+        """
+        update = self.coordinator.data.get("update") or {}
+        device = self.coordinator.data.get("device") or {}
+        permissions = self.coordinator.data.get("permissions") or {}
+        android = str(device.get("android") or "")
+        major = int(android.split(".")[0]) if android.split(".")[0].isdigit() else None
+        return {
+            "install_error": update.get("error"),
+            "install_permission": permissions.get("installPackages"),
+            "requires_remote": major is not None and major < 12,
+        }
+
     async def async_install(self, version: str | None, backup: bool, **kwargs) -> None:
         """Trigger the app's self-update on the TV.
 
