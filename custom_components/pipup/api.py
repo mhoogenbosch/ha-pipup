@@ -152,8 +152,17 @@ class PiPupClient:
             ) as resp:
                 if resp.status in (400, 501):
                     body = await resp.json(content_type=None)
+                    # The app explains itself (app >= 0.9.0 sends `reason`, e.g. that
+                    # Android blocks a background activity start without the overlay
+                    # permission); pass that through rather than a generic failure, and
+                    # append the adb command so the message is actionable on its own.
+                    parts = [
+                        part
+                        for part in (body.get("reason"), body.get("adb"))
+                        if part
+                    ]
                     raise PiPupUnsupportedError(
-                        body.get("adb")
+                        " - ".join(parts)
                         or f"this device cannot open that screen ({resp.status})"
                     )
                 if resp.status != 200:
@@ -164,6 +173,25 @@ class PiPupClient:
             raise
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
+    async def diagnose(self) -> dict[str, Any] | None:
+        """Fetch /permissions/diagnose (app >= 0.9.0), or None on an older app.
+
+        Rides along in the integration's diagnostics download so a bug report carries
+        the per-permission facts - which activity resolves each settings screen, whether
+        it is a vendor placeholder, whether a background launch is even allowed - instead
+        of the reporter being asked for adb and a logcat.
+        """
+        try:
+            async with self._session.get(
+                f"{self._base}/permissions/diagnose",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                return await resp.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError):
+            return None
 
     async def cancel(self, popup_id: str | None = None) -> None:
         """Dismiss the current popup, optionally only when popup_id matches."""

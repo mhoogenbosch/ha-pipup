@@ -41,7 +41,10 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `fixable_on_tv` attribute lists which permissions that works for on this device
   - **Permission screen** button (app ≥ 0.8.0) — shows PiPup's own permission overview on the TV,
     with a *Fix* button next to everything that is missing
-  - **App uptime** diagnostic sensor and a diagnostics download
+  - **App uptime** diagnostic sensor and a diagnostics download — which, with app ≥ 0.9.0, includes
+    the app's own permission diagnosis (which activity handles each settings screen, whether it is a
+    vendor placeholder, whether a background launch is allowed, how the last attempt ended). That file
+    is what to attach to a "the fix button does nothing" report
 - Action **`pipup.show`** — title/message/media popup with all PiPup fields, plus:
   - `duration: 0` → popup stays until dismissed or replaced
   - `popup_id` → re-sending the same id+content only extends the timer (stream keeps playing, no flicker)
@@ -74,6 +77,13 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   telling them to go find an adb prompt. The TV is woken first. Where a device has no such screen —
   Fire OS answers those intents with placeholders that do nothing — the action fails with the adb
   command in its message instead of pretending it worked.
+
+  ⚠️ **The overlay permission itself cannot be fixed remotely.** Android blocks background activity
+  starts unless the app holds `SYSTEM_ALERT_WINDOW`, so the one permission you most want this for is
+  the one whose absence takes it away — and a blocked launch is dropped silently by the platform. App
+  ≥ 0.9.0 says so in the error instead of failing quietly. The way out: open PiPup on the TV (from the
+  launcher, or by tapping its ongoing notification) and use the button on its status screen, or grant
+  it over adb. Everything else opens fine with the app in the background.
 
 ## Installation
 
