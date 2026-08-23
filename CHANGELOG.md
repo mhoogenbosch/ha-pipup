@@ -7,6 +7,16 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.12.0] — 2026-08-23 (a spinner that survives the poll window)
+Companion to [app v0.11.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.11.0).
+### Fixed
+- **Pressing Install showed no progress at all.** The update entity's `in_progress` read the app's
+  `installing` flag from the 15-second poll — but on Android 12+ the whole install takes a few
+  seconds, so the flag was almost always gone again before the next poll and the version just jumped
+  later. After our own install request the entity now reports progress until the installed version
+  actually changes (or 15 minutes pass — the app's own abandoned-install deadline; on Android < 12
+  that window is where someone confirms on the TV).
+
 ## [v1.11.2] — 2026-08-22 (audit fixes)
 ### Fixed
 - **An indefinite camera popup could go dark after 24 hours** when the *per-device default* duration

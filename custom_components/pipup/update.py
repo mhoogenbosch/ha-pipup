@@ -37,6 +37,10 @@ SCAN_INTERVAL = timedelta(hours=1)
 # cache it process-wide so N TVs make one GitHub call per interval, not N.
 _CACHE_KEY = "latest_release_cache"
 _CACHE_TTL = timedelta(hours=6)
+# How long the entity keeps reporting progress after our own install request when the
+# device has not confirmed the new version yet. Matches the app's abandoned-install
+# deadline; on Android < 12 this window is where someone confirms on the TV.
+INSTALL_PROGRESS_DEADLINE = timedelta(minutes=15)
 
 
 async def _latest_release_tag(hass: HomeAssistant, force: bool = False) -> str | None:
@@ -88,6 +92,7 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         """Initialize the update entity."""
         super().__init__(coordinator, entry, "app_update")
         self._latest: str | None = None
+        self._install_requested_at = None
 
     @property
     def should_poll(self) -> bool:
@@ -122,8 +127,27 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
 
     @property
     def in_progress(self) -> bool:
-        """True while the TV is downloading/installing the update."""
-        return bool((self.coordinator.data.get("update") or {}).get("installing"))
+        """True while the TV is downloading/installing the update.
+
+        The app's own `installing` flag alone misses the window in practice: on
+        Android 12+ the whole install takes a few seconds and the coordinator polls
+        every 15, so pressing Install showed no progress at all and the version just
+        jumped later. After our own install request the entity therefore reports
+        progress until the installed version actually changes (or a deadline passes -
+        matching the app's 15-minute abandoned-install deadline).
+        """
+        if bool((self.coordinator.data.get("update") or {}).get("installing")):
+            return True
+        if self._install_requested_at is None:
+            return False
+        if dt_util.utcnow() - self._install_requested_at > INSTALL_PROGRESS_DEADLINE:
+            self._install_requested_at = None
+            return False
+        installed = self.installed_version
+        if installed and self._latest and installed == self._latest:
+            self._install_requested_at = None  # it landed
+            return False
+        return True
 
     @property
     def extra_state_attributes(self) -> dict[str, str | bool | None]:
@@ -157,6 +181,8 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
             await self.coordinator.client.update_app()
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
+        self._install_requested_at = dt_util.utcnow()
+        self.async_write_ha_state()
         await self.coordinator.async_refresh_soon()
 
     async def async_update(self) -> None:
