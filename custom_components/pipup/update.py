@@ -154,21 +154,31 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         """Expose why an install did not land.
 
         Field report: "the update failed" with nothing anywhere in HA saying why,
-        while the app had the reason in /state all along. Two usual causes, both
-        now visible here: a missing install permission (an `adb install -r` resets
-        it), and Android < 12, where the system shows a confirmation dialog ON THE
-        TV that someone has to accept with the remote - `requires_remote` says so
-        up front instead of letting that look like a hang.
+        while the app had the reason in /state all along. Three causes, all visible
+        here: a missing install permission (an `adb install -r` resets it); Android
+        < 12, where the system shows a confirmation dialog ON THE TV that someone has
+        to accept with the remote (`requires_remote`); and `pending_confirmation`,
+        which is true while an install is actually waiting for that press right now —
+        the app wakes the TV and shows a popup with an Install button (app >= 0.12.1).
         """
         update = self.coordinator.data.get("update") or {}
         device = self.coordinator.data.get("device") or {}
         permissions = self.coordinator.data.get("permissions") or {}
-        android = str(device.get("android") or "")
-        major = int(android.split(".")[0]) if android.split(".")[0].isdigit() else None
+        # `silent` is authoritative (app >= 0.12.1: false on Android < 12, where an
+        # install cannot complete without a remote press); fall back to the OS version
+        # for older apps that do not report it.
+        silent = update.get("silent")
+        if silent is not None:
+            requires_remote = not silent
+        else:
+            android = str(device.get("android") or "")
+            major = int(android.split(".")[0]) if android.split(".")[0].isdigit() else None
+            requires_remote = major is not None and major < 12
         return {
             "install_error": update.get("error"),
             "install_permission": permissions.get("installPackages"),
-            "requires_remote": major is not None and major < 12,
+            "requires_remote": requires_remote,
+            "pending_confirmation": bool(update.get("pendingUserAction")),
         }
 
     async def async_install(self, version: str | None, backup: bool, **kwargs) -> None:

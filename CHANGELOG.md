@@ -7,6 +7,16 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.13.1] — 2026-08-24 (honest about a confirmation waiting on the TV)
+Companion to [app v0.12.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.12.1).
+### Changed
+- `requires_remote` now uses the app's authoritative `silent` flag (app ≥ 0.12.1) rather than guessing
+  from the OS version, falling back to the version check for older apps.
+### Added
+- **`pending_confirmation`** attribute on the update entity — true while an install is actually waiting
+  for the on-screen confirmation. With app ≥ 0.12.1 the TV is woken and shows a popup with an Install
+  button at that moment, so a remote-initiated update no longer stalls invisibly on a sleeping TV.
+
 ## [v1.13.0] — 2026-08-23 (a button for the self-update permission)
 Companion to [app v0.11.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.11.1).
 ### Added
