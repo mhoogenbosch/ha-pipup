@@ -7,6 +7,15 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.13.0] — 2026-08-23 (a button for the self-update permission)
+Companion to [app v0.11.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.11.1).
+### Added
+- A **"Fix self-update permission"** button per TV (config category). Pressing it asks the app to open
+  the "install unknown apps" screen on the TV. Neither HA nor the app can *grant* the app-op (that is
+  shell/system only), so on a device that has blocked it (`errored`/`ignored`, e.g. a TCL that locks
+  sideload installs) the button surfaces the exact **adb command** in its error instead of pretending
+  it worked — matching the app's own status screen.
+
 ## [v1.12.0] — 2026-08-23 (a spinner that survives the poll window)
 Companion to [app v0.11.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.11.0).
 ### Fixed

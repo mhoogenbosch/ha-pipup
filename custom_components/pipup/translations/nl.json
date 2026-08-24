@@ -99,6 +99,9 @@
       },
       "permission_screen": {
         "name": "Permissiescherm"
+      },
+      "fix_install": {
+        "name": "Zelf-updaten repareren"
       }
     },
     "select": {

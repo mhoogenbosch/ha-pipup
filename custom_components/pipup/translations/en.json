@@ -99,6 +99,9 @@
       },
       "permission_screen": {
         "name": "Permission screen"
+      },
+      "fix_install": {
+        "name": "Fix self-update permission"
       }
     },
     "select": {

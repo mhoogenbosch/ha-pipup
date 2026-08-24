@@ -27,6 +27,7 @@ async def async_setup_entry(
     # Needs the fork app >= 0.8.0.
     if isinstance((coordinator.data.get("permissions") or {}).get("fixable"), dict):
         buttons.append(PiPupPermissionScreenButton(coordinator, entry))
+        buttons.append(PiPupFixInstallButton(coordinator, entry))
     async_add_entities(buttons)
 
 
@@ -69,6 +70,36 @@ class PiPupPermissionScreenButton(PiPupEntity, ButtonEntity):
         """Show the permission screen on the TV."""
         try:
             await self.coordinator.client.fix_permission()
+        except PiPupUnsupportedError as err:
+            raise HomeAssistantError(f"{self.entity_id}: {err}") from err
+        except PiPupError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_refresh_soon()
+
+
+class PiPupFixInstallButton(PiPupEntity, ButtonEntity):
+    """Fix the self-update (install-unknown-apps) permission on the TV (app >= 0.8.0).
+
+    A dedicated button because this is the permission people trip over most: `adb
+    install -r` resets it every time. Pressing it asks the app to open the system's
+    "install unknown apps" screen. Neither HA nor the app can *grant* the app-op
+    (shell/system only), so on a device that has put it into a blocked state - a TCL
+    Smart TV Pro reported it as `errored`, the screen opens but the toggle will not
+    stick - the app answers 501 and the error carries the exact adb command instead of
+    pretending the press did something.
+    """
+
+    _attr_translation_key = "fix_install"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, entry, "fix_install")
+
+    async def async_press(self) -> None:
+        """Open the install-permission screen on the TV, or surface the adb command."""
+        try:
+            await self.coordinator.client.fix_permission("install")
         except PiPupUnsupportedError as err:
             raise HomeAssistantError(f"{self.entity_id}: {err}") from err
         except PiPupError as err:
