@@ -7,6 +7,13 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.14.0] — 2026-08-25 (an icon beside the title and message)
+Companion to [app v0.13.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.13.0).
+### Added
+- **`icon`** on `pipup.show` (an image URL) shown beside the title/message, with **`icon_position`**
+  (`left` default / `right`) and **`icon_width`** (px). Position and width also have per-device defaults
+  in the options flow *(app ≥ 0.13.0)*.
+
 ## [v1.13.1] — 2026-08-24 (honest about a confirmation waiting on the TV)
 Companion to [app v0.12.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.12.1).
 ### Changed

@@ -74,6 +74,10 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `border_width: 2` is a thin red border, and `border_width: 0` drops the preset's frame.
     `corner_radius` also works without a border. Sizes are in pixels, and all three are available as
     **per-device defaults** too
+  - `icon` → an image URL shown beside the title/message (app ≥ 0.13.0), notification-style, with
+    `icon_position` (`left` default / `right`) and `icon_width` (pixels). Position and width also have
+    **per-device defaults**; the icon URL itself is per call. Loaded like any other image, so a local
+    `http://homeassistant.local:8123/local/icons/…` path works
 - Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
 - Action **`pipup.fix_permission`** (app ≥ 0.8.0) — put a permission screen on the TV: the app's own
   overview, the first missing permission, or a specific one. Neither HA nor the app can *grant* these

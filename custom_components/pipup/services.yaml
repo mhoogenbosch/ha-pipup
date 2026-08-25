@@ -69,6 +69,23 @@ show:
           max: 128
           unit_of_measurement: px
           mode: box
+    icon:
+      example: "http://homeassistant.local:8123/local/icons/deurbel.png"
+      selector:
+        text:
+    icon_position:
+      selector:
+        select:
+          options:
+            - left
+            - right
+    icon_width:
+      selector:
+        number:
+          min: 1
+          max: 1024
+          unit_of_measurement: px
+          mode: box
     show_progress:
       selector:
         boolean:

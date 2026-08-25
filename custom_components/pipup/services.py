@@ -31,6 +31,9 @@ from .const import (
     ATTR_CAMERA_MODE,
     ATTR_CORNER_RADIUS,
     ATTR_DURATION,
+    ATTR_ICON,
+    ATTR_ICON_POSITION,
+    ATTR_ICON_WIDTH,
     ATTR_IMAGE_URL,
     ATTR_MEDIA_HEIGHT,
     ATTR_MEDIA_WIDTH,
@@ -58,6 +61,8 @@ from .const import (
     CONF_DEFAULT_BORDER_WIDTH,
     CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
+    CONF_DEFAULT_ICON_POSITION,
+    CONF_DEFAULT_ICON_WIDTH,
     CONF_DEFAULT_MEDIA_HEIGHT,
     CONF_DEFAULT_MEDIA_WIDTH,
     CONF_DEFAULT_MESSAGE_COLOR,
@@ -67,8 +72,10 @@ from .const import (
     CONF_DEFAULT_TITLE_COLOR,
     CONF_DEFAULT_TITLE_SIZE,
     DATA_BUTTON_TOKENS,
+    DEFAULT_ICON_POSITION,
     DEFAULT_POSITION,
     DOMAIN,
+    ICON_POSITIONS,
     PERMISSIONS,
     EVENT_BUTTON,
     POSITIONS,
@@ -120,6 +127,11 @@ SHOW_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_CORNER_RADIUS): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=128)
+        ),
+        vol.Optional(ATTR_ICON): cv.string,
+        vol.Optional(ATTR_ICON_POSITION): vol.In(ICON_POSITIONS),
+        vol.Optional(ATTR_ICON_WIDTH): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=1024)
         ),
         vol.Optional(ATTR_SHOW_PROGRESS): cv.boolean,
         vol.Optional(ATTR_BUTTONS): vol.All(
@@ -258,6 +270,18 @@ def build_device_payload(
         payload["borderWidth"] = width_px
     if (radius := pick_numeric(ATTR_CORNER_RADIUS, CONF_DEFAULT_CORNER_RADIUS)) is not None:
         payload["cornerRadius"] = radius
+
+    # app >= 0.13.0: an icon beside the title/message. The URL is per-call (content);
+    # position and width fall back to the device defaults like the styling fields.
+    if icon := data.get(ATTR_ICON):
+        payload["icon"] = icon
+        payload["iconPosition"] = (
+            data.get(ATTR_ICON_POSITION)
+            or opts.get(CONF_DEFAULT_ICON_POSITION)
+            or DEFAULT_ICON_POSITION
+        )
+        if (icon_width := pick(ATTR_ICON_WIDTH, CONF_DEFAULT_ICON_WIDTH, None)) is not None:
+            payload["iconWidth"] = icon_width
 
     if color := pick(ATTR_TITLE_COLOR, CONF_DEFAULT_TITLE_COLOR, None):
         payload["titleColor"] = color

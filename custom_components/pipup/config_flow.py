@@ -27,6 +27,8 @@ from .const import (
     CONF_DEFAULT_BORDER_WIDTH,
     CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
+    CONF_DEFAULT_ICON_POSITION,
+    CONF_DEFAULT_ICON_WIDTH,
     CONF_DEFAULT_MEDIA_HEIGHT,
     CONF_DEFAULT_MEDIA_WIDTH,
     CONF_DEFAULT_MESSAGE_COLOR,
@@ -37,9 +39,11 @@ from .const import (
     CONF_DEFAULT_TITLE_SIZE,
     CONF_NAME_SUFFIX,
     CONF_SCAN_INTERVAL,
+    DEFAULT_ICON_POSITION,
     DEFAULT_PORT,
     DEFAULT_POSITION,
     DOMAIN,
+    ICON_POSITIONS,
     POSITIONS,
 )
 
@@ -246,6 +250,12 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_DEFAULT_MEDIA_HEIGHT] = user_input.get(
                 CONF_DEFAULT_MEDIA_HEIGHT, 360
             )
+            options[CONF_DEFAULT_ICON_POSITION] = user_input.get(
+                CONF_DEFAULT_ICON_POSITION, DEFAULT_ICON_POSITION
+            )
+            options[CONF_DEFAULT_ICON_WIDTH] = user_input.get(
+                CONF_DEFAULT_ICON_WIDTH, 0
+            )
             options[CONF_DEFAULT_TITLE_SIZE] = user_input.get(
                 CONF_DEFAULT_TITLE_SIZE, 0
             )
@@ -310,6 +320,16 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_DEFAULT_MEDIA_HEIGHT,
                         default=opts.get(CONF_DEFAULT_MEDIA_HEIGHT, 360),
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=2160)),
+                    vol.Optional(
+                        CONF_DEFAULT_ICON_POSITION,
+                        default=opts.get(
+                            CONF_DEFAULT_ICON_POSITION, DEFAULT_ICON_POSITION
+                        ),
+                    ): vol.In(ICON_POSITIONS),
+                    vol.Optional(
+                        CONF_DEFAULT_ICON_WIDTH,
+                        default=opts.get(CONF_DEFAULT_ICON_WIDTH, 0),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=1024)),
                     vol.Optional(
                         CONF_DEFAULT_TITLE_SIZE,
                         default=opts.get(CONF_DEFAULT_TITLE_SIZE, 0),

@@ -26,6 +26,8 @@ CONF_DEFAULT_BACKGROUND_COLOR: Final = "default_background_color"
 CONF_DEFAULT_BORDER_COLOR: Final = "default_border_color"
 CONF_DEFAULT_BORDER_WIDTH: Final = "default_border_width"
 CONF_DEFAULT_CORNER_RADIUS: Final = "default_corner_radius"
+CONF_DEFAULT_ICON_POSITION: Final = "default_icon_position"
+CONF_DEFAULT_ICON_WIDTH: Final = "default_icon_width"
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -61,8 +63,14 @@ ATTR_URGENCY: Final = "urgency"
 ATTR_BORDER_COLOR: Final = "border_color"
 ATTR_BORDER_WIDTH: Final = "border_width"
 ATTR_CORNER_RADIUS: Final = "corner_radius"
+# app >= 0.13.0: an icon beside the title/message block
+ATTR_ICON: Final = "icon"
+ATTR_ICON_POSITION: Final = "icon_position"
+ATTR_ICON_WIDTH: Final = "icon_width"
 
 URGENCIES: Final = ["info", "warning", "critical"]
+ICON_POSITIONS: Final = ["left", "right"]
+DEFAULT_ICON_POSITION: Final = "left"
 
 # webhook that receives popup-button presses from the app; fires EVENT_BUTTON
 WEBHOOK_ID: Final = "pipup_buttons"

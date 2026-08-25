@@ -54,7 +54,9 @@
           "default_background_color": "Default background color (#AARRGGBB, empty = app default)",
           "default_border_color": "Default border color (empty = none)",
           "default_border_width": "Default border width in px (empty = none)",
-          "default_corner_radius": "Default corner radius in px (empty = none)"
+          "default_corner_radius": "Default corner radius in px (empty = none)",
+          "default_icon_position": "Default icon position (left/right)",
+          "default_icon_width": "Default icon width in px (empty/0 = app default)"
         },
         "data_description": {
           "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
@@ -270,6 +272,18 @@
         "buttons": {
           "name": "Buttons",
           "description": "Up to 3 buttons operated with the TV remote (OK selects, BACK dismisses). A list of objects with an id and a label; a press fires the pipup_button event in Home Assistant and closes the popup. App 0.3.0 or newer."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Optional icon (image URL) shown beside the title/message."
+        },
+        "icon_position": {
+          "name": "Icon position",
+          "description": "Show the icon on the left (default) or right of the text."
+        },
+        "icon_width": {
+          "name": "Icon width",
+          "description": "Icon width in pixels (default 96)."
         }
       }
     },
