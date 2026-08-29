@@ -31,6 +31,7 @@ from .const import (
     ATTR_CAMERA_MODE,
     ATTR_CORNER_RADIUS,
     ATTR_DURATION,
+    ATTR_DISMISS_SCREENSAVER,
     ATTR_ICON,
     ATTR_ICON_POSITION,
     ATTR_ICON_WIDTH,
@@ -48,6 +49,8 @@ from .const import (
     ATTR_TITLE,
     ATTR_TITLE_COLOR,
     ATTR_TITLE_SIZE,
+    ATTR_SOUND,
+    ATTR_SOUND_VOLUME,
     ATTR_TTS,
     ATTR_TTS_LANGUAGE,
     ATTR_URGENCY,
@@ -63,7 +66,9 @@ from .const import (
     CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
     CONF_DEFAULT_ICON_POSITION,
+    CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_ICON_WIDTH,
+    CONF_DEFAULT_SOUND,
     CONF_DEFAULT_MEDIA_HEIGHT,
     CONF_DEFAULT_MEDIA_WIDTH,
     CONF_DEFAULT_MESSAGE_COLOR,
@@ -120,6 +125,9 @@ SHOW_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
+        vol.Optional(ATTR_SOUND): cv.string,
+        vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
+        vol.Optional(ATTR_DISMISS_SCREENSAVER): cv.boolean,
         vol.Optional(ATTR_TTS): cv.string,
         vol.Optional(ATTR_TTS_LANGUAGE): cv.string,
         vol.Optional(ATTR_URGENCY): vol.In(URGENCIES),
@@ -249,6 +257,24 @@ def build_device_payload(
         payload["title"] = title
     if message := data.get(ATTR_MESSAGE):
         payload["message"] = message
+    # app >= 0.18.0: notification sound. "default" = built-in chime, else a URL. Per-call
+    # value first, then the per-device default; an explicit empty string in the call means
+    # "no sound this time" even when a default is set.
+    sound = data.get(ATTR_SOUND)
+    if sound is None:
+        sound = opts.get(CONF_DEFAULT_SOUND) or None
+    if sound:
+        payload["sound"] = sound
+        if (volume := data.get(ATTR_SOUND_VOLUME)) is not None:
+            payload["soundVolume"] = volume
+    # app >= 0.18.0: the app ends an active screensaver by default; only send the field when
+    # someone asked to keep it (older apps ignore unknown fields either way).
+    dismiss = data.get(ATTR_DISMISS_SCREENSAVER)
+    if dismiss is None:
+        dismiss = opts.get(CONF_DEFAULT_DISMISS_SCREENSAVER, True)
+    if dismiss is False:
+        payload["dismissScreensaver"] = False
+
     if tts := data.get(ATTR_TTS):
         payload["tts"] = tts  # spoken on the device (app >= 0.2.5)
         if language := data.get(ATTR_TTS_LANGUAGE):

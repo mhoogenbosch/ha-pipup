@@ -28,6 +28,8 @@ CONF_DEFAULT_BORDER_WIDTH: Final = "default_border_width"
 CONF_DEFAULT_CORNER_RADIUS: Final = "default_corner_radius"
 CONF_DEFAULT_ICON_POSITION: Final = "default_icon_position"
 CONF_DEFAULT_ICON_WIDTH: Final = "default_icon_width"
+CONF_DEFAULT_SOUND: Final = "default_sound"
+CONF_DEFAULT_DISMISS_SCREENSAVER: Final = "default_dismiss_screensaver"
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -69,6 +71,10 @@ ATTR_POSTER_URL: Final = "poster_url"
 ATTR_ICON: Final = "icon"
 ATTR_ICON_POSITION: Final = "icon_position"
 ATTR_ICON_WIDTH: Final = "icon_width"
+# app >= 0.18.0: notification sound ("default" = built-in chime, or a URL) and screensaver handling
+ATTR_SOUND: Final = "sound"
+ATTR_SOUND_VOLUME: Final = "sound_volume"
+ATTR_DISMISS_SCREENSAVER: Final = "dismiss_screensaver"
 
 URGENCIES: Final = ["info", "warning", "critical"]
 ICON_POSITIONS: Final = ["left", "right"]

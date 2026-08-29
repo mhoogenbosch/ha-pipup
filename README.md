@@ -66,6 +66,15 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     PiPup → Configure); action fields act as one-off overrides
   - `tts` → text spoken aloud on the TV when the popup appears (app ≥ 0.2.5); optional
     `tts_language` takes a BCP-47 tag such as `nl-NL` (device default when omitted)
+  - `sound` → notification sound when the popup is newly shown (app ≥ 0.18.0): `"default"` plays the
+    app's built-in chime, any other value is a URL to an audio clip; `sound_volume` 0–1. Not replayed on an
+    update-in-place, so a re-notified motion popup stays quiet. Also available as a **per-device default**
+    (empty = none); an explicit empty `sound` in a call suppresses that default once. Like `tts` this opens
+    an audio path — some Fire TVs renegotiate HDMI audio briefly
+  - `dismiss_screensaver` → the app ends an active screensaver / ambient mode before showing the popup
+    (app ≥ 0.18.0, default on, also a per-device default), because on several Android builds the
+    screensaver layer covers app overlays and Android 12+ lets it hide them. Set `false` to keep the
+    screensaver running (the popup may then stay invisible on such TVs)
   - `buttons` → up to 3 remote-operable buttons on the popup (app ≥ 0.3.0): **OK** activates,
     **BACK** dismisses. A press fires the **`pipup_button` event** (with `popup_id`, `button`,
     `label`, `device_id`) via an automatically registered local-only webhook — no configuration

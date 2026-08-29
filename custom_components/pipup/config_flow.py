@@ -33,7 +33,9 @@ from .const import (
     CONF_DEFAULT_MEDIA_WIDTH,
     CONF_DEFAULT_MESSAGE_COLOR,
     CONF_DEFAULT_MESSAGE_SIZE,
+    CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_MUTED,
+    CONF_DEFAULT_SOUND,
     CONF_DEFAULT_POSITION,
     CONF_DEFAULT_TITLE_COLOR,
     CONF_DEFAULT_TITLE_SIZE,
@@ -244,6 +246,14 @@ class PiPupOptionsFlow(OptionsFlow):
                 CONF_DEFAULT_DURATION, 30
             )
             options[CONF_DEFAULT_MUTED] = user_input.get(CONF_DEFAULT_MUTED, True)
+            options[CONF_DEFAULT_DISMISS_SCREENSAVER] = user_input.get(
+                CONF_DEFAULT_DISMISS_SCREENSAVER, True
+            )
+            sound = (user_input.get(CONF_DEFAULT_SOUND) or "").strip()
+            if sound:
+                options[CONF_DEFAULT_SOUND] = sound
+            else:
+                options.pop(CONF_DEFAULT_SOUND, None)
             options[CONF_DEFAULT_MEDIA_WIDTH] = user_input.get(
                 CONF_DEFAULT_MEDIA_WIDTH, 640
             )
@@ -311,6 +321,14 @@ class PiPupOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_DEFAULT_MUTED,
                         default=opts.get(CONF_DEFAULT_MUTED, True),
+                    ): bool,
+                    vol.Optional(
+                        CONF_DEFAULT_SOUND,
+                        description={"suggested_value": opts.get(CONF_DEFAULT_SOUND, "")},
+                    ): str,
+                    vol.Optional(
+                        CONF_DEFAULT_DISMISS_SCREENSAVER,
+                        default=opts.get(CONF_DEFAULT_DISMISS_SCREENSAVER, True),
                     ): bool,
                     vol.Optional(
                         CONF_DEFAULT_MEDIA_WIDTH,

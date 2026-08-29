@@ -45,6 +45,8 @@
           "default_position": "Standaardpositie",
           "default_duration": "Standaardduur (s, 0 = tot sluiten)",
           "default_muted": "Audio standaard dempen",
+          "default_sound": "Standaard notificatiegeluid (\"default\" = ingebouwd belletje, of een URL; leeg = geen)",
+          "default_dismiss_screensaver": "Screensaver beëindigen vóór een popup (standaard)",
           "default_media_width": "Standaard mediabreedte (px)",
           "default_media_height": "Standaard mediahoogte (px)",
           "default_title_size": "Standaard titelgrootte (0 = app-standaard)",
@@ -288,6 +290,18 @@
         "poster_url": {
           "name": "Posterbeeld",
           "description": "Stilstaand beeld (URL) dat over een video-/webstream staat tot het eerste frame rendert — bv. een camera-snapshot — zodat de popup nooit leeg opent. Vereist app 0.17.0+; een camera_entity-popup krijgt automatisch z'n eigen snapshot."
+        },
+        "sound": {
+          "name": "Geluid",
+          "description": "\"default\" speelt het ingebouwde belletje, of geef een URL naar een audiofragment. Eén keer afgespeeld als de popup nieuw verschijnt, niet bij een update-in-place (app 0.18.0 of nieuwer)."
+        },
+        "sound_volume": {
+          "name": "Geluidsvolume",
+          "description": "Volume van het notificatiegeluid, 0–1."
+        },
+        "dismiss_screensaver": {
+          "name": "Screensaver beëindigen",
+          "description": "Beëindig een actieve screensaver / ambient mode voordat de popup verschijnt, zodat hij op elke Android-versie zichtbaar is. Uit laat de screensaver staan (app 0.18.0 of nieuwer)."
         }
       }
     },

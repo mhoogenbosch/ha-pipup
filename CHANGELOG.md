@@ -7,6 +7,17 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.16.0] — 2026-08-29 (notification sound; screensaver handling)
+Companion to [app v0.18.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.18.0).
+### Added
+- **`sound`** and **`sound_volume`** on `pipup.show`: `"default"` plays the app's built-in chime, any other
+  value is a URL to an audio clip; volume 0–1. Played once when the popup is newly shown, not on an
+  update-in-place. Per-TV **default sound** in the options flow (empty = none); an explicit empty `sound`
+  in a call suppresses the default for that call *(app ≥ 0.18.0)*.
+- **`dismiss_screensaver`** on `pipup.show` and a per-TV default (on): the app ends an active screensaver /
+  ambient mode before showing the popup, because on several Android builds the screensaver layer covers
+  app overlays and Android 12+ lets it hide them. Turn off to keep the screensaver *(app ≥ 0.18.0)*.
+
 ## [v1.15.2] — 2026-08-29 (the post-show refresh no longer races the app)
 ### Fixed
 - **v1.15.1's immediate refresh could still miss a brand-new popup.** The app answers `/notify` before

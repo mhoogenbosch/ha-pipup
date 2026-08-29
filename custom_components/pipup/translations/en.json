@@ -45,6 +45,8 @@
           "default_position": "Default position",
           "default_duration": "Default duration (s, 0 = until dismissed)",
           "default_muted": "Mute audio by default",
+          "default_sound": "Default notification sound (\"default\" = built-in chime, or a URL; empty = none)",
+          "default_dismiss_screensaver": "End the screensaver before showing a popup (default)",
           "default_media_width": "Default media width (px)",
           "default_media_height": "Default media height (px)",
           "default_title_size": "Default title size (0 = app default)",
@@ -288,6 +290,18 @@
         "poster_url": {
           "name": "Poster image",
           "description": "Still image (URL) shown over a video/web stream until its first frame renders — e.g. a camera snapshot — so the popup never opens empty. Requires app 0.17.0+; a camera_entity popup gets its own snapshot automatically."
+        },
+        "sound": {
+          "name": "Sound",
+          "description": "\"default\" plays the built-in chime, or give a URL to an audio clip. Played once when the popup is newly shown, not on an update-in-place (app 0.18.0 or newer)."
+        },
+        "sound_volume": {
+          "name": "Sound volume",
+          "description": "Volume of the notification sound, 0–1."
+        },
+        "dismiss_screensaver": {
+          "name": "End screensaver",
+          "description": "End an active screensaver / ambient mode before showing the popup, so it is visible on every Android version. Off keeps the screensaver (app 0.18.0 or newer)."
         }
       }
     },
