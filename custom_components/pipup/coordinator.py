@@ -5,6 +5,7 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
@@ -29,6 +30,12 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# The app answers /notify and /cancel before the popup view is actually created or
+# torn down: measured on a Nokia 8010, /state read ~20 ms after the reply still had no
+# popup, ~75 ms later it did. Refreshing inside that window shows the old state until
+# the next poll, so the post-call refresh waits this long first.
+POST_CALL_SETTLE_SECONDS = 0.5
 
 
 class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -135,6 +142,8 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         "immediate" refresh was postponed and the popup sensor showed the previous
         popup — or none — for up to a full poll interval. An automation reacting to a
         popup within seconds of showing it needs the real state now; one extra
-        /state round-trip per show/dismiss is cheap.
+        /state round-trip per show/dismiss is cheap. The short settle delay is for
+        the app, which replies before the popup exists (see POST_CALL_SETTLE_SECONDS).
         """
+        await asyncio.sleep(POST_CALL_SETTLE_SECONDS)
         await self.async_refresh()

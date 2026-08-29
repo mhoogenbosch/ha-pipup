@@ -7,6 +7,15 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.15.2] — 2026-08-29 (the post-show refresh no longer races the app)
+### Fixed
+- **v1.15.1's immediate refresh could still miss a brand-new popup.** The app answers `/notify` before
+  the popup view exists: measured on a Nokia 8010, `/state` read ~20 ms after the reply still showed no
+  popup, ~75 ms later it did (replacing an existing popup is in place and shows up at once). With the
+  debounce gone, the refresh fired inside that window and the sensor stayed `off` until the next poll —
+  the very thing 1.15.1 set out to fix. The post-call refresh now waits 0.5 s first; for `dismiss` the
+  same delay lets the app finish tearing the popup down. Well under the time any automation needs.
+
 ## [v1.15.1] — 2026-08-29 (popup sensor is current right after show/dismiss)
 ### Fixed
 - **The popup binary sensor lagged up to 15 s behind a `pipup.show`/`pipup.dismiss` call.** The refresh
