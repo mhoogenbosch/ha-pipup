@@ -128,5 +128,13 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def async_refresh_soon(self) -> None:
-        """Refresh state right after a show/dismiss call."""
-        await self.async_request_refresh()
+        """Refresh state right after a show/dismiss call.
+
+        Deliberately ``async_refresh`` and not ``async_request_refresh``: the latter is
+        debounced (10 s cooldown), so whenever the regular poll ran recently the
+        "immediate" refresh was postponed and the popup sensor showed the previous
+        popup — or none — for up to a full poll interval. An automation reacting to a
+        popup within seconds of showing it needs the real state now; one extra
+        /state round-trip per show/dismiss is cheap.
+        """
+        await self.async_refresh()

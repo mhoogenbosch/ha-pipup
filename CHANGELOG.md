@@ -7,6 +7,17 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.15.1] — 2026-08-29 (popup sensor is current right after show/dismiss)
+### Fixed
+- **The popup binary sensor lagged up to 15 s behind a `pipup.show`/`pipup.dismiss` call.** The refresh
+  scheduled right after the call went through `async_request_refresh()`, which is debounced (10 s
+  cooldown): whenever the regular 15-second poll had run recently, the "immediate" refresh was postponed
+  to the end of the cooldown. `homeassistant.update_entity` took the same debounced path. An automation
+  that reacts to a popup within seconds (e.g. adding a recognised face's name to a popup that just
+  opened) therefore saw `off` while the popup was already on screen. The post-call refresh now uses
+  `async_refresh()` — immediate, no debounce — so the sensor (id, duration, elapsed) is current within
+  the round-trip to the TV. The 15-second poll is unchanged.
+
 ## [v1.15.0] — 2026-08-29 (poster: never an empty popup while the stream connects)
 Companion to [app v0.17.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.17.0).
 ### Added
