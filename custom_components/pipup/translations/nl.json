@@ -284,6 +284,10 @@
         "icon_width": {
           "name": "Icoon-breedte",
           "description": "Icoon-breedte in pixels (standaard 96)."
+        },
+        "poster_url": {
+          "name": "Posterbeeld",
+          "description": "Stilstaand beeld (URL) dat over een video-/webstream staat tot het eerste frame rendert — bv. een camera-snapshot — zodat de popup nooit leeg opent. Vereist app 0.17.0+; een camera_entity-popup krijgt automatisch z'n eigen snapshot."
         }
       }
     },

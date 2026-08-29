@@ -77,6 +77,10 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `border_width: 2` is a thin red border, and `border_width: 0` drops the preset's frame.
     `corner_radius` also works without a border. Sizes are in pixels, and all three are available as
     **per-device defaults** too
+  - `poster_url` → a still image shown over a `video_url`/`web_url` stream the moment the popup opens,
+    faded out on the stream's first frame (app ≥ 0.17.0) — so a live popup never opens as an empty box
+    while RTSP connects or the WebView starts. **`camera_entity` popups get this automatically**
+    (`mjpeg` and `stream` modes): a signed snapshot of the same camera is sent as poster
   - `icon` → an image URL shown beside the title/message (app ≥ 0.13.0), notification-style, with
     `icon_position` (`left` default / `right`) and `icon_width` (pixels). Position and width also have
     **per-device defaults**; the icon URL itself is per call. Loaded like any other image, so a local

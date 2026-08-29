@@ -43,6 +43,7 @@ from .const import (
     ATTR_MUTED,
     ATTR_POPUP_ID,
     ATTR_POSITION,
+    ATTR_POSTER_URL,
     ATTR_SHOW_PROGRESS,
     ATTR_TITLE,
     ATTR_TITLE_COLOR,
@@ -111,6 +112,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_IMAGE_URL): cv.string,
         vol.Optional(ATTR_VIDEO_URL): cv.string,
         vol.Optional(ATTR_WEB_URL): cv.string,
+        vol.Optional(ATTR_POSTER_URL): cv.string,
         vol.Optional(ATTR_MEDIA_WIDTH): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=3840)
         ),
@@ -199,6 +201,7 @@ def build_device_payload(
     stream_uri: str | None,
     web_uri: str | None = None,
     callback_url: str | None = None,
+    poster_uri: str | None = None,
 ) -> dict[str, Any]:
     """Build the notify payload for one device.
 
@@ -313,18 +316,27 @@ def build_device_payload(
     elif url := data.get(ATTR_IMAGE_URL):
         payload["media"] = {"image": {"uri": url, "width": width}}
 
+    # app >= 0.17.0: poster — a still shown over the stream area until the first frame
+    # renders, so a live popup never opens as an empty box while the stream connects.
+    # An explicit poster_url wins; a camera_entity popup gets its own snapshot for free.
+    media = payload.get("media") or {}
+    kind = next((k for k in ("video", "web") if k in media), None)
+    if kind and (poster := data.get(ATTR_POSTER_URL) or poster_uri):
+        media[kind]["poster"] = poster
+
     return payload
 
 
 async def _camera_media(
     hass: HomeAssistant, data: dict[str, Any]
-) -> tuple[str | None, str | None, bytes | None]:
-    """Resolve a camera entity to (video_uri, web_uri, snapshot_bytes).
+) -> tuple[str | None, str | None, bytes | None, str | None]:
+    """Resolve a camera entity to (video_uri, web_uri, snapshot_bytes, poster_uri).
 
-    Default is MJPEG via HA's camera proxy (rendered in the popup's web
-    view): software-decoded and audio-free, so it cannot stall live-TV
-    playback on the device. 'stream' (HLS) uses a hardware decoder via
-    VideoView and is known to freeze concurrent video on some TVs.
+    Default is MJPEG via HA's camera proxy (rendered in the popup's web view,
+    audio-free). 'stream' (HLS) plays through ExoPlayer in a TextureView (app
+    >= 0.16.0), which renders over video the TV is already playing. For both
+    live modes a signed still of the same camera is returned as poster: the
+    app shows it instantly and fades it out on the stream's first frame.
     """
     # Imported here so the camera/stream components stay optional.
     from homeassistant.components.camera import (  # noqa: PLC0415
@@ -338,15 +350,20 @@ async def _camera_media(
 
     if mode == CAMERA_MODE_SNAPSHOT:
         image = await async_get_image(hass, entity_id)
-        return None, None, image.content
+        return None, None, image.content, None
+
+    from datetime import timedelta  # noqa: PLC0415
+
+    from homeassistant.components.http.auth import (  # noqa: PLC0415
+        async_sign_path,
+    )
+
+    # Poster: fetched once, right when the popup opens - a short signature is plenty.
+    poster = base_url + async_sign_path(
+        hass, f"/api/camera_proxy/{entity_id}", timedelta(hours=1)
+    )
 
     if mode == CAMERA_MODE_MJPEG:
-        from datetime import timedelta  # noqa: PLC0415
-
-        from homeassistant.components.http.auth import (  # noqa: PLC0415
-            async_sign_path,
-        )
-
         # An indefinite popup (duration <= 0) keeps the same signed URL open for
         # as long as it is shown, so a 24 h signature would make the stream go
         # 401 after a day. The call's duration is not the whole story: a missing
@@ -366,10 +383,10 @@ async def _camera_media(
             f"/api/camera_proxy_stream/{entity_id}",
             expiry,
         )
-        return None, f"{base_url}{signed}", None
+        return None, f"{base_url}{signed}", None, poster
 
     stream_path = await async_request_stream(hass, entity_id, "hls")
-    return f"{base_url}{stream_path}", None, None
+    return f"{base_url}{stream_path}", None, None, poster
 
 
 def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
@@ -448,9 +465,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
         stream_uri: str | None = None
         web_uri: str | None = None
+        poster_uri: str | None = None
         snapshot: bytes | None = None
         if data.get(ATTR_CAMERA_ENTITY):
-            stream_uri, web_uri, snapshot = await _camera_media(hass, data)
+            stream_uri, web_uri, snapshot, poster_uri = await _camera_media(hass, data)
 
         # Buttons can't ride along in the multipart/snapshot request, so warn
         # instead of silently dropping them (the app's multipart parser has no
@@ -477,7 +495,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             if want_buttons:
                 token = _issue_button_token(hass, data.get(ATTR_POPUP_ID))
                 callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}?token={token}"
-            payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url)
+            payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url, poster_uri)
             try:
                 if snapshot is not None:
                     fields = {

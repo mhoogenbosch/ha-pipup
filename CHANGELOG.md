@@ -7,6 +7,19 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.15.0] — 2026-08-29 (poster: never an empty popup while the stream connects)
+Companion to [app v0.17.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.17.0).
+### Added
+- **`poster_url`** on `pipup.show` — a still image shown over a `video_url`/`web_url` stream the moment
+  the popup opens, faded out on the stream's first frame. Fills the seconds an RTSP handshake or a
+  WebView start-up otherwise leaves empty *(app ≥ 0.17.0)*.
+- **Automatic poster for `camera_entity`** (`mjpeg` and `stream` modes): a signed snapshot of the same
+  camera (`/api/camera_proxy/…`) is sent as poster — no configuration needed. `snapshot` mode is
+  unchanged (it *is* a still).
+### Changed
+- `camera_mode: stream` docstring/README no longer warn about freezing concurrent playback (app ≥ 0.16.0
+  renders video in a TextureView).
+
 ## [v1.14.0] — 2026-08-25 (an icon beside the title and message)
 Companion to [app v0.13.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.13.0).
 ### Added

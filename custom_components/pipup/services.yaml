@@ -69,6 +69,10 @@ show:
           max: 128
           unit_of_measurement: px
           mode: box
+    poster_url:
+      example: "http://192.168.1.10:5000/api/doorbell/latest.jpg"
+      selector:
+        text:
     icon:
       example: "http://homeassistant.local:8123/local/icons/deurbel.png"
       selector:

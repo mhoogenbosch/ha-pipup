@@ -284,6 +284,10 @@
         "icon_width": {
           "name": "Icon width",
           "description": "Icon width in pixels (default 96)."
+        },
+        "poster_url": {
+          "name": "Poster image",
+          "description": "Still image (URL) shown over a video/web stream until its first frame renders — e.g. a camera snapshot — so the popup never opens empty. Requires app 0.17.0+; a camera_entity popup gets its own snapshot automatically."
         }
       }
     },
