@@ -78,6 +78,8 @@ ATTR_SOUND: Final = "sound"
 ATTR_SOUND_VOLUME: Final = "sound_volume"
 ATTR_DISMISS_SCREENSAVER: Final = "dismiss_screensaver"
 # app >= 0.19.0: compact buttons and entrance/exit animations
+# app >= 0.19.1: outer margin of the popup around its content
+ATTR_PADDING: Final = "padding"
 ATTR_BUTTON_SIZE: Final = "button_size"
 ATTR_ANIMATION: Final = "animation"
 

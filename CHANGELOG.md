@@ -7,6 +7,12 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.17.1] — 2026-08-31 (padding)
+Companion to [app v0.19.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.19.1).
+### Added
+- **`padding`** on `pipup.show` (px): the popup's outer margin around its content; 20 = classic, 0 =
+  near-borderless *(app ≥ 0.19.1)*.
+
 ## [v1.17.0] — 2026-08-31 (compact buttons; popup animations)
 Companion to [app v0.19.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.19.0).
 ### Added

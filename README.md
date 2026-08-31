@@ -66,6 +66,7 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     PiPup → Configure); action fields act as one-off overrides
   - `tts` → text spoken aloud on the TV when the popup appears (app ≥ 0.2.5); optional
     `tts_language` takes a BCP-47 tag such as `nl-NL` (device default when omitted)
+  - `padding` → outer margin of the popup around its content in px (app ≥ 0.19.1); 0 = near-borderless
   - `button_size` → button text size in sp, padding scales along (app ≥ 0.19.0); also a per-device
     default — three buttons no longer dictate a wide popup
   - `animation` → `fade` / `slide_left` / `slide_right` / `slide_top` / `slide_bottom` entrance animation,

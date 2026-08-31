@@ -322,6 +322,10 @@
         "animation": {
           "name": "Animatie",
           "description": "Verschijn-animatie, omgekeerd afgespeeld als de popup vanzelf afloopt. Een update-in-place van dezelfde popup animeert niet opnieuw (app 0.19.0 of nieuwer)."
+        },
+        "padding": {
+          "name": "Padding",
+          "description": "Buitenmarge van de popup rond de inhoud in px; 20 is de klassieke look, 0 vrijwel randloos (app 0.19.1 of nieuwer)."
         }
       }
     },

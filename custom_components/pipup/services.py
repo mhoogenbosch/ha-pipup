@@ -45,6 +45,7 @@ from .const import (
     ATTR_MESSAGE_COLOR,
     ATTR_MESSAGE_SIZE,
     ATTR_MUTED,
+    ATTR_PADDING,
     ATTR_POPUP_ID,
     ATTR_POSITION,
     ATTR_POSTER_URL,
@@ -131,6 +132,7 @@ SHOW_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
+        vol.Optional(ATTR_PADDING): vol.All(vol.Coerce(int), vol.Range(min=0, max=256)),
         vol.Optional(ATTR_ANIMATION): vol.In(ANIMATIONS),
         vol.Optional(ATTR_SOUND): cv.string,
         vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
@@ -268,6 +270,8 @@ def build_device_payload(
     # per-device default. "none" suppresses a default animation for one call.
     if (button_size := pick(ATTR_BUTTON_SIZE, CONF_DEFAULT_BUTTON_SIZE, None)):
         payload["buttonSize"] = button_size
+    if (padding := data.get(ATTR_PADDING)) is not None:
+        payload["padding"] = padding
     animation = data.get(ATTR_ANIMATION)
     if animation is None:
         animation = opts.get(CONF_DEFAULT_ANIMATION)

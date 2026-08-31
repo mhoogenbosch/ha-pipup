@@ -322,6 +322,10 @@
         "animation": {
           "name": "Animation",
           "description": "Entrance animation, reversed when the popup expires naturally. An update-in-place of the same popup does not re-animate (app 0.19.0 or newer)."
+        },
+        "padding": {
+          "name": "Padding",
+          "description": "Outer margin of the popup around its content in px; 20 is the classic look, 0 near-borderless (app 0.19.1 or newer)."
         }
       }
     },

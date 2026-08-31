@@ -36,6 +36,13 @@ show:
     muted:
       selector:
         boolean:
+    padding:
+      selector:
+        number:
+          min: 0
+          max: 256
+          unit_of_measurement: px
+          mode: box
     button_size:
       selector:
         number:
