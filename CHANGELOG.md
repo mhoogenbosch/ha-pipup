@@ -7,6 +7,14 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.18.0] — 2026-08-31 (announce version to the app)
+Companion to [app v0.21.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.21.0).
+### Added
+- Every request now carries an **`X-HA-PiPup-Version`** header (read from the manifest, so it can never
+  drift from the release). The app *(app ≥ 0.21.0)* shows it on its status screen and in `/state.haPipup`
+  next to the recommended (= latest released) integration version — so the TV itself tells you when the
+  HA side is behind.
+
 ## [v1.17.1] — 2026-08-31 (padding)
 Companion to [app v0.19.1](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.19.1).
 ### Added

@@ -5,9 +5,20 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import aiohttp
+
+# Announced on every request (X-HA-PiPup-Version). The app (>= 0.21.0) remembers the
+# last value it saw and shows it on its status screen and in /state next to the
+# recommended (= latest released) integration version. Read from the manifest so it
+# can never drift from the actual release.
+_VERSION: str = json.loads(
+    (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")
+)["version"]
+_HEADERS: dict[str, str] = {"X-HA-PiPup-Version": _VERSION}
 
 
 class PiPupError(Exception):
@@ -32,7 +43,8 @@ class PiPupClient:
         """Fetch /state from the device."""
         try:
             async with self._session.get(
-                f"{self._base}/state", timeout=aiohttp.ClientTimeout(total=10)
+                f"{self._base}/state", headers=_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status == 400:
                     # Upstream PiPup without the fork additions answers
@@ -53,6 +65,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/notify",
                 json=payload,
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
@@ -75,6 +88,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/notify",
                 data=form,
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status != 200:
@@ -93,7 +107,8 @@ class PiPupClient:
         """
         try:
             async with self._session.post(
-                f"{self._base}/update", timeout=aiohttp.ClientTimeout(total=15)
+                f"{self._base}/update", headers=_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=15)
             ) as resp:
                 if resp.status == 400:
                     raise PiPupUnsupportedError(
@@ -119,6 +134,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/power",
                 params={"state": state},
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status in (400, 501):
@@ -148,6 +164,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/permissions/fix",
                 params=params,
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status in (400, 501):
@@ -185,6 +202,7 @@ class PiPupClient:
         try:
             async with self._session.get(
                 f"{self._base}/permissions/diagnose",
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
@@ -200,6 +218,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/cancel",
                 params=params,
+                headers=_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
