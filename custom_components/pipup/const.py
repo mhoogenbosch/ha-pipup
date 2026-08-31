@@ -30,6 +30,8 @@ CONF_DEFAULT_ICON_POSITION: Final = "default_icon_position"
 CONF_DEFAULT_ICON_WIDTH: Final = "default_icon_width"
 CONF_DEFAULT_SOUND: Final = "default_sound"
 CONF_DEFAULT_DISMISS_SCREENSAVER: Final = "default_dismiss_screensaver"
+CONF_DEFAULT_BUTTON_SIZE: Final = "default_button_size"
+CONF_DEFAULT_ANIMATION: Final = "default_animation"
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -75,9 +77,13 @@ ATTR_ICON_WIDTH: Final = "icon_width"
 ATTR_SOUND: Final = "sound"
 ATTR_SOUND_VOLUME: Final = "sound_volume"
 ATTR_DISMISS_SCREENSAVER: Final = "dismiss_screensaver"
+# app >= 0.19.0: compact buttons and entrance/exit animations
+ATTR_BUTTON_SIZE: Final = "button_size"
+ATTR_ANIMATION: Final = "animation"
 
 URGENCIES: Final = ["info", "warning", "critical"]
 ICON_POSITIONS: Final = ["left", "right"]
+ANIMATIONS: Final = ["none", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom"]
 DEFAULT_ICON_POSITION: Final = "left"
 
 # webhook that receives popup-button presses from the app; fires EVENT_BUTTON

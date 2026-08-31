@@ -22,6 +22,7 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .const import (
+    ANIMATIONS,
     CONF_DEFAULT_BACKGROUND_COLOR,
     CONF_DEFAULT_BORDER_COLOR,
     CONF_DEFAULT_BORDER_WIDTH,
@@ -33,6 +34,8 @@ from .const import (
     CONF_DEFAULT_MEDIA_WIDTH,
     CONF_DEFAULT_MESSAGE_COLOR,
     CONF_DEFAULT_MESSAGE_SIZE,
+    CONF_DEFAULT_ANIMATION,
+    CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_MUTED,
     CONF_DEFAULT_SOUND,
@@ -249,6 +252,9 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_DEFAULT_DISMISS_SCREENSAVER] = user_input.get(
                 CONF_DEFAULT_DISMISS_SCREENSAVER, True
             )
+            # 0 = no default (classic look)
+            options[CONF_DEFAULT_BUTTON_SIZE] = user_input.get(CONF_DEFAULT_BUTTON_SIZE, 0)
+            options[CONF_DEFAULT_ANIMATION] = user_input.get(CONF_DEFAULT_ANIMATION, "none")
             sound = (user_input.get(CONF_DEFAULT_SOUND) or "").strip()
             if sound:
                 options[CONF_DEFAULT_SOUND] = sound
@@ -330,6 +336,14 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_DEFAULT_DISMISS_SCREENSAVER,
                         default=opts.get(CONF_DEFAULT_DISMISS_SCREENSAVER, True),
                     ): bool,
+                    vol.Optional(
+                        CONF_DEFAULT_BUTTON_SIZE,
+                        default=opts.get(CONF_DEFAULT_BUTTON_SIZE, 0),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0, max=96)),
+                    vol.Optional(
+                        CONF_DEFAULT_ANIMATION,
+                        default=opts.get(CONF_DEFAULT_ANIMATION, "none"),
+                    ): vol.In(ANIMATIONS),
                     vol.Optional(
                         CONF_DEFAULT_MEDIA_WIDTH,
                         default=opts.get(CONF_DEFAULT_MEDIA_WIDTH, 640),

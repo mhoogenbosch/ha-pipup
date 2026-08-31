@@ -66,6 +66,11 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     PiPup → Configure); action fields act as one-off overrides
   - `tts` → text spoken aloud on the TV when the popup appears (app ≥ 0.2.5); optional
     `tts_language` takes a BCP-47 tag such as `nl-NL` (device default when omitted)
+  - `button_size` → button text size in sp, padding scales along (app ≥ 0.19.0); also a per-device
+    default — three buttons no longer dictate a wide popup
+  - `animation` → `fade` / `slide_left` / `slide_right` / `slide_top` / `slide_bottom` entrance animation,
+    reversed on natural expiry (app ≥ 0.19.0); also a per-device default, and `none` in a call suppresses
+    that default once. An update-in-place of the same popup never re-animates
   - `sound` → notification sound when the popup is newly shown (app ≥ 0.18.0): `"default"` plays the
     app's built-in chime, any other value is a URL to an audio clip; `sound_volume` 0–1. Not replayed on an
     update-in-place, so a re-notified motion popup stays quiet. Also available as a **per-device default**

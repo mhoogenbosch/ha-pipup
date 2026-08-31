@@ -47,6 +47,8 @@
           "default_muted": "Mute audio by default",
           "default_sound": "Default notification sound (\"default\" = built-in chime, or a URL; empty = none)",
           "default_dismiss_screensaver": "End the screensaver before showing a popup (default)",
+          "default_button_size": "Default button text size (sp; 0 = classic look)",
+          "default_animation": "Default popup animation",
           "default_media_width": "Default media width (px)",
           "default_media_height": "Default media height (px)",
           "default_title_size": "Default title size (0 = app default)",
@@ -163,6 +165,16 @@
         "install": "Self-update permission",
         "admin": "Screen off (device admin)",
         "accessibility": "Screen off (accessibility)"
+      }
+    },
+    "animation": {
+      "options": {
+        "none": "None",
+        "fade": "Fade",
+        "slide_left": "Slide in from the left",
+        "slide_right": "Slide in from the right",
+        "slide_top": "Slide in from the top",
+        "slide_bottom": "Slide in from the bottom"
       }
     }
   },
@@ -302,6 +314,14 @@
         "dismiss_screensaver": {
           "name": "End screensaver",
           "description": "End an active screensaver / ambient mode before showing the popup, so it is visible on every Android version. Off keeps the screensaver (app 0.18.0 or newer)."
+        },
+        "button_size": {
+          "name": "Button size",
+          "description": "Button text size in sp; padding scales along, so popups with buttons can be small (app 0.19.0 or newer). Omit for the classic look."
+        },
+        "animation": {
+          "name": "Animation",
+          "description": "Entrance animation, reversed when the popup expires naturally. An update-in-place of the same popup does not re-animate (app 0.19.0 or newer)."
         }
       }
     },

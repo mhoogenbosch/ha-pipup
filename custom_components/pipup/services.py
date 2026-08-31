@@ -22,6 +22,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
+    ANIMATIONS,
     ATTR_BACKGROUND_COLOR,
     ATTR_PERMISSION,
     ATTR_BORDER_COLOR,
@@ -31,6 +32,8 @@ from .const import (
     ATTR_CAMERA_MODE,
     ATTR_CORNER_RADIUS,
     ATTR_DURATION,
+    ATTR_ANIMATION,
+    ATTR_BUTTON_SIZE,
     ATTR_DISMISS_SCREENSAVER,
     ATTR_ICON,
     ATTR_ICON_POSITION,
@@ -66,6 +69,8 @@ from .const import (
     CONF_DEFAULT_CORNER_RADIUS,
     CONF_DEFAULT_DURATION,
     CONF_DEFAULT_ICON_POSITION,
+    CONF_DEFAULT_ANIMATION,
+    CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_ICON_WIDTH,
     CONF_DEFAULT_SOUND,
@@ -125,6 +130,8 @@ SHOW_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
+        vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
+        vol.Optional(ATTR_ANIMATION): vol.In(ANIMATIONS),
         vol.Optional(ATTR_SOUND): cv.string,
         vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
         vol.Optional(ATTR_DISMISS_SCREENSAVER): cv.boolean,
@@ -257,6 +264,16 @@ def build_device_payload(
         payload["title"] = title
     if message := data.get(ATTR_MESSAGE):
         payload["message"] = message
+    # app >= 0.19.0: compact buttons and animations; per-call value first, then the
+    # per-device default. "none" suppresses a default animation for one call.
+    if (button_size := pick(ATTR_BUTTON_SIZE, CONF_DEFAULT_BUTTON_SIZE, None)):
+        payload["buttonSize"] = button_size
+    animation = data.get(ATTR_ANIMATION)
+    if animation is None:
+        animation = opts.get(CONF_DEFAULT_ANIMATION)
+    if animation and animation != "none":
+        payload["animation"] = animation
+
     # app >= 0.18.0: notification sound. "default" = built-in chime, else a URL. Per-call
     # value first, then the per-device default; an explicit empty string in the call means
     # "no sound this time" even when a default is set.

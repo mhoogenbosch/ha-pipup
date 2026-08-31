@@ -36,6 +36,24 @@ show:
     muted:
       selector:
         boolean:
+    button_size:
+      selector:
+        number:
+          min: 4
+          max: 96
+          unit_of_measurement: sp
+          mode: box
+    animation:
+      selector:
+        select:
+          options:
+            - none
+            - fade
+            - slide_left
+            - slide_right
+            - slide_top
+            - slide_bottom
+          translation_key: animation
     sound:
       example: "default"
       selector:

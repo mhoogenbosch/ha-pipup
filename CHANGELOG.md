@@ -7,6 +7,15 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.17.0] — 2026-08-31 (compact buttons; popup animations)
+Companion to [app v0.19.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.19.0).
+### Added
+- **`button_size`** on `pipup.show` (sp) + per-TV default: button text and padding scale together, so a
+  popup with buttons can be genuinely small *(app ≥ 0.19.0)*.
+- **`animation`** on `pipup.show` (`fade`, `slide_left`, `slide_right`, `slide_top`, `slide_bottom`) + per-TV
+  default; `none` in a call suppresses the default once. Plays when the popup is built and reversed on
+  natural expiry; an update-in-place never re-animates *(app ≥ 0.19.0)*.
+
 ## [v1.16.0] — 2026-08-29 (notification sound; screensaver handling)
 Companion to [app v0.18.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.18.0).
 ### Added
