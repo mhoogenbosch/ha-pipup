@@ -21,7 +21,9 @@ from .const import (  # noqa: F401
     CONF_NAME_SUFFIX,
     CONF_NAME_SUFFIX_APPLIED,
     CONF_SCAN_INTERVAL,
+    CONF_UPDATE_SOURCE,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_UPDATE_SOURCE,
     DOMAIN,
 )
 from .coordinator import PiPupCoordinator
@@ -60,6 +62,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
     _async_migrate_unique_id(hass, entry, coordinator.data.get("id"))
 
     entry.runtime_data = coordinator
+    # app >= 0.23.0 (davbebawy fork): push instead of the timed poll
+    await coordinator.async_setup_push()
+    entry.async_on_unload(coordinator.async_teardown_push)
+    await coordinator.async_apply_app_settings()
+    coordinator.applied_update_source = (
+        entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -198,6 +207,14 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
     _async_apply_name_suffix(hass, entry)
 
     coordinator = entry.runtime_data
+    source = entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+    if coordinator.applied_update_source not in (None, source):
+        # the update entity is built for one source (or dropped for "off")
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+        return
+    coordinator.applied_update_source = source
+    if coordinator.push_active:
+        return  # push: the poll interval does not apply
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
     desired = (
         timedelta(seconds=scan_interval) if scan_interval else DEFAULT_SCAN_INTERVAL

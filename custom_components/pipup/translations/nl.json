@@ -40,7 +40,8 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Polling-interval (seconden)",
+          "scan_interval": "Polling-interval (seconden; niet gebruikt als de app pusht)",
+          "update_source": "Bron voor app-updates: github:eigenaar/repo, een map-URL met releases.json (LAN-mirror), of off",
           "name_suffix": "Naam-achtervoegsel",
           "default_position": "Standaardpositie",
           "default_duration": "Standaardduur (s, 0 = tot sluiten)",
@@ -111,6 +112,9 @@
       },
       "fix_install": {
         "name": "Zelf-updaten repareren"
+      },
+      "sync": {
+        "name": "Synchroniseren"
       }
     },
     "select": {
@@ -333,6 +337,14 @@
         "padding": {
           "name": "Padding",
           "description": "Buitenmarge van de popup rond de inhoud in px; 20 is de klassieke look, 0 vrijwel randloos (app 0.19.1 of nieuwer)."
+        },
+        "opacity": {
+          "name": "Dekking",
+          "description": "Dekking van de hele popup, 0 tot 1; onder 1 schijnt de tv erdoorheen (app 0.22.0 of nieuwer, davbebawy-fork)."
+        },
+        "transparent": {
+          "name": "Transparante pagina",
+          "description": "Alleen web_url: de pagina krijgt geen eigen achtergrond, zodat een pagina met transparante body de tv erachter toont (app 0.22.0 of nieuwer, davbebawy-fork)."
         }
       }
     },
@@ -355,6 +367,10 @@
           "description": "Welk scherm er opengaat: het overzicht van de app zelf, de eerste die ontbreekt, of een specifieke."
         }
       }
+    },
+    "sync": {
+      "name": "Synchroniseren",
+      "description": "Leest nu de status van de gekozen PiPup-apparaten en stuurt de push-webhook opnieuw naar de app."
     }
   },
   "issues": {

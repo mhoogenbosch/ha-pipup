@@ -228,3 +228,28 @@ class PiPupClient:
             raise
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
+    async def settings(self, **values: str) -> dict[str, Any]:
+        """Read or change the app's persistent settings (davbebawy fork, app >= 0.23.0).
+
+        With no values this is a plain read. Keys: ``webhook`` (push target, empty =
+        off), ``updateSource`` and ``updateChecks``. An app without /settings answers
+        400, raised as PiPupUnsupportedError.
+        """
+        try:
+            async with self._session.post(
+                f"{self._base}/settings",
+                params=values or None,
+                headers=_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 400 and not values:
+                    raise PiPupUnsupportedError("app has no /settings (needs >= 0.22.0)")
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise PiPupError(f"settings failed ({resp.status}): {body}")
+                return await resp.json(content_type=None)
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err

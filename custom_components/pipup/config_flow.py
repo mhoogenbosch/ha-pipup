@@ -44,7 +44,9 @@ from .const import (
     CONF_DEFAULT_TITLE_SIZE,
     CONF_NAME_SUFFIX,
     CONF_SCAN_INTERVAL,
+    CONF_UPDATE_SOURCE,
     DEFAULT_ICON_POSITION,
+    DEFAULT_UPDATE_SOURCE,
     DEFAULT_PORT,
     DEFAULT_POSITION,
     DOMAIN,
@@ -239,6 +241,9 @@ class PiPupOptionsFlow(OptionsFlow):
             # (applied-suffix marker) must survive
             options = dict(self.config_entry.options)
             options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 15)
+            options[CONF_UPDATE_SOURCE] = (
+                user_input.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+            ).strip()
             options[CONF_NAME_SUFFIX] = (
                 user_input.get(CONF_NAME_SUFFIX) or ""
             ).strip()
@@ -310,6 +315,13 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_SCAN_INTERVAL,
                         default=opts.get(CONF_SCAN_INTERVAL, 15),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+                    vol.Optional(
+                        CONF_UPDATE_SOURCE,
+                        default=opts.get(CONF_UPDATE_SOURCE, DEFAULT_UPDATE_SOURCE),
+                    ): vol.All(
+                        str,
+                        vol.Match(r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"),
+                    ),
                     vol.Optional(
                         CONF_NAME_SUFFIX,
                         description={

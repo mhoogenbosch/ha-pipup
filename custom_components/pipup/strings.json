@@ -40,7 +40,8 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Polling interval (seconds)",
+          "scan_interval": "Polling interval (seconds; not used when the app pushes)",
+          "update_source": "App update source: github:owner/repo, a folder URL with releases.json (LAN mirror), or off",
           "name_suffix": "Name suffix",
           "default_position": "Default position",
           "default_duration": "Default duration (s, 0 = until dismissed)",
@@ -107,6 +108,9 @@
       },
       "fix_install": {
         "name": "Fix self-update permission"
+      },
+      "sync": {
+        "name": "Sync"
       }
     },
     "select": {
@@ -295,6 +299,14 @@
         "poster_url": {
           "name": "Poster image",
           "description": "Still image (URL) shown over a video/web stream until its first frame renders — e.g. a camera snapshot — so the popup never opens empty. Requires app 0.17.0+; a camera_entity popup gets its own snapshot automatically."
+        },
+        "opacity": {
+          "name": "Opacity",
+          "description": "Whole popup opacity, 0 to 1; the TV shows through below 1 (app 0.22.0 or newer, davbebawy fork)."
+        },
+        "transparent": {
+          "name": "Transparent page",
+          "description": "web_url only: the page gets no background of its own, so a page with a transparent body shows the TV behind it (app 0.22.0 or newer, davbebawy fork)."
         }
       }
     },
@@ -317,6 +329,10 @@
           "description": "Which screen to open: the app's own overview, the first missing permission, or a specific one."
         }
       }
+    },
+    "sync": {
+      "name": "Sync",
+      "description": "Reads the state of the targeted PiPup device(s) now and re-sends the push webhook to the app."
     }
   },
   "issues": {
