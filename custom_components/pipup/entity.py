@@ -6,9 +6,10 @@ https://github.com/tonylofgren/aurora-smart-home
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, SIGNAL_OVERLAY_UPDATED
 from .coordinator import PiPupCoordinator
 
 
@@ -32,3 +33,43 @@ class PiPupEntity(CoordinatorEntity[PiPupCoordinator]):
                 f"http://{coordinator.client.host}:{coordinator.client.port}/state"
             ),
         )
+
+
+class PiPupOverlayEntity(CoordinatorEntity[PiPupCoordinator]):
+    """Base for an overlay's entities: one device per overlay, via the TV."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, manager, sub_id: str, key: str) -> None:
+        """Initialize the entity."""
+        super().__init__(manager.coordinator)
+        self.manager = manager
+        self.sub_id = sub_id
+        entry = manager.entry
+        base = entry.unique_id or entry.entry_id
+        self._attr_unique_id = f"{base}_overlay_{sub_id}_{key}"
+        self._attr_translation_key = f"overlay_{key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{base}_overlay_{sub_id}")},
+            name=f"{manager.subentry(sub_id).title} overlay",
+            manufacturer="PiPup (fork)",
+            model="TV overlay",
+            via_device_id=manager.tv_device_id,
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Follow the overlay's own changes (settings, status)."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_OVERLAY_UPDATED.format(self.sub_id),
+                self.async_write_ha_state,
+            )
+        )
+
+    def _get(self, key: str):
+        return self.manager.get(self.sub_id, key)
+
+    async def _set(self, **values) -> None:
+        await self.manager.async_set(self.sub_id, **values)

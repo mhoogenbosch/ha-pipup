@@ -19,6 +19,7 @@ from .const import (
 )
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
+from .overlay_entities import async_add_switches as async_add_overlay_switches
 
 
 async def async_setup_entry(
@@ -32,6 +33,7 @@ async def async_setup_entry(
     # whose every call fails is worse than no switch.
     if isinstance(coordinator.data.get("power"), dict):
         async_add_entities([PiPupScreenSwitch(coordinator, entry)])
+    async_add_overlay_switches(coordinator.overlays, async_add_entities)
 
 
 class PiPupScreenSwitch(PiPupEntity, SwitchEntity):

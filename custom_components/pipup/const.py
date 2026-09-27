@@ -155,3 +155,47 @@ POSITIONS: Final = {
 # unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
 # send them there instead of failing silently on the TV.
 POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}
+# Overlays (davbebawy fork, 1.20.0): named web popups pinned over the TV picture, one
+# config subentry each, with their settings as entities. Pages are a per-TV list in
+# the options, one "Name | URL" line each.
+SUBENTRY_OVERLAY: Final = "overlay"
+CONF_OVERLAY_POPUP_ID: Final = "popup_id"
+CONF_OVERLAY_PAGES: Final = "overlay_pages"
+OVERLAY_CUSTOM_PAGE: Final = "Custom URL"
+OVERLAY_LAYOUT_CUSTOM: Final = "Custom"
+# name: (width, height, position)
+OVERLAY_LAYOUTS: Final = {
+    "Column right": (420, 900, "top_right"),
+    "Column left": (420, 900, "top_left"),
+    "Corner small": (480, 300, "top_right"),
+    "Corner large": (720, 480, "top_right"),
+    "Strip bottom": (1880, 240, "bottom_left"),
+}
+OVERLAY_SOUNDS: Final = ["none", "chime"]
+OVERLAY_DEFAULTS: Final = {
+    "page": None,  # first page in the list
+    "custom_url": "",
+    "layout": "Column right",
+    "position": "top_right",
+    "width": 420,
+    "height": 900,
+    "duration": 0,
+    "padding": 6,
+    "corner_radius": 0,
+    "border_width": 0,
+    "page_opacity": 100,
+    "background_opacity": 80,
+    "background_color": "#000000",
+    "border_color": "",
+    "title": "",
+    "animation": "none",
+    "sound": "none",
+    "muted": True,
+    "transparent": False,
+}
+# a settings change while the overlay is up redraws it after this many seconds, so a
+# dragged slider sends one popup, not one per step
+OVERLAY_REDRAW_DELAY: Final = 1.0
+# how long the Show switch trusts its own call before the TV's push confirms it
+OVERLAY_OPTIMISTIC_SECONDS: Final = 6
+SIGNAL_OVERLAY_UPDATED: Final = "pipup_overlay_updated_{}"

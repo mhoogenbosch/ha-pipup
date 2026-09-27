@@ -72,6 +72,12 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._asserting = False
         # update source the entities were built with; a change reloads the entry
         self.applied_update_source: str | None = None
+        # event/reason/removedId/replacedId of the last push, read by the overlays
+        # to say why their popup left the screen
+        self.last_event: dict[str, Any] = {}
+        # the entry's OverlayManager, set in async_setup_entry
+        self.overlays: Any = None
+        self.applied_pages: str | None = None
 
         scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
         update_interval = (
@@ -254,6 +260,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.online = True
         self._check_overlay_permission(data)
         self._sync_sw_version(data)
+        self.last_event = extra
         self.async_set_updated_data(data)
         from . import _async_get_own_device  # local: __init__ imports this module
 

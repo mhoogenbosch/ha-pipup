@@ -175,6 +175,23 @@ Because the app derives the screen state from `PowerManager.isInteractive`, whic
 a fresh wake, the switch trusts its own last command for up to 20 seconds and schedules an extra
 refresh — so it does not visibly bounce back after you flip it.
 
+## Overlays (davbebawy fork)
+
+An overlay is a web page pinned over the TV picture, switched from a dashboard. A TV can have
+several (a fantasy column, a score strip).
+
+1. **Configure** the TV entry and fill **Overlay pages**, one line each: `Name | URL`.
+2. **Add overlay** on the integration page and give it a name. Its popup id is the name as a slug,
+   fixed at creation.
+3. The overlay's device has a **Show** switch, its settings as entities, and a **Status** sensor.
+
+The Show switch follows the TV: if another popup replaces the overlay, or it times out, or someone
+closes it, the TV pushes that and the switch goes off. Status says which. Change a setting while
+the overlay is up and it is redrawn after 1 s.
+
+A see-through page needs `html, body { background: transparent }` and the **Transparent** switch
+on; **Page opacity** fades the whole popup instead.
+
 ## Examples
 
 Real-world recipes from the household this integration was built for. All popup styling
