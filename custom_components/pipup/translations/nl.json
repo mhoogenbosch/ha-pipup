@@ -67,6 +67,9 @@
           "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten."
         }
       }
+    },
+    "error": {
+      "invalid_update_source": "Gebruik github:eigenaar/repo, een http(s)-map-URL met releases.json, of off."
     }
   },
   "entity": {

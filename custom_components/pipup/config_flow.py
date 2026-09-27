@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import re
+
 import voluptuous as vol
 
 from homeassistant.config_entries import (
@@ -229,6 +231,11 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
         return PiPupOptionsFlow()
 
 
+_UPDATE_SOURCE_RE = re.compile(
+    r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"
+)
+
+
 class PiPupOptionsFlow(OptionsFlow):
     """Options flow: polling, entity names and per-device popup defaults."""
 
@@ -236,6 +243,13 @@ class PiPupOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
+        errors: dict[str, str] = {}
+        if user_input is not None and not _UPDATE_SOURCE_RE.match(
+            (user_input.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE).strip()
+        ):
+            # checked here, not in the schema: a vol.Match cannot be serialized for the UI
+            errors[CONF_UPDATE_SOURCE] = "invalid_update_source"
+            user_input = None
         if user_input is not None:
             # merge into the existing options: keys not in this form
             # (applied-suffix marker) must survive
@@ -318,10 +332,7 @@ class PiPupOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_UPDATE_SOURCE,
                         default=opts.get(CONF_UPDATE_SOURCE, DEFAULT_UPDATE_SOURCE),
-                    ): vol.All(
-                        str,
-                        vol.Match(r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"),
-                    ),
+                    ): str,
                     vol.Optional(
                         CONF_NAME_SUFFIX,
                         description={
@@ -426,4 +437,5 @@ class PiPupOptionsFlow(OptionsFlow):
                     ): vol.All(vol.Coerce(float), vol.Range(min=0, max=128)),
                 }
             ),
+            errors=errors,
         )

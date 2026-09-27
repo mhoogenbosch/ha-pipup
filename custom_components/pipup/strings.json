@@ -63,6 +63,9 @@
           "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers."
         }
       }
+    },
+    "error": {
+      "invalid_update_source": "Use github:owner/repo, an http(s) folder URL with releases.json, or off."
     }
   },
   "entity": {
