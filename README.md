@@ -103,7 +103,13 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `icon_position` (`left` default / `right`) and `icon_width` (pixels). Position and width also have
     **per-device defaults**; the icon URL itself is per call. Loaded like any other image, so a local
     `http://homeassistant.local:8123/local/icons/…` path works
-- Action **`pipup.dismiss`** — remove the popup, optionally only when it has a given `popup_id`.
+- Action **`pipup.dismiss`**: remove the popup with a given `popup_id`, else the popup shown
+  without an id; `all: true` removes every popup. The **Dismiss popup** button removes every popup.
+- **Several popups at once** (app >= 0.24.0, davbebawy fork): each `popup_id` is its own popup on
+  the TV, so a doorbell popup opens beside an overlay instead of replacing it. Popups without an id
+  share one slot. `bring_to_front` in `pipup.show` redraws a popup that is already up on top of the
+  others. The **Current popup** sensor shows the one on top, with every id in its `popups`
+  attribute; **Popups on screen** counts them.
 - Action **`pipup.fix_permission`** (app ≥ 0.8.0) — put a permission screen on the TV: the app's own
   overview, the first missing permission, or a specific one. Neither HA nor the app can *grant* these
   (they are app-ops, i.e. shell/system territory), but walking someone to the exact screen beats
@@ -185,9 +191,11 @@ several (a fantasy column, a score strip).
    fixed at creation.
 3. The overlay's device has a **Show** switch, its settings as entities, and a **Status** sensor.
 
-The Show switch follows the TV: if another popup replaces the overlay, or it times out, or someone
-closes it, the TV pushes that and the switch goes off. Status says which. Change a setting while
-the overlay is up and it is redrawn after 1 s.
+The Show switch follows the TV: if the overlay times out or someone closes it, the TV pushes that
+and the switch goes off. Status says which. With app 0.24.0 or newer other popups open beside the
+overlay and leave it on; with an older app another popup replaces it. Change a setting while the
+overlay is up and it is redrawn after 1 s, in its place in the stack, or on top of the other
+popups with **Redraw on top** on.
 
 A see-through page needs `html, body { background: transparent }` and the **Transparent** switch
 on; **Page opacity** fades the whole popup instead.

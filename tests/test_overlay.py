@@ -188,3 +188,57 @@ async def test_add_overlay_and_pages(hass: HomeAssistant) -> None:
         assert hass.states.get("switch.fantasy_overlay_2") is None
     finally:
         client.stop()
+
+
+async def test_several_popups(hass: HomeAssistant) -> None:
+    """App 0.24.0: other popups beside the overlay leave it on; sensors list them."""
+    entry, client = await _setup(hass)
+    try:
+        from custom_components.pipup.api import PiPupClient
+
+        coordinator = entry.runtime_data
+        sw = "switch.fantasy_overlay"
+        on_top = {"id": "fantasy"}
+        push(coordinator, version="0.24.0", visible=True, popup=on_top, popups=[on_top])
+        await hass.async_block_till_done()
+        assert hass.states.get(sw).state == "on"
+
+        # a second popup opens on top: the overlay stays on and keeps its status
+        status = hass.states.get("sensor.fantasy_overlay_status").state
+        coordinator.last_event = {"event": "popup_shown", "shownId": "doorbell"}
+        push(coordinator, version="0.24.0", visible=True, popup={"id": "doorbell"},
+             popups=[on_top, {"id": "doorbell"}])
+        await hass.async_block_till_done()
+        assert hass.states.get(sw).state == "on"
+        assert hass.states.get("sensor.fantasy_overlay_status").state == status
+
+        # the sensor entities appear on the next setup (they depend on the app's fields)
+        TV.update(version="0.24.0", visible=True, popup={"id": "doorbell"},
+                  popups=[on_top, {"id": "doorbell"}, {"id": None}])
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        count = [s for s in hass.states.async_all("sensor") if s.entity_id.endswith("popups_on_screen")]
+        assert count and count[0].state == "3"
+        current = [s for s in hass.states.async_all("sensor") if s.entity_id.endswith("current_popup")][0]
+        assert current.state == "doorbell"
+        assert current.attributes["popups"] == ["fantasy", "doorbell", None]
+
+        # Redraw on top: no redraw of its own, then sent with the next redraw
+        calls = PiPupClient.notify.await_count
+        await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.fantasy_overlay_redraw_on_top"}, blocking=True)
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+        await hass.async_block_till_done()
+        assert PiPupClient.notify.await_count == calls
+        await hass.services.async_call("number", "set_value", {"entity_id": "number.fantasy_overlay_width", "value": 500}, blocking=True)
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=4))
+        await hass.async_block_till_done()
+        assert PiPupClient.notify.await_args.args[0]["bringToFront"] is True
+
+        # dismiss: the id-less popup by default, everything with all
+        target = {"entity_id": [s.entity_id for s in hass.states.async_all("binary_sensor") if s.entity_id.endswith("_popup")][0]}
+        await hass.services.async_call(DOMAIN, "dismiss", target, blocking=True)
+        PiPupClient.cancel.assert_awaited_with(None, all_popups=False)
+        await hass.services.async_call(DOMAIN, "dismiss", {**target, "all": True}, blocking=True)
+        PiPupClient.cancel.assert_awaited_with(None, all_popups=True)
+    finally:
+        client.stop()

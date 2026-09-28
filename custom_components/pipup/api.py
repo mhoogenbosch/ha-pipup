@@ -211,9 +211,16 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError):
             return None
 
-    async def cancel(self, popup_id: str | None = None) -> None:
-        """Dismiss the current popup, optionally only when popup_id matches."""
-        params = {"id": popup_id} if popup_id else None
+    async def cancel(self, popup_id: str | None = None, all_popups: bool = False) -> None:
+        """Remove a popup: the one with popup_id, else the one without an id.
+
+        App >= 0.24.0 (davbebawy fork) keeps several popups up; all_popups removes
+        every one. An older app shows one popup and ignores `all`.
+        """
+        if all_popups:
+            params = {"all": "true"}
+        else:
+            params = {"id": popup_id} if popup_id else None
         try:
             async with self._session.post(
                 f"{self._base}/cancel",

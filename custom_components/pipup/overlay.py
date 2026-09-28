@@ -3,7 +3,8 @@
 Each overlay is a config subentry of the TV entry. Its settings are entities (page,
 size, look) kept in one Store per entry; the Show switch reads the pushed /state, so
 it is on exactly while the overlay's popup is on the TV. Nothing polls: a replaced,
-expired or closed popup arrives as a push and turns the switch off.
+expired or closed popup arrives as a push and turns the switch off. With app >= 0.24.0
+several popups are up at once, so another popup no longer replaces an overlay (1.21.0).
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ from .const import (
     SIGNAL_OVERLAY_UPDATED,
     SUBENTRY_OVERLAY,
 )
-from .coordinator import PiPupCoordinator
+from .coordinator import PiPupCoordinator, popup_ids
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -188,9 +189,7 @@ class OverlayManager:
         return self._up.get(sub_id, False)
 
     def _is_up_now(self, sub_id: str) -> bool:
-        data = self.coordinator.data or {}
-        popup = data.get("popup") or {}
-        return bool(data.get("visible")) and popup.get("id") == self.popup_id(sub_id)
+        return self.popup_id(sub_id) in popup_ids(self.coordinator.data)
 
     # ---- writing settings -----------------------------------------------------
 
@@ -212,7 +211,8 @@ class OverlayManager:
         settings.update(changed)
         self._schedule_save()
         self._notify(sub_id)
-        if self.is_on(sub_id):
+        # "Redraw on top" says how the next redraw goes; it changes nothing on screen
+        if self.is_on(sub_id) and changed.keys() - {"bring_to_front"}:
             self._schedule_redraw(sub_id)
 
     def _schedule_save(self) -> None:
@@ -264,6 +264,8 @@ class OverlayManager:
         }
         if s["transparent"]:
             payload["media"]["web"]["transparent"] = True
+        if s["bring_to_front"]:
+            payload["bringToFront"] = True
         if s["title"]:
             payload["title"] = s["title"]
         if s["border_color"]:
@@ -316,6 +318,8 @@ class OverlayManager:
     def _on_state(self) -> None:
         """Compare every overlay with the state the TV just pushed (or was read)."""
         data = self.coordinator.data or {}
+        # an app before 0.24.0 shows one popup: another one on screen replaced ours
+        one_at_a_time = "popups" not in data
         popup_id = (data.get("popup") or {}).get("id") if data.get("visible") else None
         event = self.coordinator.last_event or {}
         for sub_id in list(self.subentry_ids):
@@ -334,7 +338,7 @@ class OverlayManager:
             if sub_id in self._hiding:
                 self._hiding.discard(sub_id)
                 text = f"Hidden at {_now_text()}"
-            elif popup_id:
+            elif one_at_a_time and popup_id:
                 text = f"Replaced by popup {popup_id} at {_now_text()}"
             elif event.get("removedId") == ours and event.get("reason"):
                 reason = _REASONS.get(event["reason"], event["reason"])

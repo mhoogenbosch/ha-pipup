@@ -15,7 +15,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator import PiPupCoordinator
+from .coordinator import PiPupCoordinator, popup_ids
 from .entity import PiPupEntity
 
 
@@ -57,7 +57,7 @@ class PiPupPopupSensor(PiPupEntity, BinarySensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Expose popup details (id, duration, elapsed seconds)."""
+        """Expose popup details of the top popup, plus every popup id on screen."""
         popup = self.coordinator.data.get("popup")
         if not popup:
             return None
@@ -66,6 +66,7 @@ class PiPupPopupSensor(PiPupEntity, BinarySensorEntity):
             "duration": popup.get("duration"),
             "indefinite": popup.get("indefinite"),
             "elapsed": popup.get("elapsed"),
+            "popups": popup_ids(self.coordinator.data),
         }
 
 

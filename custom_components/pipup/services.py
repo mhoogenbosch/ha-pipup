@@ -49,6 +49,8 @@ from .const import (
     ATTR_OPACITY,
     ATTR_PADDING,
     ATTR_TRANSPARENT,
+    ATTR_BRING_TO_FRONT,
+    ATTR_ALL,
     ATTR_POPUP_ID,
     ATTR_POSITION,
     ATTR_POSTER_URL,
@@ -140,6 +142,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_PADDING): vol.All(vol.Coerce(int), vol.Range(min=0, max=256)),
         vol.Optional(ATTR_OPACITY): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
         vol.Optional(ATTR_TRANSPARENT): cv.boolean,
+        vol.Optional(ATTR_BRING_TO_FRONT): cv.boolean,
         vol.Optional(ATTR_ANIMATION): vol.In(ANIMATIONS),
         vol.Optional(ATTR_SOUND): cv.string,
         vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
@@ -194,6 +197,7 @@ DISMISS_SCHEMA = vol.Schema(
         vol.Optional(ATTR_POPUP_ID): vol.All(
             cv.string, vol.Match(r"^[a-zA-Z0-9_-]{1,64}$")
         ),
+        vol.Optional(ATTR_ALL, default=False): cv.boolean,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -297,6 +301,9 @@ def build_device_payload(
     # app >= 0.22.0 (davbebawy fork): whole-popup alpha; an older app ignores it
     if (opacity := data.get(ATTR_OPACITY)) is not None:
         payload["opacity"] = opacity
+    # app >= 0.24.0 (davbebawy fork): a redraw opens on top of the other popups
+    if data.get(ATTR_BRING_TO_FRONT):
+        payload["bringToFront"] = True
     animation = data.get(ATTR_ANIMATION)
     if animation is None:
         animation = opts.get(CONF_DEFAULT_ANIMATION)
@@ -606,11 +613,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_dismiss(call: ServiceCall) -> None:
         coordinators = await _coordinators_for_call(hass, call)
         popup_id = call.data.get(ATTR_POPUP_ID)
+        all_popups = call.data.get(ATTR_ALL, False)
 
         errors: list[str] = []
         for coordinator in coordinators:
             try:
-                await coordinator.client.cancel(popup_id)
+                await coordinator.client.cancel(popup_id, all_popups=all_popups)
                 await coordinator.async_refresh_soon()
             except PiPupError as err:
                 errors.append(str(err))

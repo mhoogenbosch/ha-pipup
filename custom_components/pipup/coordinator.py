@@ -48,6 +48,25 @@ _LOGGER = logging.getLogger(__name__)
 POST_CALL_SETTLE_SECONDS = 0.5
 
 
+def popups_on_screen(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Every popup on the TV, in stack order (last = on top).
+
+    App >= 0.24.0 (davbebawy fork) reports the list itself; an older app shows one
+    popup at a time, reported as `popup` while `visible`.
+    """
+    data = data or {}
+    if isinstance(data.get("popups"), list):
+        return [p for p in data["popups"] if isinstance(p, dict)]
+    if data.get("visible") and isinstance(data.get("popup"), dict):
+        return [data["popup"]]
+    return []
+
+
+def popup_ids(data: dict[str, Any] | None) -> list[str | None]:
+    """Ids of the popups on the TV, in stack order; None for a popup without an id."""
+    return [p.get("id") for p in popups_on_screen(data)]
+
+
 class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Polls /state of a single PiPup device.
 
@@ -256,7 +275,10 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if not isinstance(data, dict) or data.get("app") != "PiPup":
             return
-        extra = {k: data.pop(k, None) for k in ("event", "reason", "removedId", "replacedId")}
+        extra = {
+            k: data.pop(k, None)
+            for k in ("event", "reason", "shownId", "removedId", "replacedId")
+        }
         self.online = True
         self._check_overlay_permission(data)
         self._sync_sw_version(data)
@@ -274,6 +296,8 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "event": extra["event"],
                 "reason": extra["reason"],
                 "popup_id": (data.get("popup") or {}).get("id"),
+                "shown_id": extra["shownId"],
+                "popup_ids": popup_ids(data),
                 "removed_id": extra["removedId"],
                 "replaced_id": extra["replacedId"],
                 "device_id": device.id if device else None,

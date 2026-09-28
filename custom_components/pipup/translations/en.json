@@ -109,6 +109,9 @@
       },
       "overlay_status": {
         "name": "Status"
+      },
+      "popups_on_screen": {
+        "name": "Popups on screen"
       }
     },
     "button": {
@@ -190,6 +193,9 @@
       },
       "overlay_transparent": {
         "name": "Transparent"
+      },
+      "overlay_bring_to_front": {
+        "name": "Redraw on top"
       }
     },
     "number": {
@@ -436,16 +442,24 @@
         "transparent": {
           "name": "Transparent page",
           "description": "web_url only: the page gets no background of its own, so a page with a transparent body shows the TV behind it (app 0.22.0 or newer, davbebawy fork)."
+        },
+        "bring_to_front": {
+          "name": "Redraw on top",
+          "description": "Only when a popup with this ID is already on the TV: draw the new one on top of the other popups instead of in its old place (app 0.24.0 or newer, davbebawy fork)."
         }
       }
     },
     "dismiss": {
       "name": "Dismiss popup",
-      "description": "Removes the visible popup on the targeted PiPup device(s).",
+      "description": "Removes a popup on the targeted PiPup device(s): the one with the given ID, else the one shown without an ID. With app 0.24.0 or newer several popups can be up at once.",
       "fields": {
         "popup_id": {
           "name": "Popup ID",
-          "description": "Only dismiss when the visible popup has this ID."
+          "description": "Remove the popup with this ID. Leave empty to remove the popup shown without an ID."
+        },
+        "all": {
+          "name": "All popups",
+          "description": "Remove every popup on the TV (app 0.24.0 or newer)."
         }
       }
     },

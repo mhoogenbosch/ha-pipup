@@ -55,6 +55,9 @@ show:
     transparent:
       selector:
         boolean:
+    bring_to_front:
+      selector:
+        boolean:
     button_size:
       selector:
         number:
@@ -216,6 +219,10 @@ dismiss:
     popup_id:
       selector:
         text:
+    all:
+      default: false
+      selector:
+        boolean:
 
 sync:
   target:

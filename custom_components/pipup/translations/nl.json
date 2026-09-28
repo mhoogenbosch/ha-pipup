@@ -104,6 +104,9 @@
       },
       "app_version": {
         "name": "App-versie"
+      },
+      "popups_on_screen": {
+        "name": "Popups op scherm"
       }
     },
     "button": {
@@ -142,6 +145,9 @@
     "switch": {
       "screen_power": {
         "name": "Scherm"
+      },
+      "overlay_bring_to_front": {
+        "name": "Bovenop hertekenen"
       }
     }
   },
@@ -348,16 +354,24 @@
         "transparent": {
           "name": "Transparante pagina",
           "description": "Alleen web_url: de pagina krijgt geen eigen achtergrond, zodat een pagina met transparante body de tv erachter toont (app 0.22.0 of nieuwer, davbebawy-fork)."
+        },
+        "bring_to_front": {
+          "name": "Bovenop hertekenen",
+          "description": "Alleen als een popup met dit ID al op de tv staat: teken de nieuwe bovenop de andere popups in plaats van op de oude plek (app 0.24.0 of nieuwer, davbebawy-fork)."
         }
       }
     },
     "dismiss": {
       "name": "Popup sluiten",
-      "description": "Verwijdert de zichtbare popup op de gekozen PiPup-apparaten.",
+      "description": "Verwijdert een popup op de gekozen PiPup-apparaten: die met het opgegeven ID, anders die zonder ID. Met app 0.24.0 of nieuwer kunnen meerdere popups tegelijk op het scherm staan.",
       "fields": {
         "popup_id": {
           "name": "Popup-ID",
-          "description": "Alleen sluiten wanneer de zichtbare popup deze ID heeft."
+          "description": "Verwijder de popup met dit ID. Laat leeg om de popup zonder ID te verwijderen."
+        },
+        "all": {
+          "name": "Alle popups",
+          "description": "Verwijder elke popup op de tv (app 0.24.0 of nieuwer)."
         }
       }
     },

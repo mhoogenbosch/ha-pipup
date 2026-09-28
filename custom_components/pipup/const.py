@@ -95,6 +95,9 @@ ATTR_PADDING: Final = "padding"
 # davbebawy fork, app >= 0.22.0: see-through popups
 ATTR_OPACITY: Final = "opacity"
 ATTR_TRANSPARENT: Final = "transparent"
+# davbebawy fork, app >= 0.24.0: several popups at once
+ATTR_BRING_TO_FRONT: Final = "bring_to_front"
+ATTR_ALL: Final = "all"
 ATTR_BUTTON_SIZE: Final = "button_size"
 ATTR_ANIMATION: Final = "animation"
 
@@ -192,6 +195,7 @@ OVERLAY_DEFAULTS: Final = {
     "sound": "none",
     "muted": True,
     "transparent": False,
+    "bring_to_front": False,
 }
 # a settings change while the overlay is up redraws it after this many seconds, so a
 # dragged slider sends one popup, not one per step

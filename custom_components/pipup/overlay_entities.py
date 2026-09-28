@@ -53,7 +53,7 @@ _TEXTS: dict[str, tuple[int, str | None]] = {
     "background_color": (7, r"^#[0-9A-Fa-f]{6}$"),
 }
 
-_TOGGLES = ("muted", "transparent")
+_TOGGLES = ("muted", "transparent", "bring_to_front")
 
 
 def _each(manager: OverlayManager, add: AddEntitiesCallback, build) -> None:
@@ -62,7 +62,7 @@ def _each(manager: OverlayManager, add: AddEntitiesCallback, build) -> None:
 
 
 def async_add_switches(manager: OverlayManager, add: AddEntitiesCallback) -> None:
-    """Show switch plus the Muted and Transparent page toggles."""
+    """Show switch plus the Muted, Transparent page and Redraw on top toggles."""
     _each(
         manager,
         add,

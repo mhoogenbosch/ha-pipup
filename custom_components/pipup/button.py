@@ -35,7 +35,7 @@ async def async_setup_entry(
 
 
 class PiPupDismissButton(PiPupEntity, ButtonEntity):
-    """Dismisses whatever popup is visible."""
+    """Takes every popup off the TV."""
 
     _attr_translation_key = "dismiss"
 
@@ -44,9 +44,9 @@ class PiPupDismissButton(PiPupEntity, ButtonEntity):
         super().__init__(coordinator, entry, "dismiss")
 
     async def async_press(self) -> None:
-        """Dismiss the current popup."""
+        """Dismiss every popup on the TV."""
         try:
-            await self.coordinator.client.cancel()
+            await self.coordinator.client.cancel(all_popups=True)
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_refresh_soon()
