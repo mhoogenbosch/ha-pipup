@@ -7,6 +7,13 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.18.1] — 2026-09-30 (device registry lookup for HA 2026.10)
+### Fixed
+- Home Assistant 2026.10 deprecates `device_registry.async_get_device` (device identifiers are no longer
+  unique across config entries; the call stops working in 2027.8) and logs a warning at every start. The
+  integration now looks up its own device with `async_get_device_by_identifier`, scoped to its config
+  entry, and falls back to the old call on Home Assistant versions that do not have it yet.
+
 ## [v1.18.0] — 2026-08-31 (announce version to the app)
 Companion to [app v0.21.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.21.0).
 ### Added

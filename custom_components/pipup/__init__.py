@@ -84,7 +84,7 @@ def _async_track_sw_version(
     the wrong TV (see the mDNS hostname collision in config_flow), the registry kept
     that TV's hardware on the device page long after the address was corrected.
     """
-    identifiers = {(DOMAIN, entry.unique_id or entry.entry_id)}
+    identifier = (DOMAIN, entry.unique_id or entry.entry_id)
     last_seen: dict[str, str | None] = {}
 
     @callback
@@ -100,7 +100,7 @@ def _async_track_sw_version(
         if not wanted or wanted == last_seen:
             return
         registry = dr.async_get(hass)
-        device = registry.async_get_device(identifiers=identifiers)
+        device = _async_get_own_device(registry, identifier, entry.entry_id)
         if device is not None:
             changed = {
                 k: v for k, v in wanted.items() if getattr(device, k, None) != v
@@ -111,6 +111,21 @@ def _async_track_sw_version(
 
     _sync()
     entry.async_on_unload(coordinator.async_add_listener(_sync))
+
+
+@callback
+def _async_get_own_device(
+    registry: dr.DeviceRegistry, identifier: tuple[str, str], entry_id: str
+) -> dr.DeviceEntry | None:
+    """Return this entry's device for the identifier.
+
+    HA 2026.10 deprecated ``async_get_device`` (identifiers are no longer unique
+    across config entries; it stops working in 2027.8). Its successor is scoped to
+    the owning config entry. Older HA versions only have ``async_get_device``.
+    """
+    if hasattr(registry, "async_get_device_by_identifier"):
+        return registry.async_get_device_by_identifier(identifier, entry_id)
+    return registry.async_get_device(identifiers={identifier})
 
 
 def _async_migrate_unique_id(
@@ -138,7 +153,7 @@ def _async_migrate_unique_id(
             )
 
     dev_reg = dr.async_get(hass)
-    if device := dev_reg.async_get_device(identifiers={(DOMAIN, old)}):
+    if device := _async_get_own_device(dev_reg, (DOMAIN, old), entry.entry_id):
         dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, device_id)})
 
     hass.config_entries.async_update_entry(entry, unique_id=device_id)
