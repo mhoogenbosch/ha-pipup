@@ -129,3 +129,8 @@ POSITIONS: Final = {
     "top_center": 5,
     "bottom_center": 6,
 }
+
+# Positions the app only understands from a given version on. Older apps reject an
+# unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
+# send them there instead of failing silently on the TV.
+POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}

@@ -58,7 +58,10 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     **over video the TV is already playing**; on older apps it used a `VideoView` that could freeze or
     black out concurrent playback — update the app rather than avoiding `stream`. HLS runs a few
     seconds behind live; for a doorbell-style popup a direct `rtsp://` `video_url` is snappier
-  - `position` is optional — omitted means the device's configured default position
+  - `position` is optional — omitted means the device's configured default position. Choices:
+    `top_right`, `top_left`, `bottom_right`, `bottom_left`, `center`, and `top_center` / `bottom_center`
+    (centered along the top or bottom edge, app ≥ 0.22.0 — on an older app the action reports an error for
+    that TV instead of sending a position the app would reject)
   - `muted: true` **by default** (requires app ≥ 0.2.4) — audio in a popup can freeze video playback
     on some TVs; pass `muted: false` when you do want sound
   - **per-device defaults for everything** — duration, position, muted, media size, colors and text

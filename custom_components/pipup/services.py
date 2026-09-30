@@ -14,6 +14,7 @@ import voluptuous as vol
 from homeassistant.components import webhook as webhook_component
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
+from awesomeversion import AwesomeVersion, AwesomeVersionException
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.network import get_url
@@ -90,6 +91,7 @@ from .const import (
     ICON_POSITIONS,
     PERMISSIONS,
     EVENT_BUTTON,
+    POSITION_MIN_APP_VERSION,
     POSITIONS,
     SERVICE_DISMISS,
     SERVICE_FIX_PERMISSION,
@@ -190,6 +192,21 @@ DISMISS_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+
+
+def unsupported_position(position: str, app_version: str | None) -> str | None:
+    """Return the minimum app version when this app cannot show the position yet.
+
+    An unknown app version (TV not reached yet) is let through: the request then
+    fails or succeeds on the TV as before.
+    """
+    required = POSITION_MIN_APP_VERSION.get(position)
+    if required is None or not app_version:
+        return None
+    try:
+        return required if AwesomeVersion(app_version) < AwesomeVersion(required) else None
+    except AwesomeVersionException:
+        return None
 
 
 async def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list:
@@ -542,6 +559,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             if want_buttons:
                 token = _issue_button_token(hass, data.get(ATTR_POPUP_ID))
                 callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}?token={token}"
+            position = data.get(ATTR_POSITION) or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
+            app_version = (coordinator.data or {}).get("version")
+            if required := unsupported_position(position, app_version):
+                errors.append(
+                    f"{coordinator.config_entry.title}: position '{position}' needs "
+                    f"PiPup app {required} or newer (this TV runs {app_version})"
+                )
+                continue
             payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url, poster_uri)
             try:
                 if snapshot is not None:
