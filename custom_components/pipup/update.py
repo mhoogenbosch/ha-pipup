@@ -120,9 +120,17 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
 
     @property
     def supported_features(self) -> UpdateEntityFeature:
-        """Offer Install only when the app can update itself (>= 0.6.0)."""
+        """Offer Install only when the app can update itself (>= 0.6.0).
+
+        PROGRESS has to come with it: Home Assistant only reads `in_progress` from
+        an entity that declares PROGRESS. Without it, it shows its own flag, which
+        is only set while `async_install` runs - and that returns as soon as the TV
+        has accepted the request. Up to 1.19.0 the Install button therefore came
+        back after a few seconds while the TV was still downloading, and a second
+        press failed with "an update is already running".
+        """
         if "update" in self.coordinator.data:
-            return UpdateEntityFeature.INSTALL
+            return UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
         return UpdateEntityFeature(0)
 
     @property
@@ -187,6 +195,12 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         On Android 12+ this completes silently; older devices show the system's
         install confirmation on screen, which has to be accepted with the remote.
         """
+        if self.in_progress:
+            # Normally unreachable from the UI (the button is disabled while
+            # in_progress), but an action or automation can still call it.
+            raise HomeAssistantError(
+                "An update of the PiPup app is already running on this TV"
+            )
         try:
             await self.coordinator.client.update_app()
         except PiPupError as err:

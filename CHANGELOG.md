@@ -7,6 +7,16 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.19.1] — 2026-10-03 (update progress stays visible)
+### Fixed
+- The app update entity now keeps showing *installing* until the new version actually runs on the TV.
+  It declared Install but not Progress, and Home Assistant only reads an entity's own progress when it
+  declares Progress; otherwise it uses its own flag, which is cleared as soon as the TV has accepted the
+  request. The Install button therefore came back after a few seconds while the TV was still
+  downloading, and pressing it again failed with "an update is already running".
+- Starting an install while one is already running (from an action or automation) now raises a clear
+  error instead of sending a second request to the TV.
+
 ## [v1.19.0] — 2026-09-30 (top and bottom center positions)
 Companion to [app v0.22.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.22.0).
 ### Added
@@ -18,7 +28,7 @@ Companion to [app v0.22.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0
   unknown position (the popup would never appear), so the action now reports an error for that TV and still
   shows the popup on the others.
 
- — 2026-09-30 (device registry lookup for HA 2026.10)
+## [v1.18.1] — 2026-09-30 (device registry lookup for HA 2026.10)
 ### Fixed
 - Home Assistant 2026.10 deprecates `device_registry.async_get_device` (device identifiers are no longer
   unique across config entries; the call stops working in 2027.8) and logs a warning at every start. The
