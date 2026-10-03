@@ -164,9 +164,11 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         None in every other phase (installing, waiting for the remote press) and on
         older apps: Home Assistant then shows an indeterminate progress indicator.
         """
-        if not self.coordinator.last_update_success:
-            # The app restarts itself to finish the install; the coordinator keeps the
-            # last data, which would freeze the bar at the last percentage it saw.
+        if not self.coordinator.online:
+            # The app restarts itself to finish the install. The coordinator then
+            # returns its previous data instead of failing (so last_update_success
+            # stays true - 1.20.0 checked that and never caught this), which would
+            # freeze the bar at the last percentage it saw.
             return None
         progress = (self.coordinator.data.get("update") or {}).get("progress")
         if isinstance(progress, int) and not isinstance(progress, bool):

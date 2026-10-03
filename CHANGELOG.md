@@ -7,6 +7,17 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.21.0] — 2026-10-03 (app version sensor)
+### Added
+- **App version** diagnostic sensor per TV: the PiPup app version running on the TV, usable in templates,
+  conditions and dashboards.
+### Fixed
+- The device's software version now follows the app on the TV. It was only set when the entities were
+  created, so after a self-update the device page kept showing the old version until the next reload.
+- The download percentage from 1.20.0 is now hidden while the TV is unreachable during the app restart that
+  finishes an install. 1.20.0 checked the coordinator's `last_update_success`, which stays true because the
+  coordinator returns its previous data when the TV does not answer, so the bar could freeze at its last value.
+
 ## [v1.20.0] — 2026-10-03 (update progress)
 Companion to [app v0.23.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.23.0).
 ### Added

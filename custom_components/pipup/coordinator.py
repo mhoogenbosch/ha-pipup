@@ -13,7 +13,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import issue_registry as ir, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -74,6 +74,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             config_entry=entry,
         )
         self._normal_interval = update_interval
+        self._sw_version: str | None = None
 
     def set_update_polling(self, active: bool) -> None:
         """Poll every UPDATE_POLL_INTERVAL while an app update runs, normally otherwise.
@@ -99,7 +100,31 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return self.data
         self.online = True
         self._check_overlay_permission(data)
+        self._sync_sw_version(data)
         return data
+
+    def _sync_sw_version(self, data: dict[str, Any]) -> None:
+        """Keep the device's sw_version equal to the app version on the TV.
+
+        DeviceInfo only sets it when the entities are created, so after a
+        self-update the device page showed the old version until the next reload.
+        Only touches the registry when the version actually changed.
+        """
+        version = data.get("version")
+        if not version or version == self._sw_version:
+            return
+        from . import _async_get_own_device  # local: __init__ imports this module
+
+        registry = dr.async_get(self.hass)
+        entry = self.config_entry
+        device = _async_get_own_device(
+            registry, (DOMAIN, entry.unique_id or entry.entry_id), entry.entry_id
+        )
+        if device is None:
+            return  # entities not set up yet; DeviceInfo carries the version then
+        if device.sw_version != version:
+            registry.async_update_device(device.id, sw_version=version)
+        self._sw_version = version
 
     def _check_overlay_permission(self, data: dict[str, Any]) -> None:
         """Raise/clear a repair issue for a missing overlay app-op (app >= 0.7.0).
