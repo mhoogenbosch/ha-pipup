@@ -7,12 +7,18 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
-## [v1.19.1] — 2026-10-03 (update progress stays visible)
+## [v1.20.0] — 2026-10-03 (update progress)
+Companion to [app v0.23.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.23.0).
+### Added
+- The app update entity shows a **download percentage** while the TV downloads the new version
+  *(app ≥ 0.23.0)*, then an indeterminate *installing* state until the new version runs. While an update
+  runs the integration polls the TV every 2 seconds instead of every 15, so the percentage actually moves;
+  it returns to the normal interval when the update has landed.
 ### Fixed
-- The app update entity now keeps showing *installing* until the new version actually runs on the TV.
-  It declared Install but not Progress, and Home Assistant only reads an entity's own progress when it
-  declares Progress; otherwise it uses its own flag, which is cleared as soon as the TV has accepted the
-  request. The Install button therefore came back after a few seconds while the TV was still
+- The update entity now keeps showing *installing* until the new version actually runs on the TV (any app
+  version). It declared Install but not Progress, and Home Assistant only reads an entity's own progress
+  when it declares Progress; otherwise it uses its own flag, which is cleared as soon as the TV has
+  accepted the request. The Install button therefore came back after a few seconds while the TV was still
   downloading, and pressing it again failed with "an update is already running".
 - Starting an install while one is already running (from an action or automation) now raises a clear
   error instead of sending a second request to the TV.

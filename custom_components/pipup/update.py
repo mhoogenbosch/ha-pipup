@@ -12,7 +12,7 @@ import aiohttp
 from awesomeversion import AwesomeVersion
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -158,6 +158,28 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         return True
 
     @property
+    def update_percentage(self) -> int | None:
+        """Download progress reported by the app (>= 0.23.0) while it downloads.
+
+        None in every other phase (installing, waiting for the remote press) and on
+        older apps: Home Assistant then shows an indeterminate progress indicator.
+        """
+        if not self.coordinator.last_update_success:
+            # The app restarts itself to finish the install; the coordinator keeps the
+            # last data, which would freeze the bar at the last percentage it saw.
+            return None
+        progress = (self.coordinator.data.get("update") or {}).get("progress")
+        if isinstance(progress, int) and not isinstance(progress, bool):
+            return max(0, min(100, progress))
+        return None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Poll fast while an update runs, so the percentage moves; normal otherwise."""
+        self.coordinator.set_update_polling(self.in_progress)
+        super()._handle_coordinator_update()
+
+    @property
     def extra_state_attributes(self) -> dict[str, str | bool | None]:
         """Expose why an install did not land.
 
@@ -206,6 +228,7 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         self._install_requested_at = dt_util.utcnow()
+        self.coordinator.set_update_polling(True)
         self.async_write_ha_state()
         await self.coordinator.async_refresh_soon()
 
