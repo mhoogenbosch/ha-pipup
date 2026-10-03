@@ -93,6 +93,9 @@
       },
       "uptime": {
         "name": "App uptime"
+      },
+      "app_version": {
+        "name": "App version"
       }
     },
     "button": {
