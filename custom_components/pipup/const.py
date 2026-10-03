@@ -10,6 +10,9 @@ DOMAIN: Final = "pipup"
 
 DEFAULT_PORT: Final = 7979
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=15)
+# While an app self-update runs: poll fast enough that the download percentage moves
+# (an 8 MB APK takes a few seconds to ~15 s on Wi-Fi), back to normal afterwards.
+UPDATE_POLL_INTERVAL: Final = timedelta(seconds=2)
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_DEFAULT_POSITION: Final = "default_position"

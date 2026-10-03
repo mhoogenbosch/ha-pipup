@@ -12,7 +12,7 @@ import aiohttp
 from awesomeversion import AwesomeVersion
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -120,9 +120,17 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
 
     @property
     def supported_features(self) -> UpdateEntityFeature:
-        """Offer Install only when the app can update itself (>= 0.6.0)."""
+        """Offer Install only when the app can update itself (>= 0.6.0).
+
+        PROGRESS has to come with it: Home Assistant only reads `in_progress` from
+        an entity that declares PROGRESS. Without it, it shows its own flag, which
+        is only set while `async_install` runs - and that returns as soon as the TV
+        has accepted the request. Up to 1.19.0 the Install button therefore came
+        back after a few seconds while the TV was still downloading, and a second
+        press failed with "an update is already running".
+        """
         if "update" in self.coordinator.data:
-            return UpdateEntityFeature.INSTALL
+            return UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
         return UpdateEntityFeature(0)
 
     @property
@@ -148,6 +156,28 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
             self._install_requested_at = None  # it landed
             return False
         return True
+
+    @property
+    def update_percentage(self) -> int | None:
+        """Download progress reported by the app (>= 0.23.0) while it downloads.
+
+        None in every other phase (installing, waiting for the remote press) and on
+        older apps: Home Assistant then shows an indeterminate progress indicator.
+        """
+        if not self.coordinator.last_update_success:
+            # The app restarts itself to finish the install; the coordinator keeps the
+            # last data, which would freeze the bar at the last percentage it saw.
+            return None
+        progress = (self.coordinator.data.get("update") or {}).get("progress")
+        if isinstance(progress, int) and not isinstance(progress, bool):
+            return max(0, min(100, progress))
+        return None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Poll fast while an update runs, so the percentage moves; normal otherwise."""
+        self.coordinator.set_update_polling(self.in_progress)
+        super()._handle_coordinator_update()
 
     @property
     def extra_state_attributes(self) -> dict[str, str | bool | None]:
@@ -187,11 +217,18 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         On Android 12+ this completes silently; older devices show the system's
         install confirmation on screen, which has to be accepted with the remote.
         """
+        if self.in_progress:
+            # Normally unreachable from the UI (the button is disabled while
+            # in_progress), but an action or automation can still call it.
+            raise HomeAssistantError(
+                "An update of the PiPup app is already running on this TV"
+            )
         try:
             await self.coordinator.client.update_app()
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         self._install_requested_at = dt_util.utcnow()
+        self.coordinator.set_update_polling(True)
         self.async_write_ha_state()
         await self.coordinator.async_refresh_soon()
 

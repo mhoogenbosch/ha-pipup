@@ -27,6 +27,7 @@ from .const import (
     DOMAIN,
     ISSUE_NO_OVERLAY,
     ISSUE_NO_OVERLAY_FIXABLE,
+    UPDATE_POLL_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +73,17 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=update_interval,
             config_entry=entry,
         )
+        self._normal_interval = update_interval
+
+    def set_update_polling(self, active: bool) -> None:
+        """Poll every UPDATE_POLL_INTERVAL while an app update runs, normally otherwise.
+
+        Called by the update entity on every state change; a no-op when the interval
+        already matches. The new interval applies from the next scheduled refresh.
+        """
+        target = UPDATE_POLL_INTERVAL if active else self._normal_interval
+        if self.update_interval != target:
+            self.update_interval = target
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch /state from the device."""
