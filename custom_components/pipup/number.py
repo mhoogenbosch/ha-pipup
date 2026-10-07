@@ -1,4 +1,4 @@
-"""Numbers: the settings of each overlay (davbebawy fork, 1.20.0)."""
+"""Numbers: the settings of each overlay (1.20.0)."""
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant

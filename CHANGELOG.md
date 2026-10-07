@@ -7,6 +7,42 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.22.0] — 2026-10-07 (push, overlays, several popups at once, see-through popups)
+Companion to [app v0.24.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.24.0). Built by
+[David Bebawy (@davbebawy)](https://github.com/davbebawy) in his fork and adopted here with his
+commits and authorship intact. Needs Home Assistant 2026.9 or newer (overlays are config subentries).
+### Added
+- **Push instead of poll** *(app ≥ 0.24.0)*: setup registers a local-only webhook per TV and sends its
+  URL to the app. The app POSTs its state on every change, so popup, screen and overlay entities follow
+  at once. Each push fires a **`pipup_event`** event (`event`, `reason`, `popup_id`, `shown_id`,
+  `popup_ids`, `removed_id`, `replaced_id`, `device_id`, `pipup_id`, `device_name`). The integration
+  sends the webhook again when the app reports it has none (after a reinstall). An app without push
+  keeps the timed poll.
+- **Sync** button and `pipup.sync` action: read the TV's state now and re-send the webhook.
+- **Overlays:** named web pages pinned over the TV picture. **Add overlay** on the integration page
+  (a config subentry of the TV) gives a device `<name> overlay` with a **Show** switch (follows the
+  pushed state), its settings as entities (Page, Layout, Position, Animation, Sound, Width, Height,
+  Duration, Padding, Corner radius, Border width, Page opacity, Background opacity, Muted,
+  Transparent, Custom URL, Title, Border color, Background color, Redraw on top) and a **Status**
+  sensor that says why the popup left. A setting change while the overlay is up redraws it after 1 s.
+  Settings are kept in `.storage/pipup.overlays.<entry_id>`. Option **Overlay pages** holds the page
+  list, one `Name | URL` line each.
+- **Several popups at once** *(app ≥ 0.24.0)*: sensor **Popups on screen**; **Current popup** keeps
+  the top popup and gains a `popups` attribute (every id, in stack order), as does the popup binary
+  sensor. `pipup.show` field `bring_to_front`; `pipup.dismiss` field `all`.
+- `pipup.show`: `opacity` (0..1) and `transparent` (`web_url` pages with a transparent body show the
+  TV) *(app ≥ 0.24.0)*.
+- Option **App update source**: `github:owner/repo` (default `github:mhoogenbosch/PiPup`), a folder
+  URL with `releases.json` (LAN mirror), or `off`. Sent to the app too; `off` also drops the update
+  entity.
+- Dutch translations for everything above; overlay positions include top/bottom center.
+### Changed
+- `pipup.dismiss` without `popup_id` removes the popup shown without an id *(app ≥ 0.24.0)*; the
+  **Dismiss popup** button removes every popup.
+- With push active the poll becomes a **60 s heartbeat** (was 15 s): a TV that sleeps or leaves the
+  network still turns unavailable, since it cannot push that itself. (davbebawy's version stopped
+  polling entirely.)
+
 ## [v1.21.0] — 2026-10-03 (app version sensor)
 ### Added
 - **App version** diagnostic sensor per TV: the PiPup app version running on the TV, usable in templates,

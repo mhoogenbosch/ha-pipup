@@ -298,10 +298,10 @@ def build_device_payload(
         payload["buttonSize"] = button_size
     if (padding := data.get(ATTR_PADDING)) is not None:
         payload["padding"] = padding
-    # app >= 0.22.0 (davbebawy fork): whole-popup alpha; an older app ignores it
+    # app >= 0.24.0: whole-popup alpha; an older app ignores it
     if (opacity := data.get(ATTR_OPACITY)) is not None:
         payload["opacity"] = opacity
-    # app >= 0.24.0 (davbebawy fork): a redraw opens on top of the other popups
+    # app >= 0.24.0: a redraw opens on top of the other popups
     if data.get(ATTR_BRING_TO_FRONT):
         payload["bringToFront"] = True
     animation = data.get(ATTR_ANIMATION)
@@ -390,7 +390,7 @@ def build_device_payload(
         payload["media"] = {
             "web": {"uri": url, "width": width, "height": height, "muted": muted}
         }
-        # app >= 0.22.0 (davbebawy fork): no WebView background, so a page with a
+        # app >= 0.24.0: no WebView background, so a page with a
         # transparent body shows the TV behind it
         if data.get(ATTR_TRANSPARENT):
             payload["media"]["web"]["transparent"] = True

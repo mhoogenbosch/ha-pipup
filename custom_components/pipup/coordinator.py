@@ -51,7 +51,7 @@ POST_CALL_SETTLE_SECONDS = 0.5
 def popups_on_screen(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Every popup on the TV, in stack order (last = on top).
 
-    App >= 0.24.0 (davbebawy fork) reports the list itself; an older app shows one
+    App >= 0.24.0 reports the list itself; an older app shows one
     popup at a time, reported as `popup` while `visible`.
     """
     data = data or {}
@@ -86,7 +86,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             entry.data[CONF_PORT],
         )
         self.online = False
-        # set once the push webhook is registered (app >= 0.23.0); polling stops then
+        # set once the push webhook is registered (app >= 0.24.0); polling stops then
         self._webhook_id: str | None = None
         self._asserting = False
         # update source the entities were built with; a change reloads the entry
@@ -170,7 +170,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def push_supported(self) -> bool:
-        """True when the app can push its state (davbebawy fork, app >= 0.23.0)."""
+        """True when the app can push its state (app >= 0.24.0)."""
         return bool(((self.data or {}).get("push") or {}).get("supported"))
 
     @property
@@ -241,7 +241,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._asserting = False
 
     async def async_apply_app_settings(self) -> None:
-        """Send the update source option to the app (app >= 0.23.0), so the TV's own
+        """Send the update source option to the app (app >= 0.24.0), so the TV's own
         release check uses the same source as the update entity, or none at all."""
         if not self.push_supported:
             return  # older app: no updateSource setting

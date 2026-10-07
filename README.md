@@ -10,6 +10,10 @@ from Home Assistant — including **showing a camera stream for as long as there
 Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on the TV
 (the original Play Store version lacks the `/state` endpoint and indefinite popups).
 
+> **Contributors:** [David Bebawy (davbebawy)](https://github.com/davbebawy) built push instead of
+> poll, overlays, several popups at once, see-through popups and the update source option (1.22.0);
+> [andrewm1205](https://github.com/andrewm1205) added the top/bottom center positions (1.19.0).
+
 ## Features
 
 - Config flow per TV (host + port) **with automatic mDNS discovery** (app ≥ 0.2.5 advertises
@@ -105,11 +109,28 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `http://homeassistant.local:8123/local/icons/…` path works
 - Action **`pipup.dismiss`**: remove the popup with a given `popup_id`, else the popup shown
   without an id; `all: true` removes every popup. The **Dismiss popup** button removes every popup.
-- **Several popups at once** (app >= 0.24.0, davbebawy fork): each `popup_id` is its own popup on
+- **Several popups at once** (app >= 0.24.0): each `popup_id` is its own popup on
   the TV, so a doorbell popup opens beside an overlay instead of replacing it. Popups without an id
   share one slot. `bring_to_front` in `pipup.show` redraws a popup that is already up on top of the
   others. The **Current popup** sensor shows the one on top, with every id in its `popups`
   attribute; **Popups on screen** counts them.
+- **Push instead of poll** (app >= 0.24.0): at setup every TV gets its own local-only webhook, and
+  the app POSTs its state there on every change. Popup, screen and overlay entities follow within
+  milliseconds instead of at the next 15 s poll. A 60 s heartbeat poll remains, because a TV that
+  falls asleep or drops off the network cannot push that. Each push also fires a **`pipup_event`**
+  event: `event` (`popup_shown`, `popup_replaced`, `popup_removed`, `started`, `screen_on`,
+  `screen_off`, `permissions`, `settings`), `reason` (for a removal: `expired`, `cancelled`,
+  `button`, `back`, `watchdog`), `popup_id`, `shown_id`, `removed_id`, `replaced_id`, `popup_ids`,
+  `device_id` (the HA device), `pipup_id` and `device_name`. An older app keeps the timed poll.
+  The push needs an internal Home Assistant URL the TV can reach (Settings → System → Network).
+- **Sync** button and action **`pipup.sync`**: read the TV's state now and send the webhook again
+  (after a reinstall of the app, for example; the integration also does this by itself when the
+  app reports it has no webhook).
+- `pipup.show` fields **`opacity`** (0..1, the whole popup) and **`transparent`** (`web_url` only:
+  a page with `html, body { background: transparent }` floats over the TV picture) (app >= 0.24.0).
+- Option **App update source**: `github:owner/repo` (default `github:mhoogenbosch/PiPup`), a folder
+  URL with `releases.json` and the APKs (a LAN mirror for TVs without internet), or `off`. The app on
+  the TV gets the same setting, so its own twice-daily check agrees; `off` also drops the update entity.
 - Action **`pipup.fix_permission`** (app ≥ 0.8.0) — put a permission screen on the TV: the app's own
   overview, the first missing permission, or a specific one. Neither HA nor the app can *grant* these
   (they are app-ops, i.e. shell/system territory), but walking someone to the exact screen beats
@@ -181,10 +202,10 @@ Because the app derives the screen state from `PowerManager.isInteractive`, whic
 a fresh wake, the switch trusts its own last command for up to 20 seconds and schedules an extra
 refresh — so it does not visibly bounce back after you flip it.
 
-## Overlays (davbebawy fork)
+## Overlays
 
 An overlay is a web page pinned over the TV picture, switched from a dashboard. A TV can have
-several (a fantasy column, a score strip).
+several (an agenda column, a score strip).
 
 1. **Configure** the TV entry and fill **Overlay pages**, one line each: `Name | URL`.
 2. **Add overlay** on the integration page and give it a name. Its popup id is the name as a slug,
@@ -533,6 +554,10 @@ keep these devices on a segment you control.
 
 Remove the device via Settings → Devices & Services; re-adding it restores everything
 (no state is stored on the TV).
+
+## License
+
+[MIT](LICENSE).
 
 ## Changelog
 

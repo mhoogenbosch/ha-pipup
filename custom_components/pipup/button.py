@@ -55,7 +55,7 @@ class PiPupDismissButton(PiPupEntity, ButtonEntity):
 class PiPupSyncButton(PiPupEntity, ButtonEntity):
     """Reads /state now and re-sends the push webhook to the app.
 
-    With push (app >= 0.23.0) nothing polls: this is the one way to pull the TV's
+    With push (app >= 0.24.0) nothing polls: this is the one way to pull the TV's
     state on demand, e.g. after the app was reinstalled and lost its webhook.
     """
 

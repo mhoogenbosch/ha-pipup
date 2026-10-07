@@ -1,4 +1,4 @@
-"""Overlays: named web popups pinned over the TV picture (davbebawy fork, 1.20.0).
+"""Overlays: named web popups pinned over the TV picture (1.20.0).
 
 Each overlay is a config subentry of the TV entry. Its settings are entities (page,
 size, look) kept in one Store per entry; the Show switch reads the pushed /state, so

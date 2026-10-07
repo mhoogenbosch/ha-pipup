@@ -214,7 +214,7 @@ class PiPupClient:
     async def cancel(self, popup_id: str | None = None, all_popups: bool = False) -> None:
         """Remove a popup: the one with popup_id, else the one without an id.
 
-        App >= 0.24.0 (davbebawy fork) keeps several popups up; all_popups removes
+        App >= 0.24.0 keeps several popups up; all_popups removes
         every one. An older app shows one popup and ignores `all`.
         """
         if all_popups:
@@ -237,7 +237,7 @@ class PiPupClient:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
     async def settings(self, **values: str) -> dict[str, Any]:
-        """Read or change the app's persistent settings (davbebawy fork, app >= 0.23.0).
+        """Read or change the app's persistent settings (app >= 0.24.0).
 
         With no values this is a plain read. Keys: ``webhook`` (push target, empty =
         off), ``updateSource`` and ``updateChecks``. An app without /settings answers
@@ -251,7 +251,7 @@ class PiPupClient:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status == 400 and not values:
-                    raise PiPupUnsupportedError("app has no /settings (needs >= 0.22.0)")
+                    raise PiPupUnsupportedError("app has no /settings (needs >= 0.24.0)")
                 if resp.status != 200:
                     body = await resp.text()
                     raise PiPupError(f"settings failed ({resp.status}): {body}")

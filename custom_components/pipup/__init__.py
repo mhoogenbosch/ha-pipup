@@ -66,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
     _async_migrate_unique_id(hass, entry, coordinator.data.get("id"))
 
     entry.runtime_data = coordinator
-    # app >= 0.23.0 (davbebawy fork): push instead of the timed poll
+    # app >= 0.24.0: push instead of the timed poll
     await coordinator.async_setup_push()
     entry.async_on_unload(coordinator.async_teardown_push)
     await coordinator.async_apply_app_settings()

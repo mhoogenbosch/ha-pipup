@@ -61,10 +61,12 @@
           "default_border_width": "Standaard randdikte in px (leeg = geen)",
           "default_corner_radius": "Standaard hoekafronding in px (leeg = geen)",
           "default_icon_position": "Standaard icoon-positie (links/rechts)",
-          "default_icon_width": "Standaard icoon-breedte in px (leeg/0 = app-standaard)"
+          "default_icon_width": "Standaard icoon-breedte in px (leeg/0 = app-standaard)",
+          "overlay_pages": "Overlay-pagina's, één per regel: Naam | URL"
         },
         "data_description": {
-          "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten."
+          "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten.",
+          "overlay_pages": "De Pagina-keuzelijst van elke overlay biedt deze aan, plus Eigen URL. Voorbeeld: Agenda | http://192.168.1.10:8123/local/agenda.html"
         }
       }
     },
@@ -107,6 +109,9 @@
       },
       "popups_on_screen": {
         "name": "Popups op scherm"
+      },
+      "overlay_status": {
+        "name": "Status"
       }
     },
     "button": {
@@ -135,6 +140,42 @@
           "top_center": "Midden boven",
           "bottom_center": "Midden onder"
         }
+      },
+      "overlay_animation": {
+        "name": "Animatie",
+        "state": {
+          "fade": "Vervagen",
+          "none": "Geen",
+          "slide_bottom": "Van onderen",
+          "slide_left": "Van links",
+          "slide_right": "Van rechts",
+          "slide_top": "Van boven"
+        }
+      },
+      "overlay_layout": {
+        "name": "Indeling"
+      },
+      "overlay_page": {
+        "name": "Pagina"
+      },
+      "overlay_position": {
+        "name": "Positie",
+        "state": {
+          "bottom_left": "Linksonder",
+          "bottom_right": "Rechtsonder",
+          "center": "Midden",
+          "top_left": "Linksboven",
+          "top_right": "Rechtsboven",
+          "top_center": "Boven midden",
+          "bottom_center": "Onder midden"
+        }
+      },
+      "overlay_sound": {
+        "name": "Geluid",
+        "state": {
+          "chime": "Belgeluid",
+          "none": "Geen"
+        }
       }
     },
     "update": {
@@ -148,6 +189,55 @@
       },
       "overlay_bring_to_front": {
         "name": "Bovenop hertekenen"
+      },
+      "overlay_muted": {
+        "name": "Gedempt"
+      },
+      "overlay_show": {
+        "name": "Tonen"
+      },
+      "overlay_transparent": {
+        "name": "Transparant"
+      }
+    },
+    "number": {
+      "overlay_background_opacity": {
+        "name": "Dekking achtergrond"
+      },
+      "overlay_border_width": {
+        "name": "Randdikte"
+      },
+      "overlay_corner_radius": {
+        "name": "Hoekradius"
+      },
+      "overlay_duration": {
+        "name": "Duur"
+      },
+      "overlay_height": {
+        "name": "Hoogte"
+      },
+      "overlay_padding": {
+        "name": "Binnenmarge"
+      },
+      "overlay_page_opacity": {
+        "name": "Dekking pagina"
+      },
+      "overlay_width": {
+        "name": "Breedte"
+      }
+    },
+    "text": {
+      "overlay_background_color": {
+        "name": "Achtergrondkleur"
+      },
+      "overlay_border_color": {
+        "name": "Randkleur"
+      },
+      "overlay_custom_url": {
+        "name": "Eigen URL"
+      },
+      "overlay_title": {
+        "name": "Titel"
       }
     }
   },
@@ -349,15 +439,15 @@
         },
         "opacity": {
           "name": "Dekking",
-          "description": "Dekking van de hele popup, 0 tot 1; onder 1 schijnt de tv erdoorheen (app 0.22.0 of nieuwer, davbebawy-fork)."
+          "description": "Dekking van de hele popup, 0 tot 1; onder 1 schijnt de tv erdoorheen (app 0.24.0 of nieuwer)."
         },
         "transparent": {
           "name": "Transparante pagina",
-          "description": "Alleen web_url: de pagina krijgt geen eigen achtergrond, zodat een pagina met transparante body de tv erachter toont (app 0.22.0 of nieuwer, davbebawy-fork)."
+          "description": "Alleen web_url: de pagina krijgt geen eigen achtergrond, zodat een pagina met transparante body de tv erachter toont (app 0.24.0 of nieuwer)."
         },
         "bring_to_front": {
           "name": "Bovenop hertekenen",
-          "description": "Alleen als een popup met dit ID al op de tv staat: teken de nieuwe bovenop de andere popups in plaats van op de oude plek (app 0.24.0 of nieuwer, davbebawy-fork)."
+          "description": "Alleen als een popup met dit ID al op de tv staat: teken de nieuwe bovenop de andere popups in plaats van op de oude plek (app 0.24.0 of nieuwer)."
         }
       }
     },
@@ -408,6 +498,35 @@
           "use_adb": "Deze tv heeft geen scherm voor die permissie (Fire TV antwoordt bijvoorbeeld met een lege placeholder). Ken 'm toe via adb:\\n\\n`adb shell appops set nl.rogro82.pipup SYSTEM_ALERT_WINDOW allow`",
           "cannot_connect": "De tv antwoordde niet. Probeer het opnieuw als hij bereikbaar is.",
           "not_loaded": "Dit PiPup-apparaat is nu niet geladen."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "overlay": {
+      "abort": {
+        "reconfigure_successful": "Overlay hernoemd."
+      },
+      "entry_type": "Overlay",
+      "error": {
+        "invalid_overlay_name": "Gebruik minstens één letter of cijfer."
+      },
+      "initiate_flow": {
+        "user": "Overlay toevoegen"
+      },
+      "step": {
+        "reconfigure": {
+          "data": {
+            "name": "Naam"
+          },
+          "title": "Overlay hernoemen"
+        },
+        "user": {
+          "data": {
+            "name": "Naam"
+          },
+          "description": "Een webpagina die over het tv-beeld blijft staan, met een eigen schakelaar en instellingen. De pagina's komen uit de lijst in het Configureren-formulier van deze tv.",
+          "title": "Overlay toevoegen"
         }
       }
     }

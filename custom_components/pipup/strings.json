@@ -46,6 +46,10 @@
           "default_position": "Default position",
           "default_duration": "Default duration (s, 0 = until dismissed)",
           "default_muted": "Mute audio by default",
+          "default_sound": "Default notification sound (\"default\" = built-in chime, or a URL; empty = none)",
+          "default_dismiss_screensaver": "End the screensaver before showing a popup (default)",
+          "default_button_size": "Default button text size (sp; 0 = classic look)",
+          "default_animation": "Default popup animation",
           "default_media_width": "Default media width (px)",
           "default_media_height": "Default media height (px)",
           "default_title_size": "Default title size (0 = app default)",
@@ -62,7 +66,7 @@
         },
         "data_description": {
           "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers.",
-          "overlay_pages": "Every overlay's Page select offers these, plus Custom URL. Example: Fantasy | https://fantasy.bebawys.uk/tv"
+          "overlay_pages": "Every overlay's Page select offers these, plus Custom URL. Example: Agenda | http://192.168.1.10:8123/local/agenda.html"
         }
       }
     },
@@ -150,7 +154,9 @@
           "top_left": "Top left",
           "bottom_right": "Bottom right",
           "bottom_left": "Bottom left",
-          "center": "Center"
+          "center": "Center",
+          "top_center": "Top center",
+          "bottom_center": "Bottom center"
         }
       },
       "overlay_animation": {
@@ -269,6 +275,16 @@
         "install": "Self-update permission",
         "admin": "Screen off (device admin)",
         "accessibility": "Screen off (accessibility)"
+      }
+    },
+    "animation": {
+      "options": {
+        "none": "None",
+        "fade": "Fade",
+        "slide_left": "Slide in from the left",
+        "slide_right": "Slide in from the right",
+        "slide_top": "Slide in from the top",
+        "slide_bottom": "Slide in from the bottom"
       }
     }
   },
@@ -397,17 +413,41 @@
           "name": "Poster image",
           "description": "Still image (URL) shown over a video/web stream until its first frame renders — e.g. a camera snapshot — so the popup never opens empty. Requires app 0.17.0+; a camera_entity popup gets its own snapshot automatically."
         },
+        "sound": {
+          "name": "Sound",
+          "description": "\"default\" plays the built-in chime, or give a URL to an audio clip. Played once when the popup is newly shown, not on an update-in-place (app 0.18.0 or newer)."
+        },
+        "sound_volume": {
+          "name": "Sound volume",
+          "description": "Volume of the notification sound, 0–1."
+        },
+        "dismiss_screensaver": {
+          "name": "End screensaver",
+          "description": "End an active screensaver / ambient mode before showing the popup, so it is visible on every Android version. Off keeps the screensaver (app 0.18.0 or newer)."
+        },
+        "button_size": {
+          "name": "Button size",
+          "description": "Button text size in sp; padding scales along, so popups with buttons can be small (app 0.19.0 or newer). Omit for the classic look."
+        },
+        "animation": {
+          "name": "Animation",
+          "description": "Entrance animation, reversed when the popup expires naturally. An update-in-place of the same popup does not re-animate (app 0.19.0 or newer)."
+        },
+        "padding": {
+          "name": "Padding",
+          "description": "Outer margin of the popup around its content in px; 20 is the classic look, 0 near-borderless (app 0.19.1 or newer)."
+        },
         "opacity": {
           "name": "Opacity",
-          "description": "Whole popup opacity, 0 to 1; the TV shows through below 1 (app 0.22.0 or newer, davbebawy fork)."
+          "description": "Whole popup opacity, 0 to 1; the TV shows through below 1 (app 0.24.0 or newer)."
         },
         "transparent": {
           "name": "Transparent page",
-          "description": "web_url only: the page gets no background of its own, so a page with a transparent body shows the TV behind it (app 0.22.0 or newer, davbebawy fork)."
+          "description": "web_url only: the page gets no background of its own, so a page with a transparent body shows the TV behind it (app 0.24.0 or newer)."
         },
         "bring_to_front": {
           "name": "Redraw on top",
-          "description": "Only when a popup with this ID is already on the TV: draw the new one on top of the other popups instead of in its old place (app 0.24.0 or newer, davbebawy fork)."
+          "description": "Only when a popup with this ID is already on the TV: draw the new one on top of the other popups instead of in its old place (app 0.24.0 or newer)."
         }
       }
     },

@@ -31,7 +31,7 @@ async def async_setup_entry(
     coordinator: PiPupCoordinator = entry.runtime_data
     entities: list[CoordinatorEntity] = [PiPupCurrentPopupSensor(coordinator, entry)]
     # Fields below need the fork app >= 0.2.3; add only when the app reports them.
-    # davbebawy fork app >= 0.24.0: several popups at once
+    # app >= 0.24.0: several popups at once
     if "popups" in coordinator.data:
         entities.append(PiPupPopupsOnScreenSensor(coordinator, entry))
     if "popupsShown" in coordinator.data:

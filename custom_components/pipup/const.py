@@ -17,11 +17,11 @@ UPDATE_POLL_INTERVAL: Final = timedelta(seconds=2)
 PUSH_HEARTBEAT_INTERVAL: Final = timedelta(seconds=60)
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
-# Where app releases come from (davbebawy fork): "github:<owner>/<repo>", an http(s)
+# Where app releases come from: "github:<owner>/<repo>", an http(s)
 # folder URL holding releases.json + the APKs (a LAN mirror), or "off". Sent to the
-# app too (app >= 0.23.0), so the TV's own check and this entity agree.
+# app too (app >= 0.24.0), so the TV's own check and this entity agree.
 CONF_UPDATE_SOURCE: Final = "update_source"
-DEFAULT_UPDATE_SOURCE: Final = "github:davbebawy/PiPup"
+DEFAULT_UPDATE_SOURCE: Final = "github:mhoogenbosch/PiPup"
 UPDATE_SOURCE_OFF: Final = "off"
 CONF_DEFAULT_POSITION: Final = "default_position"
 DEFAULT_POSITION: Final = "top_right"
@@ -92,10 +92,10 @@ ATTR_DISMISS_SCREENSAVER: Final = "dismiss_screensaver"
 # app >= 0.19.0: compact buttons and entrance/exit animations
 # app >= 0.19.1: outer margin of the popup around its content
 ATTR_PADDING: Final = "padding"
-# davbebawy fork, app >= 0.22.0: see-through popups
+#, app >= 0.24.0: see-through popups
 ATTR_OPACITY: Final = "opacity"
 ATTR_TRANSPARENT: Final = "transparent"
-# davbebawy fork, app >= 0.24.0: several popups at once
+#, app >= 0.24.0: several popups at once
 ATTR_BRING_TO_FRONT: Final = "bring_to_front"
 ATTR_ALL: Final = "all"
 ATTR_BUTTON_SIZE: Final = "button_size"
@@ -106,7 +106,7 @@ ICON_POSITIONS: Final = ["left", "right"]
 ANIMATIONS: Final = ["none", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom"]
 DEFAULT_ICON_POSITION: Final = "left"
 
-# Push (davbebawy fork, app >= 0.23.0): per-entry webhook id, stored in entry data.
+# Push (app >= 0.24.0): per-entry webhook id, stored in entry data.
 # The id is the secret: the TV POSTs its /state JSON there on every change.
 CONF_PUSH_WEBHOOK_ID: Final = "push_webhook_id"
 # fired for every pushed event: event, reason, popup_id, removed_id, replaced_id, device_id
@@ -158,7 +158,7 @@ POSITIONS: Final = {
 # unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
 # send them there instead of failing silently on the TV.
 POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}
-# Overlays (davbebawy fork, 1.20.0): named web popups pinned over the TV picture, one
+# Overlays (1.20.0): named web popups pinned over the TV picture, one
 # config subentry each, with their settings as entities. Pages are a per-TV list in
 # the options, one "Name | URL" line each.
 SUBENTRY_OVERLAY: Final = "overlay"
