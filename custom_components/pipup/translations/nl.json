@@ -333,6 +333,10 @@
           "name": "Web-URL",
           "description": "Webpagina om te renderen (JavaScript en autoplay ingeschakeld)."
         },
+        "whep_url": {
+          "name": "WHEP-URL",
+          "description": "WebRTC-stream rechtstreeks van een WHEP-endpoint, bijvoorbeeld go2rtc's /api/webrtc?src=camera op poort 1984. Start sneller en stabieler dan de spelerpagina van go2rtc in web_url (app 0.25.0 of nieuwer)."
+        },
         "media_width": {
           "name": "Mediabreedte",
           "description": "Breedte in pixels (standaard 640)."

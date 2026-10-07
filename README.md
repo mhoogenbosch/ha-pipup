@@ -99,7 +99,13 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `border_width: 2` is a thin red border, and `border_width: 0` drops the preset's frame.
     `corner_radius` also works without a border. Sizes are in pixels, and all three are available as
     **per-device defaults** too
-  - `poster_url` → a still image shown over a `video_url`/`web_url` stream the moment the popup opens,
+  - `whep_url` → a WebRTC stream played straight from a WHEP endpoint, e.g. go2rtc
+    `http://<go2rtc>:1984/api/webrtc?src=<camera>` (app ≥ 0.25.0). Same live stream as go2rtc's player
+    page in `web_url`, without loading that page: on a Fire TV it showed the first frame after 2.3 s on
+    average (2.2–2.5) against 3.4 s (2.0–6.6) for the page. `muted` defaults to true, and
+    `poster_url` / `transparent` work as for `web_url`. An older app gets an error from the action
+    instead of a failing popup
+  - `poster_url` → a still image shown over a `video_url`/`web_url`/`whep_url` stream the moment the popup opens,
     faded out on the stream's first frame (app ≥ 0.17.0) — so a live popup never opens as an empty box
     while RTSP connects or the WebView starts. **`camera_entity` popups get this automatically**
     (`mjpeg` and `stream` modes): a signed snapshot of the same camera is sent as poster
@@ -298,7 +304,8 @@ both the button id *and* the device id — only the intended TV can open the doo
     duration: 45                 # finite: never leave an undismissable popup
     title: Front door
     tts: "Someone is at the door"
-    web_url: "http://go2rtc.local:1984/stream.html?src=doorbell&mode=webrtc"
+    whep_url: "http://go2rtc.local:1984/api/webrtc?src=doorbell"    # app >= 0.25.0
+    poster_url: "http://frigate.local:5000/api/doorbell/latest.jpg"
     media_width: 720
     media_height: 540
     buttons:

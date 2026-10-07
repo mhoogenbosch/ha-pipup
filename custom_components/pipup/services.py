@@ -65,6 +65,7 @@ from .const import (
     ATTR_URGENCY,
     ATTR_VIDEO_URL,
     ATTR_WEB_URL,
+    ATTR_WHEP_URL,
     BUTTON_TOKEN_TTL,
     CAMERA_MODE_MJPEG,
     CAMERA_MODE_SNAPSHOT,
@@ -95,6 +96,7 @@ from .const import (
     ICON_POSITIONS,
     PERMISSIONS,
     EVENT_BUTTON,
+    MEDIA_MIN_APP_VERSION,
     POSITION_MIN_APP_VERSION,
     POSITIONS,
     SERVICE_DISMISS,
@@ -130,6 +132,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_IMAGE_URL): cv.string,
         vol.Optional(ATTR_VIDEO_URL): cv.string,
         vol.Optional(ATTR_WEB_URL): cv.string,
+        vol.Optional(ATTR_WHEP_URL): cv.string,
         vol.Optional(ATTR_POSTER_URL): cv.string,
         vol.Optional(ATTR_MEDIA_WIDTH): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=3840)
@@ -209,7 +212,19 @@ def unsupported_position(position: str, app_version: str | None) -> str | None:
     An unknown app version (TV not reached yet) is let through: the request then
     fails or succeeds on the TV as before.
     """
-    required = POSITION_MIN_APP_VERSION.get(position)
+    return _needs_newer_app(POSITION_MIN_APP_VERSION.get(position), app_version)
+
+
+def unsupported_media(payload: dict[str, Any], app_version: str | None) -> tuple[str, str] | None:
+    """Return (media type, minimum app version) when this app cannot play the payload's media."""
+    for kind in payload.get("media") or {}:
+        if required := _needs_newer_app(MEDIA_MIN_APP_VERSION.get(kind), app_version):
+            return kind, required
+    return None
+
+
+def _needs_newer_app(required: str | None, app_version: str | None) -> str | None:
+    """Return `required` when `app_version` is older; None when fine or unknown."""
     if required is None or not app_version:
         return None
     try:
@@ -394,6 +409,14 @@ def build_device_payload(
         # transparent body shows the TV behind it
         if data.get(ATTR_TRANSPARENT):
             payload["media"]["web"]["transparent"] = True
+    elif url := data.get(ATTR_WHEP_URL):
+        # app >= 0.25.0: the app negotiates WebRTC with the endpoint itself, without
+        # loading the server's player page (go2rtc: http://host:1984/api/webrtc?src=<name>)
+        payload["media"] = {
+            "whep": {"uri": url, "width": width, "height": height, "muted": muted}
+        }
+        if data.get(ATTR_TRANSPARENT):
+            payload["media"]["whep"]["transparent"] = True
     elif url := data.get(ATTR_VIDEO_URL):
         payload["media"] = {"video": {"uri": url, "width": width, "muted": muted}}
     elif url := data.get(ATTR_IMAGE_URL):
@@ -403,7 +426,7 @@ def build_device_payload(
     # renders, so a live popup never opens as an empty box while the stream connects.
     # An explicit poster_url wins; a camera_entity popup gets its own snapshot for free.
     media = payload.get("media") or {}
-    kind = next((k for k in ("video", "web") if k in media), None)
+    kind = next((k for k in ("video", "web", "whep") if k in media), None)
     if kind and (poster := data.get(ATTR_POSTER_URL) or poster_uri):
         media[kind]["poster"] = poster
 
@@ -587,6 +610,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 )
                 continue
             payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url, poster_uri)
+            if unsupported := unsupported_media(payload, app_version):
+                errors.append(
+                    f"{coordinator.config_entry.title}: {unsupported[0]}_url needs "
+                    f"PiPup app {unsupported[1]} or newer (this TV runs {app_version})"
+                )
+                continue
             try:
                 if snapshot is not None:
                     fields = {

@@ -333,6 +333,10 @@
           "name": "Web URL",
           "description": "Web page to render (JavaScript and autoplay enabled)."
         },
+        "whep_url": {
+          "name": "WHEP URL",
+          "description": "WebRTC stream played straight from a WHEP endpoint, for example go2rtc's /api/webrtc?src=camera on port 1984. Starts faster and steadier than go2rtc's player page in web_url (app 0.25.0 or newer)."
+        },
         "media_width": {
           "name": "Media width",
           "description": "Media width in pixels (default 640)."

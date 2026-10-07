@@ -65,6 +65,8 @@ ATTR_BACKGROUND_COLOR: Final = "background_color"
 ATTR_IMAGE_URL: Final = "image_url"
 ATTR_VIDEO_URL: Final = "video_url"
 ATTR_WEB_URL: Final = "web_url"
+# app >= 0.25.0: WebRTC straight from a WHEP endpoint (go2rtc: /api/webrtc?src=<name>)
+ATTR_WHEP_URL: Final = "whep_url"
 ATTR_MEDIA_WIDTH: Final = "media_width"
 ATTR_MEDIA_HEIGHT: Final = "media_height"
 ATTR_MUTED: Final = "muted"
@@ -158,6 +160,9 @@ POSITIONS: Final = {
 # unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
 # send them there instead of failing silently on the TV.
 POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}
+# Media types the app only understands from a given version on; an older app rejects the
+# whole /notify on an unknown media type.
+MEDIA_MIN_APP_VERSION: Final = {"whep": "0.25.0"}
 # Overlays (1.20.0): named web popups pinned over the TV picture, one
 # config subentry each, with their settings as entities. Pages are a per-TV list in
 # the options, one "Name | URL" line each.
