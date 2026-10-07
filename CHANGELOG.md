@@ -7,6 +7,15 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.23.0] — 2026-10-07 (whep_url)
+Companion to [app v0.25.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.25.0).
+### Added
+- **`whep_url`** on `pipup.show` *(app ≥ 0.25.0)*: a WebRTC stream played straight from a WHEP
+  endpoint (go2rtc `/api/webrtc?src=<camera>`), without go2rtc's player page. Fire TV measurement:
+  first frame after 2.3 s on average against 3.4 s for the page. `muted` defaults to true;
+  `poster_url` and `transparent` apply. A TV with an older app gets an error from the action
+  ("whep_url needs PiPup app 0.25.0 or newer") instead of a popup that fails on the TV.
+
 ## [v1.22.0] — 2026-10-07 (push, overlays, several popups at once, see-through popups)
 Companion to [app v0.24.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.24.0). Built by
 [David Bebawy (@davbebawy)](https://github.com/davbebawy) in his fork and adopted here with his

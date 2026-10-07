@@ -173,6 +173,9 @@ show:
     web_url:
       selector:
         text:
+    whep_url:
+      selector:
+        text:
     media_width:
       selector:
         number:
