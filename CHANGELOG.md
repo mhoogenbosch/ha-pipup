@@ -7,6 +7,17 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.24.0] — 2026-10-07 (PiPup device under its TV)
+Idea from [PR #31](https://github.com/mhoogenbosch/ha-pipup/pull/31) by [@aarya123](https://github.com/aarya123).
+### Added
+- The PiPup device now hangs under the TV it runs on (device page: "Connected via <TV>"). The TV is
+  found among the devices of the **Android TV Remote** and **Android Debug Bridge** integrations on
+  the same IP address, remote first, then the oldest device. Other integrations on that address
+  (notifications, AirPlay, network trackers) are ignored: their devices are not the TV.
+- Option **Parent device (TV)**: pick the TV yourself; empty = automatic.
+- Linking runs at setup, when a device is added to the registry (a TV integration set up later) and
+  when the options change — not on every poll or push.
+
 ## [v1.23.1] — 2026-10-07 (push after an app self-update)
 ### Fixed
 - A TV whose entry loaded while it still ran an app without push (< 0.24.0) kept polling after the
