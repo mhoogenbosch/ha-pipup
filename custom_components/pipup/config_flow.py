@@ -22,11 +22,18 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    DeviceFilterSelectorConfig,
+    DeviceSelector,
+    DeviceSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+)
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util import slugify
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
+from .parent import PARENT_DOMAINS
 from .const import (
     ANIMATIONS,
     CONF_DEFAULT_BACKGROUND_COLOR,
@@ -51,6 +58,7 @@ from .const import (
     CONF_NAME_SUFFIX,
     CONF_OVERLAY_PAGES,
     CONF_OVERLAY_POPUP_ID,
+    CONF_PARENT_DEVICE,
     CONF_SCAN_INTERVAL,
     CONF_UPDATE_SOURCE,
     DEFAULT_ICON_POSITION,
@@ -320,6 +328,10 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_UPDATE_SOURCE] = (
                 user_input.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
             ).strip()
+            if parent := user_input.get(CONF_PARENT_DEVICE):
+                options[CONF_PARENT_DEVICE] = parent
+            else:
+                options.pop(CONF_PARENT_DEVICE, None)  # empty: find it automatically
             options[CONF_NAME_SUFFIX] = (
                 user_input.get(CONF_NAME_SUFFIX) or ""
             ).strip()
@@ -404,6 +416,19 @@ class PiPupOptionsFlow(OptionsFlow):
                             "suggested_value": opts.get(CONF_NAME_SUFFIX, "")
                         },
                     ): str,
+                    vol.Optional(
+                        CONF_PARENT_DEVICE,
+                        description={
+                            "suggested_value": opts.get(CONF_PARENT_DEVICE)
+                        },
+                    ): DeviceSelector(
+                        DeviceSelectorConfig(
+                            filter=[
+                                DeviceFilterSelectorConfig(integration=domain)
+                                for domain in PARENT_DOMAINS
+                            ]
+                        )
+                    ),
                     vol.Optional(
                         CONF_OVERLAY_PAGES,
                         description={

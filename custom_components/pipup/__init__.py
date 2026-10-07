@@ -29,6 +29,7 @@ from .const import (  # noqa: F401
 )
 from .coordinator import PiPupCoordinator
 from .overlay import OverlayManager, overlay_subentries
+from .parent import async_link_parent, async_track_parent
 from .services import async_setup_services
 
 PLATFORMS: list[Platform] = [
@@ -81,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
 
     _async_apply_name_suffix(hass, entry)
     _async_track_sw_version(hass, entry, coordinator)
+    async_track_parent(hass, entry)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -213,6 +215,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
     call time and don't need a reload.
     """
     _async_apply_name_suffix(hass, entry)
+    async_link_parent(hass, entry)
 
     coordinator = entry.runtime_data
     # an overlay added or removed: its entities are built at setup

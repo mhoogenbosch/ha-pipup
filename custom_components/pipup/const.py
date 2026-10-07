@@ -17,6 +17,8 @@ UPDATE_POLL_INTERVAL: Final = timedelta(seconds=2)
 PUSH_HEARTBEAT_INTERVAL: Final = timedelta(seconds=60)
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+# the TV device this PiPup device hangs under; empty = found automatically by IP
+CONF_PARENT_DEVICE: Final = "parent_device"
 # Where app releases come from: "github:<owner>/<repo>", an http(s)
 # folder URL holding releases.json + the APKs (a LAN mirror), or "off". Sent to the
 # app too (app >= 0.24.0), so the TV's own check and this entity agree.

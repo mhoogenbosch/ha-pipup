@@ -19,7 +19,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
 - Config flow per TV (host + port) **with automatic mDNS discovery** (app ≥ 0.2.5 advertises
   `_pipup._tcp`); discovered TVs carry a stable device id, so the config entry **follows the TV
   across DHCP address changes** (existing host:port entries migrate automatically on first contact).
-  Each TV becomes a device with:
+  Each TV becomes a device with the entities below. The device hangs under the TV's own device from the
+  Android TV Remote or Android Debug Bridge integration on the same IP (remote preferred); pick another
+  one under *Configure → Parent device (TV)*. Each TV device has:
   - **Popup** binary sensor (on = a popup is visible; attributes: `popup_id`, `duration`, `indefinite`, `elapsed`)
   - **Screen** binary sensor (TV screen on/interactive — requires app ≥ 0.2.3)
   - **Connectivity** binary sensor — FireTV sticks cut their network in standby; entities now stay
