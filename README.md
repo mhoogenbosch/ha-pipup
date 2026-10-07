@@ -61,7 +61,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     ≥ 0.16.0 `stream` (and any `video_url`, incl. `rtsp://`) renders into a TextureView, so it shows
     **over video the TV is already playing**; on older apps it used a `VideoView` that could freeze or
     black out concurrent playback — update the app rather than avoiding `stream`. HLS runs a few
-    seconds behind live; for a doorbell-style popup a direct `rtsp://` `video_url` is snappier
+    seconds behind live. **With go2rtc (stand-alone or in Frigate) use `whep_url` + `poster_url`
+    instead** (see below and [Which camera route?](#which-camera-route)): faster and steadier than any
+    `camera_mode`
   - `position` is optional — omitted means the device's configured default position. Choices:
     `top_right`, `top_left`, `bottom_right`, `bottom_left`, `center`, and `top_center` / `bottom_center`
     (centered along the top or bottom edge, app ≥ 0.22.0 — on an older app the action reports an error for
@@ -227,6 +229,23 @@ popups with **Redraw on top** on.
 A see-through page needs `html, body { background: transparent }` and the **Transparent** switch
 on; **Page opacity** fades the whole popup instead.
 
+## Which camera route?
+
+For live camera popups (doorbell, motion) the recommendation is **`whep_url` + `poster_url`**
+(app ≥ 0.25.0), with go2rtc as the source:
+
+```yaml
+whep_url: "http://<go2rtc>:1984/api/webrtc?src=<camera>"
+poster_url: "http://<frigate>:5000/api/<camera>/latest.jpg"   # still on screen at once
+```
+
+Measured on a Fire TV, first live frame: `whep_url` 2.3–2.5 s on average, go2rtc's player page in
+`web_url` 3.4–6.4 s, Frigate MJPEG (`web_url` → `/api/<camera>?fps=5`) 0.9 s. MJPEG starts fastest but
+runs at detect fps and 2–3 s behind reality; WHEP is full frame rate and under a second behind. With
+the poster the popup shows a picture at once either way. `camera_entity` (no go2rtc needed) is the
+fallback. Full table and the reasoning: the
+[app README](https://github.com/mhoogenbosch/PiPup#which-stream-should-a-camera-popup-use).
+
 ## Examples
 
 Real-world recipes from the household this integration was built for. All popup styling
@@ -375,6 +394,9 @@ actions:
               duration: 0            # until dismissed
               popup_id: driveway
               camera_entity: camera.driveway   # camera_mode defaults to mjpeg (safe next to live TV)
+              # with go2rtc, faster and smoother (app >= 0.25.0), instead of camera_entity:
+              # whep_url: "http://go2rtc.local:1984/api/webrtc?src=driveway"
+              # poster_url: "http://frigate.local:5000/api/driveway/latest.jpg"
       - conditions: "{{ trigger.id == 'motion_off' }}"
         sequence:
           - action: pipup.dismiss
