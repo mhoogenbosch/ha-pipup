@@ -89,6 +89,7 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # set once the push webhook is registered (app >= 0.24.0); polling stops then
         self._webhook_id: str | None = None
         self._asserting = False
+        self._setting_up_push = False
         # update source the entities were built with; a change reloads the entry
         self.applied_update_source: str | None = None
         # event/reason/removedId/replacedId of the last push, read by the overlays
@@ -140,10 +141,24 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.online = True
         self._check_overlay_permission(data)
         self._sync_sw_version(data)
+        push = data.get("push") or {}
         # The app lost its webhook (reinstall wipes its prefs): set it again.
-        if self._webhook_id and not (data.get("push") or {}).get("webhook"):
+        if self._webhook_id and not push.get("webhook"):
             self.hass.async_create_task(self.async_assert_webhook())
+        # The app gained push after setup (self-update from an app < 0.24.0): set it
+        # up now instead of polling until the next reload. HA starts the task eagerly,
+        # before this data is stored, so the support is passed in explicitly.
+        elif self._webhook_id is None and push.get("supported") and not self._setting_up_push:
+            self._setting_up_push = True
+            self.hass.async_create_task(self._async_setup_push_later())
         return data
+
+    async def _async_setup_push_later(self) -> None:
+        """Set up push for an app that gained it after setup."""
+        try:
+            await self.async_setup_push(supported=True)
+        finally:
+            self._setting_up_push = False
 
     def _sync_sw_version(self, data: dict[str, Any]) -> None:
         """Keep the device's sw_version equal to the app version on the TV.
@@ -178,14 +193,14 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """True when this entry receives pushes and does not poll."""
         return self._webhook_id is not None
 
-    async def async_setup_push(self) -> None:
+    async def async_setup_push(self, supported: bool | None = None) -> None:
         """Register this entry's push webhook and hand its URL to the app.
 
         From then on the coordinator does not poll: the app POSTs its /state JSON on
         every change, and /state is read only at setup, after this integration's own
         calls, and on Sync. An app without push keeps the timed poll.
         """
-        if self._webhook_id is not None or not self.push_supported:
+        if self._webhook_id is not None or not (supported or self.push_supported):
             return
         entry = self.config_entry
         webhook_id = entry.data.get(CONF_PUSH_WEBHOOK_ID)

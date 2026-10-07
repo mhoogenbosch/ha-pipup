@@ -7,6 +7,12 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.23.1] — 2026-10-07 (push after an app self-update)
+### Fixed
+- A TV whose entry loaded while it still ran an app without push (< 0.24.0) kept polling after the
+  app updated itself; push only started at the next reload or a Sync. The coordinator now sets up
+  push at the first poll that reports support.
+
 ## [v1.23.0] — 2026-10-07 (whep_url)
 Companion to [app v0.25.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.25.0).
 ### Added
