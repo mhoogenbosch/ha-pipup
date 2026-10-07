@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_DEFAULT_POSITION, DEFAULT_POSITION, POSITIONS
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
+from .overlay_entities import async_add_selects as async_add_overlay_selects
 
 
 async def async_setup_entry(
@@ -23,6 +24,7 @@ async def async_setup_entry(
     """Set up the default-position select."""
     coordinator: PiPupCoordinator = entry.runtime_data
     async_add_entities([PiPupDefaultPositionSelect(coordinator, entry)])
+    async_add_overlay_selects(coordinator.overlays, async_add_entities)
 
 
 class PiPupDefaultPositionSelect(PiPupEntity, SelectEntity):

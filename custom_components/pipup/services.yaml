@@ -45,6 +45,19 @@ show:
           max: 256
           unit_of_measurement: px
           mode: box
+    opacity:
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+          mode: slider
+    transparent:
+      selector:
+        boolean:
+    bring_to_front:
+      selector:
+        boolean:
     button_size:
       selector:
         number:
@@ -206,6 +219,16 @@ dismiss:
     popup_id:
       selector:
         text:
+    all:
+      default: false
+      selector:
+        boolean:
+
+sync:
+  target:
+    entity:
+      integration: pipup
+      domain: binary_sensor
 
 fix_permission:
   target:

@@ -18,16 +18,35 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
+from homeassistant.helpers import entity_registry as er
+
 from .api import PiPupError
-from .const import DOMAIN
+from .const import (
+    CONF_UPDATE_SOURCE,
+    DEFAULT_UPDATE_SOURCE,
+    DOMAIN,
+    UPDATE_SOURCE_OFF,
+)
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 # GitHub releases of the PiPup fork; polled sparingly (anonymous rate limit).
-RELEASES_URL = "https://api.github.com/repos/mhoogenbosch/PiPup/releases/latest"
-RELEASE_PAGE = "https://github.com/mhoogenbosch/PiPup/releases"
+def _source_urls(source: str) -> tuple[str, str]:
+    """(releases URL, release page) for an update source.
+
+    ``github:<owner>/<repo>`` reads that repo's latest release; an http(s) folder URL
+    reads ``<folder>/releases.json`` (GitHub's releases list, e.g. a LAN mirror).
+    """
+    if source.startswith("github:"):
+        repo = source[len("github:"):]
+        return (
+            f"https://api.github.com/repos/{repo}/releases/latest",
+            f"https://github.com/{repo}/releases",
+        )
+    folder = source.rstrip("/")
+    return f"{folder}/releases.json", f"{folder}/"
 # How often each entity re-reads the shared cache. Deliberately shorter than the
 # cache TTL: a poll that finds a live cache entry costs nothing, so a short
 # interval only means a refreshed tag reaches every TV quickly. Equal values
@@ -43,13 +62,16 @@ _CACHE_TTL = timedelta(hours=6)
 INSTALL_PROGRESS_DEADLINE = timedelta(minutes=15)
 
 
-async def _latest_release_tag(hass: HomeAssistant, force: bool = False) -> str | None:
-    """Return the latest fork release tag (without leading v), cached per TTL.
+async def _latest_release_tag(
+    hass: HomeAssistant, source: str, force: bool = False
+) -> str | None:
+    """Return the latest release tag (without leading v) of a source, cached per TTL.
 
     `force` bypasses the cache — used when a device reports a version the cache
     does not know yet, which can only mean the cached value is out of date.
     """
-    cache = hass.data.setdefault(DOMAIN, {}).get(_CACHE_KEY)
+    caches = hass.data.setdefault(DOMAIN, {}).setdefault(_CACHE_KEY, {})
+    cache = caches.get(source)
     now = dt_util.utcnow()
     if cache and not force and cache["expires"] > now:
         return cache["tag"]
@@ -57,7 +79,7 @@ async def _latest_release_tag(hass: HomeAssistant, force: bool = False) -> str |
     session = async_get_clientsession(hass)
     try:
         async with session.get(
-            RELEASES_URL, timeout=aiohttp.ClientTimeout(total=15)
+            _source_urls(source)[0], timeout=aiohttp.ClientTimeout(total=15)
         ) as resp:
             if resp.status != 200:
                 _LOGGER.debug("GitHub releases returned %s", resp.status)
@@ -67,8 +89,14 @@ async def _latest_release_tag(hass: HomeAssistant, force: bool = False) -> str |
         _LOGGER.debug("Could not fetch latest PiPup release: %s", err)
         return cache["tag"] if cache else None
 
+    if isinstance(data, list):
+        # a folder's releases.json is the list: same pick as the app (first release
+        # that is neither draft nor prerelease)
+        data = next(
+            (r for r in data if not r.get("draft") and not r.get("prerelease")), {}
+        )
     tag = (data.get("tag_name") or "").lstrip("v") or None
-    hass.data[DOMAIN][_CACHE_KEY] = {"tag": tag, "expires": now + _CACHE_TTL}
+    caches[source] = {"tag": tag, "expires": now + _CACHE_TTL}
     return tag
 
 
@@ -79,18 +107,29 @@ async def async_setup_entry(
 ) -> None:
     """Set up the update entity."""
     coordinator: PiPupCoordinator = entry.runtime_data
-    async_add_entities([PiPupUpdateEntity(coordinator, entry)], update_before_add=True)
+    source = entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+    if source == UPDATE_SOURCE_OFF:
+        # off = no update checks at all, from HA or the TV: drop a leftover entity
+        registry = er.async_get(hass)
+        unique_id = f"{entry.unique_id or entry.entry_id}_app_update"
+        if entity_id := registry.async_get_entity_id("update", DOMAIN, unique_id):
+            registry.async_remove(entity_id)
+        return
+    async_add_entities(
+        [PiPupUpdateEntity(coordinator, entry, source)], update_before_add=True
+    )
 
 
 class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
     """Shows when a newer PiPup fork APK is available."""
 
     _attr_translation_key = "app_update"
-    _attr_release_url = RELEASE_PAGE
 
-    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+    def __init__(self, coordinator: PiPupCoordinator, entry, source: str) -> None:
         """Initialize the update entity."""
         super().__init__(coordinator, entry, "app_update")
+        self._source = source
+        self._attr_release_url = _source_urls(source)[1]
         self._latest: str | None = None
         self._install_requested_at = None
 
@@ -241,8 +280,8 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         stale (a release tagged inside the 6h TTL, or the app self-updated
         first) — refetch immediately so "latest" never lags behind "installed".
         """
-        self._latest = await _latest_release_tag(self.hass)
+        self._latest = await _latest_release_tag(self.hass, self._source)
         installed = self.installed_version
         if installed and self._latest and installed != self._latest:
             if AwesomeVersion(installed) > AwesomeVersion(self._latest):
-                self._latest = await _latest_release_tag(self.hass, force=True)
+                self._latest = await _latest_release_tag(self.hass, self._source, force=True)

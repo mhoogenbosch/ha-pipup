@@ -13,8 +13,16 @@ DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=15)
 # While an app self-update runs: poll fast enough that the download percentage moves
 # (an 8 MB APK takes a few seconds to ~15 s on Wi-Fi), back to normal afterwards.
 UPDATE_POLL_INTERVAL: Final = timedelta(seconds=2)
+# with push active the poll is only a liveness heartbeat (app >= 0.24.0)
+PUSH_HEARTBEAT_INTERVAL: Final = timedelta(seconds=60)
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+# Where app releases come from: "github:<owner>/<repo>", an http(s)
+# folder URL holding releases.json + the APKs (a LAN mirror), or "off". Sent to the
+# app too (app >= 0.24.0), so the TV's own check and this entity agree.
+CONF_UPDATE_SOURCE: Final = "update_source"
+DEFAULT_UPDATE_SOURCE: Final = "github:mhoogenbosch/PiPup"
+UPDATE_SOURCE_OFF: Final = "off"
 CONF_DEFAULT_POSITION: Final = "default_position"
 DEFAULT_POSITION: Final = "top_right"
 CONF_DEFAULT_DURATION: Final = "default_duration"
@@ -42,6 +50,7 @@ CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
 SERVICE_SHOW: Final = "show"
 SERVICE_FIX_PERMISSION: Final = "fix_permission"
 SERVICE_DISMISS: Final = "dismiss"
+SERVICE_SYNC: Final = "sync"
 
 ATTR_TITLE: Final = "title"
 ATTR_MESSAGE: Final = "message"
@@ -83,6 +92,12 @@ ATTR_DISMISS_SCREENSAVER: Final = "dismiss_screensaver"
 # app >= 0.19.0: compact buttons and entrance/exit animations
 # app >= 0.19.1: outer margin of the popup around its content
 ATTR_PADDING: Final = "padding"
+#, app >= 0.24.0: see-through popups
+ATTR_OPACITY: Final = "opacity"
+ATTR_TRANSPARENT: Final = "transparent"
+#, app >= 0.24.0: several popups at once
+ATTR_BRING_TO_FRONT: Final = "bring_to_front"
+ATTR_ALL: Final = "all"
 ATTR_BUTTON_SIZE: Final = "button_size"
 ATTR_ANIMATION: Final = "animation"
 
@@ -90,6 +105,12 @@ URGENCIES: Final = ["info", "warning", "critical"]
 ICON_POSITIONS: Final = ["left", "right"]
 ANIMATIONS: Final = ["none", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom"]
 DEFAULT_ICON_POSITION: Final = "left"
+
+# Push (app >= 0.24.0): per-entry webhook id, stored in entry data.
+# The id is the secret: the TV POSTs its /state JSON there on every change.
+CONF_PUSH_WEBHOOK_ID: Final = "push_webhook_id"
+# fired for every pushed event: event, reason, popup_id, removed_id, replaced_id, device_id
+EVENT_PUSH: Final = "pipup_event"
 
 # webhook that receives popup-button presses from the app; fires EVENT_BUTTON
 WEBHOOK_ID: Final = "pipup_buttons"
@@ -137,3 +158,48 @@ POSITIONS: Final = {
 # unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
 # send them there instead of failing silently on the TV.
 POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}
+# Overlays (1.20.0): named web popups pinned over the TV picture, one
+# config subentry each, with their settings as entities. Pages are a per-TV list in
+# the options, one "Name | URL" line each.
+SUBENTRY_OVERLAY: Final = "overlay"
+CONF_OVERLAY_POPUP_ID: Final = "popup_id"
+CONF_OVERLAY_PAGES: Final = "overlay_pages"
+OVERLAY_CUSTOM_PAGE: Final = "Custom URL"
+OVERLAY_LAYOUT_CUSTOM: Final = "Custom"
+# name: (width, height, position)
+OVERLAY_LAYOUTS: Final = {
+    "Column right": (420, 900, "top_right"),
+    "Column left": (420, 900, "top_left"),
+    "Corner small": (480, 300, "top_right"),
+    "Corner large": (720, 480, "top_right"),
+    "Strip bottom": (1880, 240, "bottom_left"),
+}
+OVERLAY_SOUNDS: Final = ["none", "chime"]
+OVERLAY_DEFAULTS: Final = {
+    "page": None,  # first page in the list
+    "custom_url": "",
+    "layout": "Column right",
+    "position": "top_right",
+    "width": 420,
+    "height": 900,
+    "duration": 0,
+    "padding": 6,
+    "corner_radius": 0,
+    "border_width": 0,
+    "page_opacity": 100,
+    "background_opacity": 80,
+    "background_color": "#000000",
+    "border_color": "",
+    "title": "",
+    "animation": "none",
+    "sound": "none",
+    "muted": True,
+    "transparent": False,
+    "bring_to_front": False,
+}
+# a settings change while the overlay is up redraws it after this many seconds, so a
+# dragged slider sends one popup, not one per step
+OVERLAY_REDRAW_DELAY: Final = 1.0
+# how long the Show switch trusts its own call before the TV's push confirms it
+OVERLAY_OPTIMISTIC_SECONDS: Final = 6
+SIGNAL_OVERLAY_UPDATED: Final = "pipup_overlay_updated_{}"

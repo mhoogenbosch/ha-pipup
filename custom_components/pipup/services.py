@@ -46,7 +46,11 @@ from .const import (
     ATTR_MESSAGE_COLOR,
     ATTR_MESSAGE_SIZE,
     ATTR_MUTED,
+    ATTR_OPACITY,
     ATTR_PADDING,
+    ATTR_TRANSPARENT,
+    ATTR_BRING_TO_FRONT,
+    ATTR_ALL,
     ATTR_POPUP_ID,
     ATTR_POSITION,
     ATTR_POSTER_URL,
@@ -94,6 +98,7 @@ from .const import (
     POSITION_MIN_APP_VERSION,
     POSITIONS,
     SERVICE_DISMISS,
+    SERVICE_SYNC,
     SERVICE_FIX_PERMISSION,
     SERVICE_SHOW,
     URGENCIES,
@@ -135,6 +140,9 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
         vol.Optional(ATTR_PADDING): vol.All(vol.Coerce(int), vol.Range(min=0, max=256)),
+        vol.Optional(ATTR_OPACITY): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
+        vol.Optional(ATTR_TRANSPARENT): cv.boolean,
+        vol.Optional(ATTR_BRING_TO_FRONT): cv.boolean,
         vol.Optional(ATTR_ANIMATION): vol.In(ANIMATIONS),
         vol.Optional(ATTR_SOUND): cv.string,
         vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
@@ -189,6 +197,7 @@ DISMISS_SCHEMA = vol.Schema(
         vol.Optional(ATTR_POPUP_ID): vol.All(
             cv.string, vol.Match(r"^[a-zA-Z0-9_-]{1,64}$")
         ),
+        vol.Optional(ATTR_ALL, default=False): cv.boolean,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -289,6 +298,12 @@ def build_device_payload(
         payload["buttonSize"] = button_size
     if (padding := data.get(ATTR_PADDING)) is not None:
         payload["padding"] = padding
+    # app >= 0.24.0: whole-popup alpha; an older app ignores it
+    if (opacity := data.get(ATTR_OPACITY)) is not None:
+        payload["opacity"] = opacity
+    # app >= 0.24.0: a redraw opens on top of the other popups
+    if data.get(ATTR_BRING_TO_FRONT):
+        payload["bringToFront"] = True
     animation = data.get(ATTR_ANIMATION)
     if animation is None:
         animation = opts.get(CONF_DEFAULT_ANIMATION)
@@ -375,6 +390,10 @@ def build_device_payload(
         payload["media"] = {
             "web": {"uri": url, "width": width, "height": height, "muted": muted}
         }
+        # app >= 0.24.0: no WebView background, so a page with a
+        # transparent body shows the TV behind it
+        if data.get(ATTR_TRANSPARENT):
+            payload["media"]["web"]["transparent"] = True
     elif url := data.get(ATTR_VIDEO_URL):
         payload["media"] = {"video": {"uri": url, "width": width, "muted": muted}}
     elif url := data.get(ATTR_IMAGE_URL):
@@ -594,17 +613,29 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_dismiss(call: ServiceCall) -> None:
         coordinators = await _coordinators_for_call(hass, call)
         popup_id = call.data.get(ATTR_POPUP_ID)
+        all_popups = call.data.get(ATTR_ALL, False)
 
         errors: list[str] = []
         for coordinator in coordinators:
             try:
-                await coordinator.client.cancel(popup_id)
+                await coordinator.client.cancel(popup_id, all_popups=all_popups)
                 await coordinator.async_refresh_soon()
             except PiPupError as err:
                 errors.append(str(err))
 
         if errors:
             raise HomeAssistantError("; ".join(errors))
+
+    async def handle_sync(call: ServiceCall) -> None:
+        """Read /state now on the targeted TV(s) and re-send the push webhook."""
+        coordinators = await _coordinators_for_call(hass, call)
+        offline: list[str] = []
+        for coordinator in coordinators:
+            await coordinator.async_sync()
+            if not coordinator.online:
+                offline.append(coordinator.client.host)
+        if offline:
+            raise HomeAssistantError(f"did not answer: {', '.join(offline)}")
 
     async def handle_fix_permission(call: ServiceCall) -> None:
         """Put a permission screen on the TV(s) in the target.
@@ -637,4 +668,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_DISMISS, handle_dismiss, schema=DISMISS_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SYNC, handle_sync, schema=vol.Schema({}, extra=vol.ALLOW_EXTRA)
     )

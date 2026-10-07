@@ -211,9 +211,16 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError):
             return None
 
-    async def cancel(self, popup_id: str | None = None) -> None:
-        """Dismiss the current popup, optionally only when popup_id matches."""
-        params = {"id": popup_id} if popup_id else None
+    async def cancel(self, popup_id: str | None = None, all_popups: bool = False) -> None:
+        """Remove a popup: the one with popup_id, else the one without an id.
+
+        App >= 0.24.0 keeps several popups up; all_popups removes
+        every one. An older app shows one popup and ignores `all`.
+        """
+        if all_popups:
+            params = {"all": "true"}
+        else:
+            params = {"id": popup_id} if popup_id else None
         try:
             async with self._session.post(
                 f"{self._base}/cancel",
@@ -224,6 +231,31 @@ class PiPupClient:
                 if resp.status != 200:
                     body = await resp.text()
                     raise PiPupError(f"cancel failed ({resp.status}): {body}")
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
+    async def settings(self, **values: str) -> dict[str, Any]:
+        """Read or change the app's persistent settings (app >= 0.24.0).
+
+        With no values this is a plain read. Keys: ``webhook`` (push target, empty =
+        off), ``updateSource`` and ``updateChecks``. An app without /settings answers
+        400, raised as PiPupUnsupportedError.
+        """
+        try:
+            async with self._session.post(
+                f"{self._base}/settings",
+                params=values or None,
+                headers=_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 400 and not values:
+                    raise PiPupUnsupportedError("app has no /settings (needs >= 0.24.0)")
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise PiPupError(f"settings failed ({resp.status}): {body}")
+                return await resp.json(content_type=None)
         except PiPupError:
             raise
         except (aiohttp.ClientError, TimeoutError) as err:

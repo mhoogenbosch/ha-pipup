@@ -20,20 +20,26 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (  # noqa: F401
     CONF_NAME_SUFFIX,
     CONF_NAME_SUFFIX_APPLIED,
+    CONF_OVERLAY_PAGES,
     CONF_SCAN_INTERVAL,
+    CONF_UPDATE_SOURCE,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_UPDATE_SOURCE,
     DOMAIN,
 )
 from .coordinator import PiPupCoordinator
+from .overlay import OverlayManager, overlay_subentries
 from .services import async_setup_services
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.NOTIFY,
+    Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
+    Platform.TEXT,
     Platform.UPDATE,
 ]
 
@@ -60,6 +66,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> boo
     _async_migrate_unique_id(hass, entry, coordinator.data.get("id"))
 
     entry.runtime_data = coordinator
+    # app >= 0.24.0: push instead of the timed poll
+    await coordinator.async_setup_push()
+    entry.async_on_unload(coordinator.async_teardown_push)
+    await coordinator.async_apply_app_settings()
+    coordinator.applied_update_source = (
+        entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+    )
+    coordinator.overlays = OverlayManager(hass, entry, coordinator)
+    await coordinator.overlays.async_setup()
+    coordinator.applied_pages = entry.options.get(CONF_OVERLAY_PAGES)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -173,7 +189,8 @@ def _async_apply_name_suffix(hass: HomeAssistant, entry: ConfigEntry) -> None:
     registry = er.async_get(hass)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         base = entity.original_name
-        if not base:
+        # overlay entities carry the overlay's own name already
+        if not base or entity.config_subentry_id:
             continue
         ours = f"{base} {applied}" if applied else None
         if suffix:
@@ -198,6 +215,22 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
     _async_apply_name_suffix(hass, entry)
 
     coordinator = entry.runtime_data
+    # an overlay added or removed: its entities are built at setup
+    if {sub.subentry_id for sub in overlay_subentries(entry)} != coordinator.overlays.subentry_ids:
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+        return
+    pages = entry.options.get(CONF_OVERLAY_PAGES)
+    if pages != coordinator.applied_pages:
+        coordinator.applied_pages = pages
+        coordinator.overlays.async_pages_changed()
+    source = entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+    if coordinator.applied_update_source not in (None, source):
+        # the update entity is built for one source (or dropped for "off")
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+        return
+    coordinator.applied_update_source = source
+    if coordinator.push_active:
+        return  # push: the poll interval does not apply
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
     desired = (
         timedelta(seconds=scan_interval) if scan_interval else DEFAULT_SCAN_INTERVAL

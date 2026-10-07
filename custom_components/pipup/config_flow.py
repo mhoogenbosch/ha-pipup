@@ -7,18 +7,24 @@ from __future__ import annotations
 
 from typing import Any
 
+import re
+
 import voluptuous as vol
 
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
+    SubentryFlowResult,
 )
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from homeassistant.util import slugify
 
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .const import (
@@ -43,13 +49,18 @@ from .const import (
     CONF_DEFAULT_TITLE_COLOR,
     CONF_DEFAULT_TITLE_SIZE,
     CONF_NAME_SUFFIX,
+    CONF_OVERLAY_PAGES,
+    CONF_OVERLAY_POPUP_ID,
     CONF_SCAN_INTERVAL,
+    CONF_UPDATE_SOURCE,
     DEFAULT_ICON_POSITION,
+    DEFAULT_UPDATE_SOURCE,
     DEFAULT_PORT,
     DEFAULT_POSITION,
     DOMAIN,
     ICON_POSITIONS,
     POSITIONS,
+    SUBENTRY_OVERLAY,
 )
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -226,6 +237,66 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
         """Create the options flow."""
         return PiPupOptionsFlow()
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Overlays are subentries of the TV entry."""
+        return {SUBENTRY_OVERLAY: OverlaySubentryFlow}
+
+
+class OverlaySubentryFlow(ConfigSubentryFlow):
+    """Add or rename an overlay. Its popup id is fixed at creation."""
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Name a new overlay."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            name = user_input[CONF_NAME].strip()
+            base = slugify(name)[:48]
+            if not base:
+                errors[CONF_NAME] = "invalid_overlay_name"
+            else:
+                taken = {
+                    sub.data.get(CONF_OVERLAY_POPUP_ID)
+                    for sub in self._get_entry().subentries.values()
+                }
+                popup_id, n = base, 2
+                while popup_id in taken:
+                    popup_id, n = f"{base}_{n}", n + 1
+                return self.async_create_entry(
+                    title=name, data={CONF_OVERLAY_POPUP_ID: popup_id}
+                )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({vol.Required(CONF_NAME): str}),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Rename an overlay (the popup id stays)."""
+        subentry = self._get_reconfigure_subentry()
+        if user_input is not None and user_input[CONF_NAME].strip():
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, title=user_input[CONF_NAME].strip()
+            )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_NAME, default=subentry.title): str}
+            ),
+        )
+
+
+_UPDATE_SOURCE_RE = re.compile(
+    r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"
+)
+
 
 class PiPupOptionsFlow(OptionsFlow):
     """Options flow: polling, entity names and per-device popup defaults."""
@@ -234,13 +305,26 @@ class PiPupOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
+        errors: dict[str, str] = {}
+        if user_input is not None and not _UPDATE_SOURCE_RE.match(
+            (user_input.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE).strip()
+        ):
+            # checked here, not in the schema: a vol.Match cannot be serialized for the UI
+            errors[CONF_UPDATE_SOURCE] = "invalid_update_source"
+            user_input = None
         if user_input is not None:
             # merge into the existing options: keys not in this form
             # (applied-suffix marker) must survive
             options = dict(self.config_entry.options)
             options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 15)
+            options[CONF_UPDATE_SOURCE] = (
+                user_input.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE
+            ).strip()
             options[CONF_NAME_SUFFIX] = (
                 user_input.get(CONF_NAME_SUFFIX) or ""
+            ).strip()
+            options[CONF_OVERLAY_PAGES] = (
+                user_input.get(CONF_OVERLAY_PAGES) or ""
             ).strip()
             options[CONF_DEFAULT_POSITION] = user_input.get(
                 CONF_DEFAULT_POSITION, DEFAULT_POSITION
@@ -311,11 +395,21 @@ class PiPupOptionsFlow(OptionsFlow):
                         default=opts.get(CONF_SCAN_INTERVAL, 15),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
                     vol.Optional(
+                        CONF_UPDATE_SOURCE,
+                        default=opts.get(CONF_UPDATE_SOURCE, DEFAULT_UPDATE_SOURCE),
+                    ): str,
+                    vol.Optional(
                         CONF_NAME_SUFFIX,
                         description={
                             "suggested_value": opts.get(CONF_NAME_SUFFIX, "")
                         },
                     ): str,
+                    vol.Optional(
+                        CONF_OVERLAY_PAGES,
+                        description={
+                            "suggested_value": opts.get(CONF_OVERLAY_PAGES, "")
+                        },
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
                     vol.Optional(
                         CONF_DEFAULT_POSITION,
                         default=opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION),
@@ -414,4 +508,5 @@ class PiPupOptionsFlow(OptionsFlow):
                     ): vol.All(vol.Coerce(float), vol.Range(min=0, max=128)),
                 }
             ),
+            errors=errors,
         )

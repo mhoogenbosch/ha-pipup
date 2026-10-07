@@ -23,7 +23,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up the buttons."""
     coordinator: PiPupCoordinator = entry.runtime_data
-    buttons: list[ButtonEntity] = [PiPupDismissButton(coordinator, entry)]
+    buttons: list[ButtonEntity] = [
+        PiPupDismissButton(coordinator, entry),
+        PiPupSyncButton(coordinator, entry),
+    ]
     # Needs the fork app >= 0.8.0.
     if isinstance((coordinator.data.get("permissions") or {}).get("fixable"), dict):
         buttons.append(PiPupPermissionScreenButton(coordinator, entry))
@@ -32,7 +35,7 @@ async def async_setup_entry(
 
 
 class PiPupDismissButton(PiPupEntity, ButtonEntity):
-    """Dismisses whatever popup is visible."""
+    """Takes every popup off the TV."""
 
     _attr_translation_key = "dismiss"
 
@@ -41,12 +44,32 @@ class PiPupDismissButton(PiPupEntity, ButtonEntity):
         super().__init__(coordinator, entry, "dismiss")
 
     async def async_press(self) -> None:
-        """Dismiss the current popup."""
+        """Dismiss every popup on the TV."""
         try:
-            await self.coordinator.client.cancel()
+            await self.coordinator.client.cancel(all_popups=True)
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_refresh_soon()
+
+
+class PiPupSyncButton(PiPupEntity, ButtonEntity):
+    """Reads /state now and re-sends the push webhook to the app.
+
+    With push (app >= 0.24.0) nothing polls: this is the one way to pull the TV's
+    state on demand, e.g. after the app was reinstalled and lost its webhook.
+    """
+
+    _attr_translation_key = "sync"
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, entry, "sync")
+
+    async def async_press(self) -> None:
+        """Pull the TV's state."""
+        await self.coordinator.async_sync()
+        if not self.coordinator.online:
+            raise HomeAssistantError(f"{self.coordinator.client.host} did not answer")
 
 
 class PiPupPermissionScreenButton(PiPupEntity, ButtonEntity):
