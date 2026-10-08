@@ -242,3 +242,21 @@ async def test_several_popups(hass: HomeAssistant) -> None:
         PiPupClient.cancel.assert_awaited_with(None, all_popups=True)
     finally:
         client.stop()
+
+
+async def test_push_after_overlay_removed(hass: HomeAssistant, caplog) -> None:
+    """A push between removing an overlay and the reload does not raise."""
+    entry, client = await _setup(hass)
+    try:
+        coordinator = entry.runtime_data
+        overlays = coordinator.overlays
+        # the subentry is gone, the reload has not run yet
+        with patch.object(hass.config_entries, "async_schedule_reload"):
+            assert hass.config_entries.async_remove_subentry(entry, "sub1")
+            await hass.async_block_till_done()
+        assert "sub1" in overlays.subentry_ids
+        push(coordinator, visible=True, popup={"id": "fantasy"})
+        await hass.async_block_till_done()
+        assert "KeyError" not in caplog.text
+    finally:
+        client.stop()

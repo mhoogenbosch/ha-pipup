@@ -322,7 +322,8 @@ class OverlayManager:
         one_at_a_time = "popups" not in data
         popup_id = (data.get("popup") or {}).get("id") if data.get("visible") else None
         event = self.coordinator.last_event or {}
-        for sub_id in list(self.subentry_ids):
+        # a removed overlay stays in subentry_ids until the scheduled reload runs
+        for sub_id in self.subentry_ids & set(self.entry.subentries):
             up = self._is_up_now(sub_id)
             was_up = self._up.get(sub_id, False)
             self._up[sub_id] = up
