@@ -7,6 +7,33 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [v1.24.1] — 2026-10-08 (audit fixes)
+### Fixed
+- **Button presses are bound to their popup.** The single-use token was checked, but the
+  `pipup_button` event then took `popup_id`, `button`, `label`, `device_id` and `device_name` from the
+  callback body, so whoever held a token could fire any button for any popup or TV. The token now
+  records the popup id, its buttons and the TV; a press only counts for a button that was on that
+  popup, and the event carries those issued values. Event keys and their meaning are unchanged.
+- Diagnostics no longer contain the push webhook id (`push_webhook_id` is redacted).
+- Removing an overlay now takes its popup off the TV when it is up; before, it stayed on screen.
+- Deleting a PiPup entry now clears the TV's push webhook, takes its overlays off the TV (when the TV
+  answers) and removes `.storage/pipup.overlays.<entry_id>`. Best effort: it never blocks the removal.
+- A push arriving between removing an overlay and the entry's reload no longer raises `KeyError`.
+- After an app install with the release source unreachable (no latest tag), the update entity kept
+  showing "installing" and the TV was polled every 2 s for 15 minutes. Any version change after
+  Install now ends the progress.
+- The app-version gate counts a build like `0.25.0-rc1` or `0.25.0-debug` as 0.25.0, and an
+  unparseable installed version (`unknown`) no longer raises in the update entity.
+### Changed
+- `pipup.show` and `pipup.dismiss` call all targeted TVs at once instead of one after another, so an
+  unreachable TV no longer delays the others. Errors are reported as before (one message, per TV).
+  A TV with push no longer gets the extra 0.5 s wait plus `/state` read after the call: the app
+  pushes the change itself. Polled TVs keep it.
+- The release check runs once per source at a time (several TVs starting together make one request)
+  and a failed check is remembered for 15 minutes instead of being retried on every poll.
+- A webhook that cannot be set (no internal URL, app refusing it) is logged as a warning once, then
+  at debug level until the problem changes or is solved, instead of on every heartbeat.
+
 ## [v1.24.0] — 2026-10-07 (PiPup device under its TV)
 Idea from [PR #31](https://github.com/mhoogenbosch/ha-pipup/pull/31) by [@aarya123](https://github.com/aarya123).
 ### Added

@@ -5,11 +5,12 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 
 import aiohttp
-from awesomeversion import AwesomeVersion
+from awesomeversion import AwesomeVersion, AwesomeVersionException
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.core import HomeAssistant, callback
@@ -56,6 +57,11 @@ SCAN_INTERVAL = timedelta(hours=1)
 # cache it process-wide so N TVs make one GitHub call per interval, not N.
 _CACHE_KEY = "latest_release_cache"
 _CACHE_TTL = timedelta(hours=6)
+# A failed fetch (rate limit, no internet) is remembered too, briefly, so every
+# entity's poll does not hit the source again right away.
+_FAILURE_TTL = timedelta(minutes=15)
+# one fetch per source at a time: N TVs starting together make one call, not N
+_LOCK_KEY = "latest_release_locks"
 # How long the entity keeps reporting progress after our own install request when the
 # device has not confirmed the new version yet. Matches the app's abandoned-install
 # deadline; on Android < 12 this window is where someone confirms on the TV.
@@ -70,12 +76,27 @@ async def _latest_release_tag(
     `force` bypasses the cache — used when a device reports a version the cache
     does not know yet, which can only mean the cached value is out of date.
     """
-    caches = hass.data.setdefault(DOMAIN, {}).setdefault(_CACHE_KEY, {})
-    cache = caches.get(source)
-    now = dt_util.utcnow()
-    if cache and not force and cache["expires"] > now:
-        return cache["tag"]
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    caches = domain_data.setdefault(_CACHE_KEY, {})
+    lock = domain_data.setdefault(_LOCK_KEY, {}).setdefault(source, asyncio.Lock())
+    async with lock:
+        # checked under the lock: whoever held it may just have filled the cache
+        cache = caches.get(source)
+        now = dt_util.utcnow()
+        if cache and not force and cache["expires"] > now:
+            return cache["tag"]
+        return await _fetch_release_tag(hass, source, caches, cache, now)
 
+
+async def _fetch_release_tag(
+    hass: HomeAssistant,
+    source: str,
+    caches: dict,
+    cache: dict | None,
+    now,
+) -> str | None:
+    """Fetch the tag from the source and cache it; keep the known tag on failure."""
+    known = cache["tag"] if cache else None
     session = async_get_clientsession(hass)
     try:
         async with session.get(
@@ -83,11 +104,13 @@ async def _latest_release_tag(
         ) as resp:
             if resp.status != 200:
                 _LOGGER.debug("GitHub releases returned %s", resp.status)
-                return cache["tag"] if cache else None
+                caches[source] = {"tag": known, "expires": now + _FAILURE_TTL}
+                return known
             data = await resp.json()
     except (aiohttp.ClientError, TimeoutError) as err:
         _LOGGER.debug("Could not fetch latest PiPup release: %s", err)
-        return cache["tag"] if cache else None
+        caches[source] = {"tag": known, "expires": now + _FAILURE_TTL}
+        return known
 
     if isinstance(data, list):
         # a folder's releases.json is the list: same pick as the app (first release
@@ -132,6 +155,8 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         self._attr_release_url = _source_urls(source)[1]
         self._latest: str | None = None
         self._install_requested_at = None
+        # the version the TV ran when Install was pressed: any other version = landed
+        self._version_at_install: str | None = None
 
     @property
     def should_poll(self) -> bool:
@@ -191,7 +216,12 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
             self._install_requested_at = None
             return False
         installed = self.installed_version
-        if installed and self._latest and installed == self._latest:
+        if installed and (
+            (self._latest and installed == self._latest)
+            # also without a known latest tag (source unreachable, rate limited):
+            # the TV now runs another version than when Install was pressed
+            or installed != self._version_at_install
+        ):
             self._install_requested_at = None  # it landed
             return False
         return True
@@ -264,10 +294,12 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
             raise HomeAssistantError(
                 "An update of the PiPup app is already running on this TV"
             )
+        version_at_install = self.installed_version
         try:
             await self.coordinator.client.update_app()
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
+        self._version_at_install = version_at_install
         self._install_requested_at = dt_util.utcnow()
         self.coordinator.set_update_polling(True)
         self.async_write_ha_state()
@@ -283,5 +315,10 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         self._latest = await _latest_release_tag(self.hass, self._source)
         installed = self.installed_version
         if installed and self._latest and installed != self._latest:
-            if AwesomeVersion(installed) > AwesomeVersion(self._latest):
+            try:
+                newer = AwesomeVersion(installed) > AwesomeVersion(self._latest)
+            except AwesomeVersionException:
+                # an unparseable version on either side: nothing to compare, keep the tag
+                newer = False
+            if newer:
                 self._latest = await _latest_release_tag(self.hass, self._source, force=True)

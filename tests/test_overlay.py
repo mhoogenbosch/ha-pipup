@@ -242,3 +242,94 @@ async def test_several_popups(hass: HomeAssistant) -> None:
         PiPupClient.cancel.assert_awaited_with(None, all_popups=True)
     finally:
         client.stop()
+
+
+async def test_push_after_overlay_removed(hass: HomeAssistant, caplog) -> None:
+    """A push between removing an overlay and the reload does not raise."""
+    entry, client = await _setup(hass)
+    try:
+        coordinator = entry.runtime_data
+        overlays = coordinator.overlays
+        # the subentry is gone, the reload has not run yet
+        with patch.object(hass.config_entries, "async_schedule_reload"):
+            assert hass.config_entries.async_remove_subentry(entry, "sub1")
+            await hass.async_block_till_done()
+        assert "sub1" in overlays.subentry_ids
+        push(coordinator, visible=True, popup={"id": "fantasy"})
+        await hass.async_block_till_done()
+        assert "KeyError" not in caplog.text
+    finally:
+        client.stop()
+
+
+async def test_removed_overlay_leaves_the_tv(hass: HomeAssistant) -> None:
+    """Removing an overlay whose popup is up takes that popup off the TV."""
+    entry, client = await _setup(hass)
+    try:
+        from custom_components.pipup.api import PiPupClient
+
+        coordinator = entry.runtime_data
+        push(coordinator, visible=True, popup={"id": "fantasy"})
+        await hass.async_block_till_done()
+        PiPupClient.cancel.reset_mock()
+        assert hass.config_entries.async_remove_subentry(entry, "sub1")
+        await hass.async_block_till_done()
+        PiPupClient.cancel.assert_awaited_once_with("fantasy")
+    finally:
+        client.stop()
+
+
+async def test_removed_overlay_not_up_is_left_alone(hass: HomeAssistant) -> None:
+    """An overlay that is not on the TV sends no cancel on removal."""
+    entry, client = await _setup(hass)
+    try:
+        from custom_components.pipup.api import PiPupClient
+
+        PiPupClient.cancel.reset_mock()
+        assert hass.config_entries.async_remove_subentry(entry, "sub1")
+        await hass.async_block_till_done()
+        PiPupClient.cancel.assert_not_awaited()
+    finally:
+        client.stop()
+
+
+async def test_remove_entry_cleans_up(hass: HomeAssistant, hass_storage) -> None:
+    """Deleting the entry clears the TV's webhook, hides its overlays, drops the store."""
+    entry, client = await _setup(hass)
+    try:
+        from custom_components.pipup.api import PiPupClient
+
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, "push_webhook_id": "abc"}
+        )
+        push(entry.runtime_data, visible=True, popup={"id": "fantasy"})
+        await hass.async_block_till_done()
+        await hass.async_block_till_done()
+        key = f"{DOMAIN}.overlays.{entry.entry_id}"
+        hass_storage[key] = {"version": 1, "minor_version": 1, "key": key, "data": {}}
+        PiPupClient.cancel.reset_mock()
+        PiPupClient.settings.reset_mock()
+
+        assert (await hass.config_entries.async_remove(entry.entry_id))["require_restart"] is False
+        await hass.async_block_till_done()
+
+        PiPupClient.settings.assert_any_await(webhook="")
+        PiPupClient.cancel.assert_awaited_once_with("fantasy")
+        assert key not in hass_storage
+    finally:
+        client.stop()
+
+
+async def test_remove_entry_tv_off_does_not_raise(hass: HomeAssistant) -> None:
+    """A TV that does not answer cannot block or fail the removal."""
+    entry, client = await _setup(hass)
+    try:
+        from custom_components.pipup.api import PiPupClient, PiPupError
+
+        PiPupClient.state.side_effect = PiPupError("off")
+        PiPupClient.settings.reset_mock()
+        await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()
+        PiPupClient.settings.assert_not_awaited()
+    finally:
+        client.stop()

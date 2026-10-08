@@ -5,7 +5,9 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 import secrets
 from typing import Any
 
@@ -223,10 +225,20 @@ def unsupported_media(payload: dict[str, Any], app_version: str | None) -> tuple
     return None
 
 
+_VERSION_CORE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
+
+
 def _needs_newer_app(required: str | None, app_version: str | None) -> str | None:
-    """Return `required` when `app_version` is older; None when fine or unknown."""
+    """Return `required` when `app_version` is older; None when fine or unknown.
+
+    Only the numeric x.y.z core counts: a build such as "0.25.0-rc1" or "0.25.0-debug"
+    has the 0.25.0 features, while AwesomeVersion would rank it below 0.25.0.
+    """
     if required is None or not app_version:
         return None
+    have, need = _VERSION_CORE.match(app_version.strip()), _VERSION_CORE.match(required)
+    if have and need:
+        return required if tuple(map(int, have.groups())) < tuple(map(int, need.groups())) else None
     try:
         return required if AwesomeVersion(app_version) < AwesomeVersion(required) else None
     except AwesomeVersionException:
@@ -495,13 +507,22 @@ async def _camera_media(
     return f"{base_url}{stream_path}", None, None, poster
 
 
-def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
+def _issue_button_token(
+    hass: HomeAssistant,
+    popup_id: str | None,
+    buttons: list[dict[str, Any]] | None = None,
+    coordinator: Any = None,
+) -> str:
     """Mint a single-use token for a button popup and remember it.
 
     The token travels in the callback URL and must come back on the button
     press, so a device on the LAN cannot forge a pipup_button event by POSTing
     a guessed device id — which matters when button events drive things like a
     door lock. Expired tokens are swept on each issue.
+
+    The token is bound to what was shown: the popup id, the buttons on it and the
+    TV it went to. The event is built from that, not from the callback body, so a
+    token holder cannot turn one popup's token into another popup's (or TV's) press.
     """
     tokens: dict[str, dict[str, Any]] = hass.data.setdefault(DOMAIN, {}).setdefault(
         DATA_BUTTON_TOKENS, {}
@@ -509,8 +530,24 @@ def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
     now = dt_util.utcnow()
     for tok in [t for t, meta in tokens.items() if meta["expires"] < now]:
         tokens.pop(tok, None)
+    device_id: str | None = None
+    device_name: str | None = None
+    if coordinator is not None:
+        state = coordinator.data or {}
+        entry = coordinator.config_entry
+        # the app's stable id and name, as the app itself puts them in the callback
+        device_id = state.get("id") or entry.unique_id
+        device_name = state.get("name")
     token = secrets.token_urlsafe(24)
-    tokens[token] = {"popup_id": popup_id, "expires": now + BUTTON_TOKEN_TTL}
+    tokens[token] = {
+        "popup_id": popup_id,
+        "buttons": [
+            {"id": b.get("id"), "label": b.get("label")} for b in buttons or []
+        ],
+        "device_id": device_id,
+        "device_name": device_name,
+        "expires": now + BUTTON_TOKEN_TTL,
+    }
     return token
 
 
@@ -537,16 +574,51 @@ async def _handle_button_webhook(hass: HomeAssistant, webhook_id: str, request) 
         _LOGGER.warning("Invalid JSON on %s webhook", webhook_id)
         return
     _LOGGER.debug("Popup button pressed: %s", data)
+    if not isinstance(data, dict):
+        _LOGGER.warning("Invalid payload on %s webhook", webhook_id)
+        return
+    # Only a button that was on the popup this token was issued for counts; popup,
+    # label and TV come from what HA showed, never from the request body.
+    button = data.get("button")
+    issued = next((b for b in meta.get("buttons") or [] if b["id"] == button), None)
+    if issued is None:
+        _LOGGER.warning(
+            "Rejecting PiPup button callback: button %r was not on popup %r",
+            button, meta.get("popup_id"),
+        )
+        return
     hass.bus.async_fire(
         EVENT_BUTTON,
         {
-            "popup_id": data.get("popup"),
-            "button": data.get("button"),
-            "label": data.get("label"),
-            "device_id": data.get("device"),
-            "device_name": data.get("name"),
+            "popup_id": meta.get("popup_id"),
+            "button": issued["id"],
+            "label": issued["label"],
+            "device_id": meta.get("device_id"),
+            "device_name": meta.get("device_name"),
         },
     )
+
+
+async def _refresh_unless_pushed(coordinator) -> None:
+    """Read /state after a call, unless the app pushes the change itself.
+
+    An app with push (>= 0.24.0) posts popup_shown/popup_removed on its own, so the
+    extra settle delay plus /state round-trip only slowed the action down.
+    """
+    if not coordinator.push_active:
+        await coordinator.async_refresh_soon()
+
+
+def _raise_errors(results: list[Any]) -> None:
+    """Raise the per-TV errors of a gathered call, in target order, as one message."""
+    errors: list[str] = []
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result  # not a TV error: surface it as before
+        if result:
+            errors.append(result)
+    if errors:
+        raise HomeAssistantError("; ".join(errors))
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -592,30 +664,30 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             else None
         )
 
-        errors: list[str] = []
-        for coordinator in coordinators:
+        async def _show_on(coordinator) -> str | None:
+            """Show the popup on one TV; the error text, or None when it worked."""
             opts = dict(coordinator.config_entry.options)
             # A fresh single-use token per device: the button press must return
             # it in the callback URL for the pipup_button event to fire.
             callback_url: str | None = None
             if want_buttons:
-                token = _issue_button_token(hass, data.get(ATTR_POPUP_ID))
+                token = _issue_button_token(
+                    hass, data.get(ATTR_POPUP_ID), data.get(ATTR_BUTTONS), coordinator
+                )
                 callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}?token={token}"
             position = data.get(ATTR_POSITION) or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
             app_version = (coordinator.data or {}).get("version")
             if required := unsupported_position(position, app_version):
-                errors.append(
+                return (
                     f"{coordinator.config_entry.title}: position '{position}' needs "
                     f"PiPup app {required} or newer (this TV runs {app_version})"
                 )
-                continue
             payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url, poster_uri)
             if unsupported := unsupported_media(payload, app_version):
-                errors.append(
+                return (
                     f"{coordinator.config_entry.title}: {unsupported[0]}_url needs "
                     f"PiPup app {unsupported[1]} or newer (this TV runs {app_version})"
                 )
-                continue
             try:
                 if snapshot is not None:
                     fields = {
@@ -632,28 +704,36 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                     await coordinator.client.notify_image(fields, snapshot)
                 else:
                     await coordinator.client.notify(payload)
-                await coordinator.async_refresh_soon()
+                await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
-                errors.append(str(err))
+                return str(err)
+            return None
 
-        if errors:
-            raise HomeAssistantError("; ".join(errors))
+        # every TV at once: one slow or unreachable TV no longer holds up the others
+        _raise_errors(
+            await asyncio.gather(
+                *(_show_on(c) for c in coordinators), return_exceptions=True
+            )
+        )
 
     async def handle_dismiss(call: ServiceCall) -> None:
         coordinators = await _coordinators_for_call(hass, call)
         popup_id = call.data.get(ATTR_POPUP_ID)
         all_popups = call.data.get(ATTR_ALL, False)
 
-        errors: list[str] = []
-        for coordinator in coordinators:
+        async def _dismiss_on(coordinator) -> str | None:
             try:
                 await coordinator.client.cancel(popup_id, all_popups=all_popups)
-                await coordinator.async_refresh_soon()
+                await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
-                errors.append(str(err))
+                return str(err)
+            return None
 
-        if errors:
-            raise HomeAssistantError("; ".join(errors))
+        _raise_errors(
+            await asyncio.gather(
+                *(_dismiss_on(c) for c in coordinators), return_exceptions=True
+            )
+        )
 
     async def handle_sync(call: ServiceCall) -> None:
         """Read /state now on the targeted TV(s) and re-send the push webhook."""

@@ -89,6 +89,8 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # set once the push webhook is registered (app >= 0.24.0); polling stops then
         self._webhook_id: str | None = None
         self._asserting = False
+        # last webhook warning logged; the heartbeat repeats it at debug level
+        self._webhook_warning: str | None = None
         self._setting_up_push = False
         # update source the entities were built with; a change reloads the entry
         self.applied_update_source: str | None = None
@@ -245,15 +247,26 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             base = get_url(self.hass, allow_external=False, prefer_external=False)
             await self.client.settings(webhook=f"{base}/api/webhook/{self._webhook_id}")
         except NoURLAvailableError:
-            _LOGGER.warning(
-                "PiPup push for %s: HA has no internal URL the TV can reach; "
-                "set one under Settings > System > Network", self.config_entry.title
+            self._warn_webhook(
+                f"PiPup push for {self.config_entry.title}: HA has no internal URL the "
+                "TV can reach; set one under Settings > System > Network"
             )
         except PiPupError as err:
-            _LOGGER.warning("PiPup push for %s: cannot set webhook: %s",
-                            self.config_entry.title, err)
+            self._warn_webhook(
+                f"PiPup push for {self.config_entry.title}: cannot set webhook: {err}"
+            )
+        else:
+            self._webhook_warning = None
         finally:
             self._asserting = False
+
+    def _warn_webhook(self, message: str) -> None:
+        """Log a webhook problem once; the heartbeat's repeats go to debug."""
+        if message == self._webhook_warning:
+            _LOGGER.debug("%s", message)
+            return
+        self._webhook_warning = message
+        _LOGGER.warning("%s", message)
 
     async def async_apply_app_settings(self) -> None:
         """Send the update source option to the app (app >= 0.24.0), so the TV's own

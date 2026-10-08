@@ -552,7 +552,9 @@ segment**. See the [app's Security section](https://github.com/mhoogenbosch/PiPu
 Button presses arrive over a local-only webhook. To stop a device on the LAN from forging a
 `pipup_button` event (which could drive a security-sensitive automation such as a door lock), this
 integration mints a **single-use token** for every button popup, passes it in the callback URL, and
-rejects any callback whose token is missing, unknown or expired. Traffic to the TV is plain HTTP, so
+rejects any callback whose token is missing, unknown or expired. The token is bound to the popup it
+was issued for: the event's `popup_id`, `label`, `device_id` and `device_name` come from what HA
+showed, and a `button` that was not on that popup is rejected. Traffic to the TV is plain HTTP, so
 the token can still be sniffed within its short window on an untrusted network — another reason to
 keep these devices on a segment you control.
 
