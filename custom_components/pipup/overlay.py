@@ -68,6 +68,11 @@ def overlay_subentries(entry: ConfigEntry) -> list[ConfigSubentry]:
     ]
 
 
+def overlay_store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, dict[str, Any]]]:
+    """The Store that keeps the overlay settings of one entry."""
+    return Store(hass, STORE_VERSION, f"{DOMAIN}.overlays.{entry_id}")
+
+
 def _now_text() -> str:
     return dt_util.now().strftime("%-I:%M %p")
 
@@ -82,9 +87,7 @@ class OverlayManager:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
-        self._store: Store[dict[str, dict[str, Any]]] = Store(
-            hass, STORE_VERSION, f"{DOMAIN}.overlays.{entry.entry_id}"
-        )
+        self._store = overlay_store(hass, entry.entry_id)
         self._settings: dict[str, dict[str, Any]] = {}
         self._status: dict[str, str] = {}
         self._since: dict[str, str | None] = {}
@@ -95,6 +98,9 @@ class OverlayManager:
         # the overlay HA is hiding itself, so its status says "hidden", not "closed"
         self._hiding: set[str] = set()
         self.subentry_ids: set[str] = set()
+        # sub_id -> popup id, kept so a removed overlay's popup can still be taken
+        # off the TV once its subentry (and so its data) is gone
+        self.popup_ids: dict[str, str] = {}
         self.tv_device_id: str | None = None
 
     # ---- setup ---------------------------------------------------------------
@@ -110,6 +116,11 @@ class OverlayManager:
         stored = await self._store.async_load() or {}
         subs = overlay_subentries(self.entry)
         self.subentry_ids = {sub.subentry_id for sub in subs}
+        self.popup_ids = {
+            sub.subentry_id: sub.data[CONF_OVERLAY_POPUP_ID]
+            for sub in subs
+            if sub.data.get(CONF_OVERLAY_POPUP_ID)
+        }
         # settings of removed overlays go; new overlays start from the defaults
         self._settings = {
             sub_id: {**OVERLAY_DEFAULTS, **stored.get(sub_id, {})}
