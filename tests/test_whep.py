@@ -19,3 +19,13 @@ def test_whep_needs_app_0_25() -> None:
     assert unsupported_media(payload, "0.25.0") is None
     assert unsupported_media(payload, None) is None
     assert unsupported_media({"media": {"web": {"uri": "x"}}}, "0.2.0") is None
+
+
+def test_version_gate_ignores_build_suffix() -> None:
+    payload = {"media": {"whep": {"uri": "x"}}}
+    # a release candidate or debug build of 0.25.0 has the 0.25.0 features
+    assert unsupported_media(payload, "0.25.0-rc1") is None
+    assert unsupported_media(payload, "0.25.0-debug") is None
+    assert unsupported_media(payload, "0.24.9-rc1") == ("whep", "0.25.0")
+    # unparseable: let through, as before
+    assert unsupported_media(payload, "unknown") is None

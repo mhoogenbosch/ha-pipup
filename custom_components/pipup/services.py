@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import secrets
 from typing import Any
 
@@ -224,10 +225,20 @@ def unsupported_media(payload: dict[str, Any], app_version: str | None) -> tuple
     return None
 
 
+_VERSION_CORE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
+
+
 def _needs_newer_app(required: str | None, app_version: str | None) -> str | None:
-    """Return `required` when `app_version` is older; None when fine or unknown."""
+    """Return `required` when `app_version` is older; None when fine or unknown.
+
+    Only the numeric x.y.z core counts: a build such as "0.25.0-rc1" or "0.25.0-debug"
+    has the 0.25.0 features, while AwesomeVersion would rank it below 0.25.0.
+    """
     if required is None or not app_version:
         return None
+    have, need = _VERSION_CORE.match(app_version.strip()), _VERSION_CORE.match(required)
+    if have and need:
+        return required if tuple(map(int, have.groups())) < tuple(map(int, need.groups())) else None
     try:
         return required if AwesomeVersion(app_version) < AwesomeVersion(required) else None
     except AwesomeVersionException:

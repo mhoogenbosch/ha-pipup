@@ -9,7 +9,7 @@ import logging
 from datetime import timedelta
 
 import aiohttp
-from awesomeversion import AwesomeVersion
+from awesomeversion import AwesomeVersion, AwesomeVersionException
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.core import HomeAssistant, callback
@@ -283,5 +283,10 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         self._latest = await _latest_release_tag(self.hass, self._source)
         installed = self.installed_version
         if installed and self._latest and installed != self._latest:
-            if AwesomeVersion(installed) > AwesomeVersion(self._latest):
+            try:
+                newer = AwesomeVersion(installed) > AwesomeVersion(self._latest)
+            except AwesomeVersionException:
+                # an unparseable version on either side: nothing to compare, keep the tag
+                newer = False
+            if newer:
                 self._latest = await _latest_release_tag(self.hass, self._source, force=True)
