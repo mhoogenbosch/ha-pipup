@@ -5,6 +5,7 @@ https://github.com/tonylofgren/aurora-smart-home
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from typing import Any
@@ -587,6 +588,28 @@ async def _handle_button_webhook(hass: HomeAssistant, webhook_id: str, request) 
     )
 
 
+async def _refresh_unless_pushed(coordinator) -> None:
+    """Read /state after a call, unless the app pushes the change itself.
+
+    An app with push (>= 0.24.0) posts popup_shown/popup_removed on its own, so the
+    extra settle delay plus /state round-trip only slowed the action down.
+    """
+    if not coordinator.push_active:
+        await coordinator.async_refresh_soon()
+
+
+def _raise_errors(results: list[Any]) -> None:
+    """Raise the per-TV errors of a gathered call, in target order, as one message."""
+    errors: list[str] = []
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result  # not a TV error: surface it as before
+        if result:
+            errors.append(result)
+    if errors:
+        raise HomeAssistantError("; ".join(errors))
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     """Register the pipup.show/pipup.dismiss actions and the button webhook."""
 
@@ -630,8 +653,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             else None
         )
 
-        errors: list[str] = []
-        for coordinator in coordinators:
+        async def _show_on(coordinator) -> str | None:
+            """Show the popup on one TV; the error text, or None when it worked."""
             opts = dict(coordinator.config_entry.options)
             # A fresh single-use token per device: the button press must return
             # it in the callback URL for the pipup_button event to fire.
@@ -644,18 +667,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             position = data.get(ATTR_POSITION) or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
             app_version = (coordinator.data or {}).get("version")
             if required := unsupported_position(position, app_version):
-                errors.append(
+                return (
                     f"{coordinator.config_entry.title}: position '{position}' needs "
                     f"PiPup app {required} or newer (this TV runs {app_version})"
                 )
-                continue
             payload = build_device_payload(data, opts, stream_uri, web_uri, callback_url, poster_uri)
             if unsupported := unsupported_media(payload, app_version):
-                errors.append(
+                return (
                     f"{coordinator.config_entry.title}: {unsupported[0]}_url needs "
                     f"PiPup app {unsupported[1]} or newer (this TV runs {app_version})"
                 )
-                continue
             try:
                 if snapshot is not None:
                     fields = {
@@ -672,28 +693,36 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                     await coordinator.client.notify_image(fields, snapshot)
                 else:
                     await coordinator.client.notify(payload)
-                await coordinator.async_refresh_soon()
+                await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
-                errors.append(str(err))
+                return str(err)
+            return None
 
-        if errors:
-            raise HomeAssistantError("; ".join(errors))
+        # every TV at once: one slow or unreachable TV no longer holds up the others
+        _raise_errors(
+            await asyncio.gather(
+                *(_show_on(c) for c in coordinators), return_exceptions=True
+            )
+        )
 
     async def handle_dismiss(call: ServiceCall) -> None:
         coordinators = await _coordinators_for_call(hass, call)
         popup_id = call.data.get(ATTR_POPUP_ID)
         all_popups = call.data.get(ATTR_ALL, False)
 
-        errors: list[str] = []
-        for coordinator in coordinators:
+        async def _dismiss_on(coordinator) -> str | None:
             try:
                 await coordinator.client.cancel(popup_id, all_popups=all_popups)
-                await coordinator.async_refresh_soon()
+                await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
-                errors.append(str(err))
+                return str(err)
+            return None
 
-        if errors:
-            raise HomeAssistantError("; ".join(errors))
+        _raise_errors(
+            await asyncio.gather(
+                *(_dismiss_on(c) for c in coordinators), return_exceptions=True
+            )
+        )
 
     async def handle_sync(call: ServiceCall) -> None:
         """Read /state now on the targeted TV(s) and re-send the push webhook."""
