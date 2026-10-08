@@ -495,13 +495,22 @@ async def _camera_media(
     return f"{base_url}{stream_path}", None, None, poster
 
 
-def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
+def _issue_button_token(
+    hass: HomeAssistant,
+    popup_id: str | None,
+    buttons: list[dict[str, Any]] | None = None,
+    coordinator: Any = None,
+) -> str:
     """Mint a single-use token for a button popup and remember it.
 
     The token travels in the callback URL and must come back on the button
     press, so a device on the LAN cannot forge a pipup_button event by POSTing
     a guessed device id — which matters when button events drive things like a
     door lock. Expired tokens are swept on each issue.
+
+    The token is bound to what was shown: the popup id, the buttons on it and the
+    TV it went to. The event is built from that, not from the callback body, so a
+    token holder cannot turn one popup's token into another popup's (or TV's) press.
     """
     tokens: dict[str, dict[str, Any]] = hass.data.setdefault(DOMAIN, {}).setdefault(
         DATA_BUTTON_TOKENS, {}
@@ -509,8 +518,24 @@ def _issue_button_token(hass: HomeAssistant, popup_id: str | None) -> str:
     now = dt_util.utcnow()
     for tok in [t for t, meta in tokens.items() if meta["expires"] < now]:
         tokens.pop(tok, None)
+    device_id: str | None = None
+    device_name: str | None = None
+    if coordinator is not None:
+        state = coordinator.data or {}
+        entry = coordinator.config_entry
+        # the app's stable id and name, as the app itself puts them in the callback
+        device_id = state.get("id") or entry.unique_id
+        device_name = state.get("name")
     token = secrets.token_urlsafe(24)
-    tokens[token] = {"popup_id": popup_id, "expires": now + BUTTON_TOKEN_TTL}
+    tokens[token] = {
+        "popup_id": popup_id,
+        "buttons": [
+            {"id": b.get("id"), "label": b.get("label")} for b in buttons or []
+        ],
+        "device_id": device_id,
+        "device_name": device_name,
+        "expires": now + BUTTON_TOKEN_TTL,
+    }
     return token
 
 
@@ -537,14 +562,27 @@ async def _handle_button_webhook(hass: HomeAssistant, webhook_id: str, request) 
         _LOGGER.warning("Invalid JSON on %s webhook", webhook_id)
         return
     _LOGGER.debug("Popup button pressed: %s", data)
+    if not isinstance(data, dict):
+        _LOGGER.warning("Invalid payload on %s webhook", webhook_id)
+        return
+    # Only a button that was on the popup this token was issued for counts; popup,
+    # label and TV come from what HA showed, never from the request body.
+    button = data.get("button")
+    issued = next((b for b in meta.get("buttons") or [] if b["id"] == button), None)
+    if issued is None:
+        _LOGGER.warning(
+            "Rejecting PiPup button callback: button %r was not on popup %r",
+            button, meta.get("popup_id"),
+        )
+        return
     hass.bus.async_fire(
         EVENT_BUTTON,
         {
-            "popup_id": data.get("popup"),
-            "button": data.get("button"),
-            "label": data.get("label"),
-            "device_id": data.get("device"),
-            "device_name": data.get("name"),
+            "popup_id": meta.get("popup_id"),
+            "button": issued["id"],
+            "label": issued["label"],
+            "device_id": meta.get("device_id"),
+            "device_name": meta.get("device_name"),
         },
     )
 
@@ -599,7 +637,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             # it in the callback URL for the pipup_button event to fire.
             callback_url: str | None = None
             if want_buttons:
-                token = _issue_button_token(hass, data.get(ATTR_POPUP_ID))
+                token = _issue_button_token(
+                    hass, data.get(ATTR_POPUP_ID), data.get(ATTR_BUTTONS), coordinator
+                )
                 callback_url = f"{base_url}/api/webhook/{WEBHOOK_ID}?token={token}"
             position = data.get(ATTR_POSITION) or opts.get(CONF_DEFAULT_POSITION, DEFAULT_POSITION)
             app_version = (coordinator.data or {}).get("version")
