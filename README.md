@@ -119,6 +119,12 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `http://homeassistant.local:8123/local/icons/…` path works
 - Action **`pipup.dismiss`**: remove the popup with a given `popup_id`, else the popup shown
   without an id; `all: true` removes every popup. The **Dismiss popup** button removes every popup.
+
+  > **Upgrading from ha-pipup ≤ 1.21 / app ≤ 0.23:** a `pipup.dismiss` *without* `popup_id` used to
+  > remove whatever was on screen. Since 1.22.0 / app 0.24.0 it only removes a popup that was shown
+  > **without** an id — a popup shown with `popup_id` stays up, and nothing reports an error (the app
+  > answers `200 no popup without an id`). Indefinite camera popups (`duration: 0`) then never go away.
+  > Pass the same `popup_id` as in `pipup.show`, or `all: true` to clear the TV.
 - **Several popups at once** (app >= 0.24.0): each `popup_id` is its own popup on
   the TV, so a doorbell popup opens beside an overlay instead of replacing it. Popups without an id
   share one slot. `bring_to_front` in `pipup.show` redraws a popup that is already up on top of the
@@ -386,7 +392,9 @@ triggers:
     id: motion_off
 actions:
   - choose:
-      - conditions: "{{ trigger.id == 'motion_on' }}"
+      - conditions:
+          - condition: trigger
+            id: motion_on
         sequence:
           - action: pipup.show
             target:
@@ -399,13 +407,15 @@ actions:
               # with go2rtc, faster and smoother (app >= 0.25.0), instead of camera_entity:
               # whep_url: "http://go2rtc.local:1984/api/webrtc?src=driveway"
               # poster_url: "http://frigate.local:5000/api/driveway/latest.jpg"
-      - conditions: "{{ trigger.id == 'motion_off' }}"
+      - conditions:
+          - condition: trigger
+            id: motion_off
         sequence:
           - action: pipup.dismiss
             target:
               entity_id: binary_sensor.pipup_living_room_popup
             data:
-              popup_id: driveway     # never cancels an unrelated popup
+              popup_id: driveway     # required: without it only a popup *without* id is removed
 ```
 
 When you show indefinite (`duration: 0`) popups, make the automation `mode: queued` and put

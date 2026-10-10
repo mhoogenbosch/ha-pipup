@@ -7,6 +7,13 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
+## [Unreleased]
+### Docs
+- **Upgrade note for `pipup.dismiss` without `popup_id`** (README). Since 1.22.0 / app 0.24.0 it removes
+  only a popup shown without an id; popups shown with `popup_id` stay up, silently. Automations written
+  for ≤ 1.21 that dismiss without an id must now pass the `popup_id` (or `all: true`). The v1.22.0
+  entry below now says so too. The camera example uses `condition: trigger` instead of a template.
+
 ## [v1.24.1] — 2026-10-08 (audit fixes)
 ### Fixed
 - **Button presses are bound to their popup.** The single-use token was checked, but the
@@ -71,6 +78,9 @@ commits and authorship intact. Needs Home Assistant 2026.9 or newer (overlays ar
   `popup_ids`, `removed_id`, `replaced_id`, `device_id`, `pipup_id`, `device_name`). The integration
   sends the webhook again when the app reports it has none (after a reinstall). An app without push
   keeps the timed poll.
+- **Breaking for `pipup.dismiss` without `popup_id`** *(note added 2026-10-10)*: with app ≥ 0.24.0 it
+  removes only a popup shown without an id; a popup shown with `popup_id` stays on screen and no error
+  is raised. Pass the `popup_id` (or `all: true`) in the dismiss.
 - **Sync** button and `pipup.sync` action: read the TV's state now and re-send the webhook.
 - **Overlays:** named web pages pinned over the TV picture. **Add overlay** on the integration page
   (a config subentry of the TV) gives a device `<name> overlay` with a **Show** switch (follows the
