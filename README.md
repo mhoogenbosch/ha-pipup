@@ -67,9 +67,12 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     instead** (see below and [Which camera route?](#which-camera-route)): faster and steadier than any
     `camera_mode`
   - `position` is optional — omitted means the device's configured default position. Choices:
-    `top_right`, `top_left`, `bottom_right`, `bottom_left`, `center`, and `top_center` / `bottom_center`
-    (centered along the top or bottom edge, app ≥ 0.22.0 — on an older app the action reports an error for
-    that TV instead of sending a position the app would reject)
+    `top_right`, `top_left`, `bottom_right`, `bottom_left`, `center`, `top_center` / `bottom_center`
+    (centered along the top or bottom edge, app ≥ 0.22.0) and `center_left` / `center_right` (centered
+    along the side edge, app ≥ 0.26.0) — the full 3×3 grid. On an app too old for a position the action
+    reports an error for that TV instead of sending a value the app would reject. `top_right`,
+    `center_right` and `bottom_right` stack along one side when several popups (each with its own
+    `popup_id`) are shown at once.
   - `muted: true` **by default** (requires app ≥ 0.2.4) — audio in a popup can freeze video playback
     on some TVs; pass `muted: false` when you do want sound
   - **per-device defaults for everything** — duration, position, muted, media size, colors and text

@@ -156,12 +156,19 @@ POSITIONS: Final = {
     "center": 4,
     "top_center": 5,
     "bottom_center": 6,
+    "center_left": 7,
+    "center_right": 8,
 }
 
 # Positions the app only understands from a given version on. Older apps reject an
 # unknown ordinal (the JSON parser fails the whole /notify), so pipup.show refuses to
 # send them there instead of failing silently on the TV.
-POSITION_MIN_APP_VERSION: Final = {"top_center": "0.22.0", "bottom_center": "0.22.0"}
+POSITION_MIN_APP_VERSION: Final = {
+    "top_center": "0.22.0",
+    "bottom_center": "0.22.0",
+    "center_left": "0.26.0",
+    "center_right": "0.26.0",
+}
 # Media types the app only understands from a given version on; an older app rejects the
 # whole /notify on an unknown media type.
 MEDIA_MIN_APP_VERSION: Final = {"whep": "0.25.0"}

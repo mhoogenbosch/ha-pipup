@@ -8,6 +8,13 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
 ## [Unreleased]
+
+## [v1.25.0] — 2026-10-11 (center left / center right)
+### Added
+- **`position: center_left` and `center_right`** *(app ≥ 0.26.0)* — the 3×3 grid is complete
+  (PiPup #62, requested by @bboykaos). Available in `pipup.show`, the default-position option and the
+  overlay entities; English and Dutch labels. Gated like `top_center`/`bottom_center`: on an older app
+  the action reports an error for that TV instead of sending an ordinal the app would reject.
 ### Docs
 - **Upgrade note for `pipup.dismiss` without `popup_id`** (README). Since 1.22.0 / app 0.24.0 it removes
   only a popup shown without an id; popups shown with `popup_id` stay up, silently. Automations written

@@ -140,7 +140,9 @@
           "bottom_left": "Bottom left",
           "center": "Center",
           "top_center": "Top center",
-          "bottom_center": "Bottom center"
+          "bottom_center": "Bottom center",
+          "center_left": "Center left",
+          "center_right": "Center right"
         }
       },
       "overlay_page": {
@@ -158,7 +160,9 @@
           "bottom_left": "Bottom left",
           "center": "Center",
           "top_center": "Top center",
-          "bottom_center": "Bottom center"
+          "bottom_center": "Bottom center",
+          "center_left": "Center left",
+          "center_right": "Center right"
         }
       },
       "overlay_animation": {
@@ -252,7 +256,9 @@
         "bottom_left": "Bottom left",
         "center": "Center",
         "top_center": "Top center",
-        "bottom_center": "Bottom center"
+        "bottom_center": "Bottom center",
+        "center_left": "Center left",
+        "center_right": "Center right"
       }
     },
     "camera_mode": {

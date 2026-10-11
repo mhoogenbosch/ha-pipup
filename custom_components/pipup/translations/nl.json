@@ -140,7 +140,9 @@
           "bottom_left": "Linksonder",
           "center": "Midden",
           "top_center": "Midden boven",
-          "bottom_center": "Midden onder"
+          "bottom_center": "Midden onder",
+          "center_left": "Midden links",
+          "center_right": "Midden rechts"
         }
       },
       "overlay_animation": {
@@ -169,7 +171,9 @@
           "top_left": "Linksboven",
           "top_right": "Rechtsboven",
           "top_center": "Boven midden",
-          "bottom_center": "Onder midden"
+          "bottom_center": "Onder midden",
+          "center_left": "Midden links",
+          "center_right": "Midden rechts"
         }
       },
       "overlay_sound": {
@@ -252,7 +256,9 @@
         "bottom_left": "Linksonder",
         "center": "Midden",
         "top_center": "Midden boven",
-        "bottom_center": "Midden onder"
+        "bottom_center": "Midden onder",
+        "center_left": "Midden links",
+        "center_right": "Midden rechts"
       }
     },
     "camera_mode": {
