@@ -257,6 +257,13 @@ the poster the popup shows a picture at once either way. `camera_entity` (no go2
 fallback. Full table and the reasoning: the
 [app README](https://github.com/mhoogenbosch/PiPup#which-stream-should-a-camera-popup-use).
 
+**Poster shows, video never comes, on one TV only?** Some Android TV boxes (a Nokia 8010 here) have a
+256 KB UDP receive buffer, and WebRTC delivers each keyframe as one burst. Keyframes above ~220 KB
+(a 5–6 Mbit/s main stream at 1 s keyframe interval) then never decode on that box, while a Fire TV
+plays them fine. Lower the camera's main-stream bitrate until its keyframes fit, or point that TV at
+the sub-stream; how to measure is in the
+[app README](https://github.com/mhoogenbosch/PiPup#keep-the-cameras-keyframes-under-the-tvs-udp-buffer).
+
 ## Examples
 
 Real-world recipes from the household this integration was built for. All popup styling

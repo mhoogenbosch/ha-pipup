@@ -8,6 +8,10 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
 ## [Unreleased]
+### Docs
+- "Which camera route?": a TV where the poster shows but WHEP video never comes may have a small UDP
+  receive buffer (256 KB on a Nokia 8010); keep the camera's keyframes under ~220 KB or use the
+  sub-stream for that TV. Links to the measurement recipe in the app README.
 
 ## [v1.25.0] — 2026-10-11 (center left / center right)
 ### Added
