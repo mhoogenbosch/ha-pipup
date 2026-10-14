@@ -50,6 +50,7 @@
           "default_dismiss_screensaver": "Screensaver beëindigen vóór een popup (standaard)",
           "default_button_size": "Standaard knop-tekstgrootte (sp; 0 = klassieke look)",
           "default_animation": "Standaard popup-animatie",
+          "default_stack": "Standaard stapelen van popups op dezelfde positie",
           "default_media_width": "Standaard mediabreedte (px)",
           "default_media_height": "Standaard mediahoogte (px)",
           "default_title_size": "Standaard titelgrootte (0 = app-standaard)",
@@ -294,6 +295,13 @@
         "slide_top": "Inschuiven van boven",
         "slide_bottom": "Inschuiven van onder"
       }
+    },
+    "stack": {
+      "options": {
+        "none": "Geen (overlappen)",
+        "vertical": "Verticaal",
+        "horizontal": "Horizontaal"
+      }
     }
   },
   "services": {
@@ -444,6 +452,10 @@
         "animation": {
           "name": "Animatie",
           "description": "Verschijn-animatie, omgekeerd afgespeeld als de popup vanzelf afloopt. Een update-in-place van dezelfde popup animeert niet opnieuw (app 0.19.0 of nieuwer)."
+        },
+        "stack": {
+          "name": "Stapelen",
+          "description": "Rijg aan bij de andere stapelende popups op dezelfde positie in plaats van eroverheen: verticaal (weg van de boven- of onderrand) of horizontaal (weg van de linker- of rechterrand). De rest schuift op als er één sluit. Niet voor center (app 0.27.0 of nieuwer; een oudere app negeert het)."
         },
         "padding": {
           "name": "Padding",

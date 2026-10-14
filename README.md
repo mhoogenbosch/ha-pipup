@@ -133,6 +133,11 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
   share one slot. `bring_to_front` in `pipup.show` redraws a popup that is already up on top of the
   others. The **Current popup** sensor shows the one on top, with every id in its `popups`
   attribute; **Popups on screen** counts them.
+- **Stacking** (app >= 0.27.0): `stack: vertical` or `stack: horizontal` in `pipup.show` lines a
+  popup up with the other stacking popups at the same position, so two camera popups on the right
+  edge sit one above the other instead of on top of each other. The rest move up when one closes.
+  Set a per-TV default under *Configure* (*Default stacking*); `stack: none` overrides it for one
+  call. An older app ignores the field and the popups overlap as before.
 - **Push instead of poll** (app >= 0.24.0): at setup every TV gets its own local-only webhook, and
   the app POSTs its state there on every change. Popup, screen and overlay entities follow within
   milliseconds instead of at the next 15 s poll. A 60 s heartbeat poll remains, because a TV that

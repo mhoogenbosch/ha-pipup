@@ -26,6 +26,7 @@ from homeassistant.util import dt as dt_util
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ANIMATIONS,
+    STACKS,
     ATTR_BACKGROUND_COLOR,
     ATTR_PERMISSION,
     ATTR_BORDER_COLOR,
@@ -36,6 +37,7 @@ from .const import (
     ATTR_CORNER_RADIUS,
     ATTR_DURATION,
     ATTR_ANIMATION,
+    ATTR_STACK,
     ATTR_BUTTON_SIZE,
     ATTR_DISMISS_SCREENSAVER,
     ATTR_ICON,
@@ -79,6 +81,7 @@ from .const import (
     CONF_DEFAULT_DURATION,
     CONF_DEFAULT_ICON_POSITION,
     CONF_DEFAULT_ANIMATION,
+    CONF_DEFAULT_STACK,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_ICON_WIDTH,
@@ -149,6 +152,7 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_TRANSPARENT): cv.boolean,
         vol.Optional(ATTR_BRING_TO_FRONT): cv.boolean,
         vol.Optional(ATTR_ANIMATION): vol.In(ANIMATIONS),
+        vol.Optional(ATTR_STACK): vol.In(STACKS),
         vol.Optional(ATTR_SOUND): cv.string,
         vol.Optional(ATTR_SOUND_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
         vol.Optional(ATTR_DISMISS_SCREENSAVER): cv.boolean,
@@ -336,6 +340,14 @@ def build_device_payload(
         animation = opts.get(CONF_DEFAULT_ANIMATION)
     if animation and animation != "none":
         payload["animation"] = animation
+    # app >= 0.27.0: stack along the edge with the other popups at that position (#64);
+    # per-call value first, then the per-device default. An older app ignores the field,
+    # so popups just overlap there as before - no version gate needed.
+    stack = data.get(ATTR_STACK)
+    if stack is None:
+        stack = opts.get(CONF_DEFAULT_STACK)
+    if stack and stack != "none":
+        payload["stack"] = stack
 
     # app >= 0.18.0: notification sound. "default" = built-in chime, else a URL. Per-call
     # value first, then the per-device default; an explicit empty string in the call means

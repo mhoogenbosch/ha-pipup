@@ -78,6 +78,14 @@ show:
             - slide_top
             - slide_bottom
           translation_key: animation
+    stack:
+      selector:
+        select:
+          options:
+            - none
+            - vertical
+            - horizontal
+          translation_key: stack
     sound:
       example: "default"
       selector:

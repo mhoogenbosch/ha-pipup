@@ -36,6 +36,7 @@ from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .parent import PARENT_DOMAINS
 from .const import (
     ANIMATIONS,
+    STACKS,
     CONF_DEFAULT_BACKGROUND_COLOR,
     CONF_DEFAULT_BORDER_COLOR,
     CONF_DEFAULT_BORDER_WIDTH,
@@ -48,6 +49,7 @@ from .const import (
     CONF_DEFAULT_MESSAGE_COLOR,
     CONF_DEFAULT_MESSAGE_SIZE,
     CONF_DEFAULT_ANIMATION,
+    CONF_DEFAULT_STACK,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_MUTED,
@@ -351,6 +353,7 @@ class PiPupOptionsFlow(OptionsFlow):
             # 0 = no default (classic look)
             options[CONF_DEFAULT_BUTTON_SIZE] = user_input.get(CONF_DEFAULT_BUTTON_SIZE, 0)
             options[CONF_DEFAULT_ANIMATION] = user_input.get(CONF_DEFAULT_ANIMATION, "none")
+            options[CONF_DEFAULT_STACK] = user_input.get(CONF_DEFAULT_STACK, "none")
             sound = (user_input.get(CONF_DEFAULT_SOUND) or "").strip()
             if sound:
                 options[CONF_DEFAULT_SOUND] = sound
@@ -463,6 +466,10 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_DEFAULT_ANIMATION,
                         default=opts.get(CONF_DEFAULT_ANIMATION, "none"),
                     ): vol.In(ANIMATIONS),
+                    vol.Optional(
+                        CONF_DEFAULT_STACK,
+                        default=opts.get(CONF_DEFAULT_STACK, "none"),
+                    ): vol.In(STACKS),
                     vol.Optional(
                         CONF_DEFAULT_MEDIA_WIDTH,
                         default=opts.get(CONF_DEFAULT_MEDIA_WIDTH, 640),

@@ -50,6 +50,7 @@
           "default_dismiss_screensaver": "End the screensaver before showing a popup (default)",
           "default_button_size": "Default button text size (sp; 0 = classic look)",
           "default_animation": "Default popup animation",
+          "default_stack": "Default stacking of popups at the same position",
           "default_media_width": "Default media width (px)",
           "default_media_height": "Default media height (px)",
           "default_title_size": "Default title size (0 = app default)",
@@ -294,6 +295,13 @@
         "slide_top": "Slide in from the top",
         "slide_bottom": "Slide in from the bottom"
       }
+    },
+    "stack": {
+      "options": {
+        "none": "None (overlap)",
+        "vertical": "Vertical",
+        "horizontal": "Horizontal"
+      }
     }
   },
   "services": {
@@ -444,6 +452,10 @@
         "animation": {
           "name": "Animation",
           "description": "Entrance animation, reversed when the popup expires naturally. An update-in-place of the same popup does not re-animate (app 0.19.0 or newer)."
+        },
+        "stack": {
+          "name": "Stack",
+          "description": "Line up with the other stacking popups at the same position instead of overlapping them: vertical (away from the top or bottom edge) or horizontal (away from the left or right edge). The rest moves up when one closes. Not for center (app 0.27.0 or newer; an older app ignores it)."
         },
         "padding": {
           "name": "Padding",

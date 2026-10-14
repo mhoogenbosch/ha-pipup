@@ -45,6 +45,7 @@ CONF_DEFAULT_SOUND: Final = "default_sound"
 CONF_DEFAULT_DISMISS_SCREENSAVER: Final = "default_dismiss_screensaver"
 CONF_DEFAULT_BUTTON_SIZE: Final = "default_button_size"
 CONF_DEFAULT_ANIMATION: Final = "default_animation"
+CONF_DEFAULT_STACK: Final = "default_stack"
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -104,10 +105,13 @@ ATTR_BRING_TO_FRONT: Final = "bring_to_front"
 ATTR_ALL: Final = "all"
 ATTR_BUTTON_SIZE: Final = "button_size"
 ATTR_ANIMATION: Final = "animation"
+# app >= 0.27.0: line up with other popups at the same position (#64)
+ATTR_STACK: Final = "stack"
 
 URGENCIES: Final = ["info", "warning", "critical"]
 ICON_POSITIONS: Final = ["left", "right"]
 ANIMATIONS: Final = ["none", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom"]
+STACKS: Final = ["none", "vertical", "horizontal"]
 DEFAULT_ICON_POSITION: Final = "left"
 
 # Push (app >= 0.24.0): per-entry webhook id, stored in entry data.
