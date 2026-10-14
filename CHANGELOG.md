@@ -8,6 +8,8 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
 ## [Unreleased]
+
+## [v1.26.0] — 2026-10-14 (popup stacking)
 ### Added
 - **`stack: vertical | horizontal | none`** in `pipup.show` *(app ≥ 0.27.0)*: line a popup up with
   the other stacking popups at the same position instead of overlapping them (PiPup #64, requested by
