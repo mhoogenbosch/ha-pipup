@@ -14,6 +14,7 @@ from custom_components.pipup.adb import (
     PiPupAdb,
     ReleaseApk,
     async_download_apk,
+    auto_update_installs,
     effective_method,
     release_apk,
 )
@@ -59,6 +60,52 @@ STATE = {
 def test_effective_method(options, data, expected) -> None:
     """Default = app; Auto follows the app's `silent` flag, then the Android version."""
     assert effective_method(options, data) == expected
+
+
+@pytest.mark.parametrize(
+    ("options", "data", "expected"),
+    [
+        ({**AUTO, "auto_update": False}, {"update": {"silent": True}}, False),
+        ({}, {"update": {"silent": True}}, False),  # off by default
+        ({**AUTO, "auto_update": True}, {"update": {"silent": False}}, True),  # ADB
+        ({**AUTO, "auto_update": True}, {"update": {"silent": True}}, True),  # app, silent
+        ({"install_method": "adb", "auto_update": True}, {"update": {"silent": True}}, True),
+        # the app's own update would wait for the remote: nothing installs at night
+        ({"install_method": "app", "auto_update": True}, {"update": {"silent": False}}, False),
+        ({"install_method": "app", "auto_update": True}, {"device": {"android": "11"}}, False),
+    ],
+)
+def test_auto_update_installs(options, data, expected) -> None:
+    """True only when the nightly update can install on this TV by itself."""
+    assert auto_update_installs(options, data) is expected
+
+
+async def test_auto_update_header(hass: HomeAssistant) -> None:
+    """The header is left out until known, then follows the options on every poll."""
+    from custom_components.pipup.api import PiPupClient
+
+    client = PiPupClient(MagicMock(), "192.168.1.14", 7979)
+    assert "X-HA-PiPup-Auto-Update" not in client._headers
+    client.auto_update = True
+    assert client._headers["X-HA-PiPup-Auto-Update"] == "on"
+    assert client._headers["X-HA-PiPup-Version"]  # the version stays
+    client.auto_update = False
+    assert client._headers["X-HA-PiPup-Auto-Update"] == "off"
+
+    entry, patchers = await _setup(hass, dict(STATE), {**AUTO, "auto_update": True})
+    try:
+        coordinator = entry.runtime_data
+        assert coordinator.client.auto_update is True
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, "auto_update": False}
+        )
+        await coordinator.async_refresh()
+        assert coordinator.client.auto_update is False
+    finally:
+        await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+        for p in patchers:
+            p.stop()
 
 
 def test_release_apk_picks_apk_and_digest() -> None:

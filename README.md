@@ -707,14 +707,19 @@ is online and ADB works. See the
 [app README](https://github.com/mhoogenbosch/PiPup#tcl-google-tvs-vendor-guard-kills-and-freezes-the-app)
 for the mechanism, the required app-ops and how to recognise a frozen process.
 
-What matters here: the app survives only when it runs as a foreground service at
-`oom_score_adj 200`, and that happens **only if it was started from a foreground context**. So the
-recovery command must start the **activity**, not the service — `am start-foreground-service` lands
-on adj 500 and gets frozen again within seconds.
+**Start with the app's accessibility service.** A process with an enabled accessibility service sits
+at `oom_score_adj` 100, out of the guard's reach, and the service has no screen at all. `install.sh`
+turns it on by default on TCL (app ≥ 0.19.0), and the integration's ADB install keeps it on. Check
+`/state` on the TV: with `"accessibility": true` under `permissions`, you usually need no automation.
+
+Without it, the app survives only when it runs as a foreground service at `oom_score_adj 200`, and
+that happens **only if it was started from a foreground context**. So the recovery command must start
+the **activity**, not the service — `am start-foreground-service` lands on adj 500 and gets frozen
+again within seconds.
 
 This automation restarts PiPup whenever the integration reports the TV as unreachable while ADB is
-still answering. It needs the [Android TV / ADB integration](https://www.home-assistant.io/integrations/androidtv/)
-for the same TV.
+still answering, but only while the home screen is in front. It needs the
+[Android TV / ADB integration](https://www.home-assistant.io/integrations/androidtv/) for the same TV.
 
 ```yaml
 alias: PiPup keep-alive (TCL)
@@ -732,10 +737,15 @@ triggers:
   - trigger: time
     at: "05:00:00"        # daily check
 conditions:
-  # only when the TV itself is reachable — otherwise there is nothing to fix
+  # only on the home screen: the restart opens PiPup and then presses Home, which
+  # would throw you out of any app you are watching. Not the player's state: not
+  # every app is recognised as "playing" (PiPup #76).
   - condition: state
     entity_id: media_player.android_tv_living_room
-    state: ["idle", "standby", "off", "paused"]
+    attribute: app_id
+    state:
+      - com.google.android.apps.tv.launcherx   # Google TV home screen
+      - com.google.android.tvlauncher          # Android TV home screen
   - condition: or
     conditions:
       - condition: state
@@ -760,8 +770,11 @@ Notes from running this in practice:
 
 - **Do not gate the command on `ps | grep pipup`.** A frozen process is still listed, so the guard
   short-circuits exactly when you need the restart. Starting unconditionally is safe.
-- The `state` condition keeps the automation from interrupting viewing: bringing the activity to the
-  front briefly takes over the screen, so skip it while the TV is `playing`.
+- The `app_id` condition keeps the automation from interrupting viewing. Earlier versions of this
+  example only skipped a TV that was `playing`, but the Android TV integration decides that per app,
+  so a film in an app it does not recognise could be cut off (PiPup #76). Check `app_id` on your TV's
+  home screen and adjust the list if your launcher differs. The integration reports no `app_id` while
+  the TV is off, so the condition also keeps the automation from switching the screen on at night.
 - `KEYCODE_WAKEUP` is needed because `am start` does not reach the foreground while the TV is
   dreaming (screensaver). Note this wakes the screen — that is the price of the recovery.
 - After the app is reachable again, an integration entry that failed to set up earlier stays in
@@ -823,7 +836,10 @@ In the same section, **Automatic updates** installs each new release by itself i
   switched on;
 - the app's own update is used only where it is silent (Android 12+); a TV on Android < 12 needs the
   install method Auto or ADB, and the options say so;
-- a skipped version (**Skip** on the update entity) is not installed.
+- a skipped version (**Skip** on the update entity) is not installed;
+- the app's own *update available* popup stays away (app ≥ 0.30.1, ha-pipup ≥ 1.30.2): its Install
+  button would take the remote's focus from whatever is playing. Every request tells the app
+  (`X-HA-PiPup-Auto-Update`), and `/state.update.haManaged` shows it on the TV's side.
 
 A success only writes a logbook entry such as *PiPup app updated 0.29.2 → 0.30.0 (ADB)*. A failure
 is logged and counted; a repair appears after three failed nights, or at once when something on the TV

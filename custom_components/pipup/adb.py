@@ -45,6 +45,7 @@ from .const import (
     DOMAIN,
     CONF_ADB_KEY,
     CONF_ADB_PORT,
+    CONF_AUTO_UPDATE,
     CONF_INSTALL_METHOD,
     DEFAULT_ADB_PORT,
     DEFAULT_INSTALL_METHOD,
@@ -167,6 +168,20 @@ def effective_method(options: dict[str, Any], data: dict[str, Any]) -> str:
             return INSTALL_METHOD_APP
         silent = int(major) >= 12
     return INSTALL_METHOD_APP if silent else INSTALL_METHOD_ADB
+
+
+def auto_update_installs(options: dict[str, Any], data: dict[str, Any]) -> bool:
+    """Whether the nightly automatic update can install on this TV by itself.
+
+    Switched on, and either ADB or an app self-update that needs no press on the
+    remote. The nightly tick asks this, and so does the X-HA-PiPup-Auto-Update header
+    that keeps the app's own Install popup away (app >= 0.30.1, PiPup #76).
+    """
+    if not options.get(CONF_AUTO_UPDATE, False):
+        return False
+    return effective_method(options, data) == INSTALL_METHOD_ADB or not requires_remote(
+        data
+    )
 
 
 def _load_signer(path: str) -> PythonRSASigner:

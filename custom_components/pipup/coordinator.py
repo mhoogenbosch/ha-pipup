@@ -23,6 +23,7 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
+from .adb import auto_update_installs
 from .api import PiPupClient, PiPupError
 from .const import (
     CONF_PUSH_WEBHOOK_ID,
@@ -141,6 +142,10 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("PiPup at %s unreachable: %s", self.client.host, err)
             return self.data
         self.online = True
+        # Every next request tells the app whether Home Assistant installs its updates
+        # (app >= 0.30.1 then skips its own Install popup, PiPup #76). Read live, so an
+        # options change counts from the next poll without a reload.
+        self.client.auto_update = auto_update_installs(self.config_entry.options, data)
         self._check_overlay_permission(data)
         self._sync_sw_version(data)
         push = data.get("push") or {}

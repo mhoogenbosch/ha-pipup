@@ -9,6 +9,20 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.30.2] — 2026-11-04 (no Install popup while Home Assistant updates; keep-alive example)
+### Fixed
+- **The app's own "update available" popup stays away while automatic updates are on** *(app ≥ 0.30.1)*
+  (PiPup #76). Its Install button took the remote's focus, so an OK meant for Plex or Prime Video
+  started an install, and on Android < 12 the confirmation then took over the screen. Every request
+  now carries `X-HA-PiPup-Auto-Update: on|off`, `on` only when the nightly update can actually install
+  on that TV (the same test as the nightly run, now one function).
+### Docs
+- **TCL keep-alive example:** it now runs only while the home screen is in front (`app_id` of the
+  Android TV media player), instead of whenever the TV is not `playing`. The integration decides
+  `playing` per app, so the restart (open PiPup, press Home) could throw you out of a film (PiPup #76).
+  The section now starts with the app's accessibility service, which usually makes the automation
+  unnecessary.
+
 ## [v1.30.1] — 2026-10-25 (ADB install on slow TVs)
 ### Fixed
 - **ADB install broke off after 10 s** on TVs where `pm install` takes longer (a TCL: 12.7 s). adb-shell

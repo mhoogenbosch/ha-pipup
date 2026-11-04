@@ -19,6 +19,10 @@ _VERSION: str = json.loads(
     (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")
 )["version"]
 _HEADERS: dict[str, str] = {"X-HA-PiPup-Version": _VERSION}
+# Whether Home Assistant installs the app's updates by itself (automatic updates on, and
+# able to install on this TV). The app (>= 0.30.1) then skips its own "update available"
+# popup, whose Install button took the remote's focus mid-film (PiPup #76).
+AUTO_UPDATE_HEADER = "X-HA-PiPup-Auto-Update"
 
 
 class PiPupError(Exception):
@@ -38,12 +42,21 @@ class PiPupClient:
         self._base = f"http://{host}:{port}"
         self.host = host
         self.port = port
+        # set by the coordinator after each /state; None until then (header left out)
+        self.auto_update: bool | None = None
+
+    @property
+    def _headers(self) -> dict[str, str]:
+        """Headers for every request: the version, and the automatic-update flag once known."""
+        if self.auto_update is None:
+            return _HEADERS
+        return {**_HEADERS, AUTO_UPDATE_HEADER: "on" if self.auto_update else "off"}
 
     async def state(self) -> dict[str, Any]:
         """Fetch /state from the device."""
         try:
             async with self._session.get(
-                f"{self._base}/state", headers=_HEADERS,
+                f"{self._base}/state", headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status == 400:
@@ -65,7 +78,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/notify",
                 json=payload,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
@@ -88,7 +101,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/notify",
                 data=form,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status != 200:
@@ -107,7 +120,7 @@ class PiPupClient:
         """
         try:
             async with self._session.post(
-                f"{self._base}/update", headers=_HEADERS,
+                f"{self._base}/update", headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=15)
             ) as resp:
                 if resp.status == 400:
@@ -134,7 +147,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/power",
                 params={"state": state},
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status in (400, 501):
@@ -164,7 +177,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/permissions/fix",
                 params=params,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status in (400, 501):
@@ -202,7 +215,7 @@ class PiPupClient:
         try:
             async with self._session.get(
                 f"{self._base}/permissions/diagnose",
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
@@ -225,7 +238,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/cancel",
                 params=params,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
@@ -247,7 +260,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}/settings",
                 params=values or None,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status == 400 and not values:
@@ -266,7 +279,7 @@ class PiPupClient:
         try:
             async with self._session.get(
                 f"{self._base}/apps",
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status == 400:
@@ -321,7 +334,7 @@ class PiPupClient:
             async with self._session.post(
                 f"{self._base}{path}",
                 params=params or None,
-                headers=_HEADERS,
+                headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 text = await resp.text()
