@@ -29,6 +29,7 @@ from .adb import (
     AdbError,
     PiPupAdb,
     async_download_apk,
+    auto_update_installs,
     effective_method,
     forget_apk,
     requires_remote,
@@ -546,8 +547,9 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         data = self.coordinator.data
         if not self.coordinator.online or data.get("visible"):
             return  # unreachable, or a popup on screen: try again at the next tick
-        method = effective_method(self.coordinator.config_entry.options, data)
-        if method != INSTALL_METHOD_ADB and self._requires_remote():
+        options = self.coordinator.config_entry.options
+        method = effective_method(options, data)
+        if not auto_update_installs(options, data):
             # the app's own update would wait for a press on the remote at night
             _LOGGER.debug("PiPup on %s: automatic update needs ADB here", self.entity_id)
             return
