@@ -9,6 +9,17 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.30.3] — 2026-11-08 (ready for Home Assistant 2026.12: a TV at a new address)
+### Fixed
+- **A TV that moves to a new IP address is picked up again on Home Assistant 2026.12** (#55, reported by @Ltek).
+  When discovery (or adding the TV again) finds it at another address, the config flow updates the entry. Until now
+  Home Assistant then reloaded the entry itself and logged *"has an update listener and should use it for scheduling a
+  reload"*. From 2026.12 Home Assistant leaves that reload to the integration's update listener, which did not look at
+  the address, so PiPup would have kept talking to the old one. The listener now reloads when host or port changed, and
+  the flow no longer asks Home Assistant to do it. On 2026.11 and earlier nothing changes except that the warning is gone.
+### Docs
+- Release links added for v1.11.0 and later at the bottom of this file.
+
 ## [v1.30.2] — 2026-11-04 (no Install popup while Home Assistant updates; keep-alive example)
 ### Fixed
 - **The app's own "update available" popup stays away while automatic updates are on** *(app ≥ 0.30.1)*
@@ -476,6 +487,39 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.30.3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.3
+[v1.30.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.2
+[v1.30.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.1
+[v1.30.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.0
+[v1.29.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.29.0
+[v1.28.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.28.1
+[v1.28.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.28.0
+[v1.27.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.27.0
+[v1.26.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.26.0
+[v1.25.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.25.0
+[v1.24.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.24.1
+[v1.24.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.24.0
+[v1.23.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.23.1
+[v1.23.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.23.0
+[v1.22.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.22.0
+[v1.21.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.21.0
+[v1.20.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.20.0
+[v1.19.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.19.0
+[v1.18.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.18.1
+[v1.18.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.18.0
+[v1.17.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.17.1
+[v1.17.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.17.0
+[v1.16.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.16.0
+[v1.15.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.15.2
+[v1.15.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.15.1
+[v1.15.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.15.0
+[v1.14.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.14.0
+[v1.13.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.13.1
+[v1.13.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.13.0
+[v1.12.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.12.0
+[v1.11.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.11.2
+[v1.11.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.11.1
+[v1.11.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.11.0
 [v1.10.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.10.1
 [v1.10.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.10.0
 [v1.9.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.9.1

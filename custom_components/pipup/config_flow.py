@@ -139,8 +139,10 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
                 # app >= 0.2.5 reports a stable id: use it so the entry
                 # follows the device across DHCP address changes
                 await self.async_set_unique_id(state.get("id") or f"{host}:{port}")
+                # the entry's update listener reloads on a new address; HA 2026.12
+                # no longer reloads an entry that has an update listener (#55)
                 self._abort_if_unique_id_configured(
-                    updates={CONF_HOST: host, CONF_PORT: port}
+                    updates={CONF_HOST: host, CONF_PORT: port}, reload_on_update=False
                 )
                 # entries created before the app reported ids match on host
                 self._async_abort_entries_match({CONF_HOST: host})
@@ -186,7 +188,11 @@ class PiPupConfigFlow(ConfigFlow, domain=DOMAIN):
         if device_id and not await self._async_host_confirms_id(host, port, device_id):
             return self.async_abort(reason="address_mismatch")
 
-        self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
+        # the entry's update listener reloads on a new address; HA 2026.12 no longer
+        # reloads an entry that has an update listener (#55)
+        self._abort_if_unique_id_configured(
+            updates={CONF_HOST: host, CONF_PORT: port}, reload_on_update=False
+        )
         # entries created before the app reported ids still key on host:port
         self._async_abort_entries_match({CONF_HOST: host})
 
