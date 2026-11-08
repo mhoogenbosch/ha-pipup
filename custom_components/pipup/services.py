@@ -91,7 +91,16 @@ from .const import (
     ATTR_PACKAGE,
     ATTR_URI,
     ATTR_WAKE,
+    ATTR_CLICK,
+    ATTR_ID,
+    ATTR_SEEK_OFFSET,
+    ATTR_SEEK_POSITION,
+    ATTR_WAIT,
+    CLICK_MAX_WAIT,
     CONTROL_MIN_APP_VERSION,
+    MEDIA_CLICK_MIN_APP_VERSION,
+    SERVICE_CLICK,
+    SERVICE_SEEK,
     GRID_MAX_TILES,
     KEYS,
     SERVICE_LAUNCH_APP,
@@ -264,11 +273,39 @@ FIX_PERMISSION_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+_PACKAGE = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.]{1,255}$"))
+# a view: "pkg:id/name", a bare resource name, or a Compose testTag ("action-button-watch")
+_VIEW_ID = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.:/-]{1,255}$"))
+_WAIT = vol.All(vol.Coerce(int), vol.Range(min=0, max=CLICK_MAX_WAIT))
+
 LAUNCH_APP_SCHEMA = vol.Schema(
     {
-        vol.Optional(ATTR_PACKAGE): vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.]{1,255}$")),
+        vol.Optional(ATTR_PACKAGE): _PACKAGE,
         vol.Optional(ATTR_URI): cv.string,
         vol.Optional(ATTR_WAKE, default=True): cv.boolean,
+        # app >= 0.32.0: press this view once the app is up (PiPup #83)
+        vol.Optional(ATTR_CLICK): _VIEW_ID,
+        vol.Optional(ATTR_WAIT): _WAIT,
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+CLICK_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_PACKAGE): _PACKAGE,
+        vol.Required(ATTR_ID): _VIEW_ID,
+        vol.Optional(ATTR_WAIT, default=0): _WAIT,
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+SEEK_SCHEMA = vol.Schema(
+    {
+        vol.Exclusive(ATTR_SEEK_POSITION, "seek"): vol.All(
+            vol.Coerce(float), vol.Range(min=0)
+        ),
+        vol.Exclusive(ATTR_SEEK_OFFSET, "seek"): vol.Coerce(float),
+        vol.Optional(ATTR_PACKAGE): _PACKAGE,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -903,11 +940,26 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             f"{CONTROL_MIN_APP_VERSION} or newer (this TV runs {version or 'unknown'})"
         )
 
-    async def _control_on_all(call: ServiceCall, action) -> None:
+    def _app_too_old(coordinator, required: str, what: str) -> str | None:
+        """Why this TV's app is too old for `what`, or None (also when unknown)."""
+        version = (coordinator.data or {}).get("version")
+        if _needs_newer_app(required, version):
+            return (
+                f"{coordinator.config_entry.title}: {what} needs PiPup app "
+                f"{required} or newer (this TV runs {version})"
+            )
+        return None
+
+    async def _control_on_all(
+        call: ServiceCall, action, needs: tuple[str, str] | None = None
+    ) -> None:
+        """Run a TV-control call on every targeted TV; `needs` = (app version, what)."""
         coordinators = await _coordinators_for_call(hass, call)
 
         async def _one(coordinator) -> str | None:
             if reason := _control_unsupported(coordinator):
+                return reason
+            if needs and (reason := _app_too_old(coordinator, *needs)):
                 return reason
             try:
                 await action(coordinator.client)
@@ -923,11 +975,42 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_launch_app(call: ServiceCall) -> None:
         package = call.data.get(ATTR_PACKAGE)
         uri = call.data.get(ATTR_URI)
+        click = call.data.get(ATTR_CLICK)
         if not package and not uri:
             raise HomeAssistantError("launch_app needs a package and/or a uri")
+        kwargs: dict[str, Any] = {"package": package, "uri": uri, "wake": call.data[ATTR_WAKE]}
+        if click:
+            # app >= 0.32.0 only; left out otherwise, so older apps get the old call
+            kwargs["click"] = click
+            kwargs["wait"] = call.data.get(ATTR_WAIT)
         await _control_on_all(
-            call, lambda client: client.launch(package=package, uri=uri, wake=call.data[ATTR_WAKE])
+            call,
+            lambda client: client.launch(**kwargs),
+            needs=(MEDIA_CLICK_MIN_APP_VERSION, "launch_app with click") if click else None,
         )
+
+    async def handle_click(call: ServiceCall) -> None:
+        """Press a view in an app on the TV's allowed list (app >= 0.32.0)."""
+        await _control_on_all(
+            call,
+            lambda client: client.click(
+                call.data[ATTR_PACKAGE], call.data[ATTR_ID], call.data[ATTR_WAIT]
+            ),
+            needs=(MEDIA_CLICK_MIN_APP_VERSION, "click"),
+        )
+
+    async def handle_seek(call: ServiceCall) -> None:
+        """Seek the media session to a position, or by an offset (app >= 0.32.0)."""
+        position = call.data.get(ATTR_SEEK_POSITION)
+        offset = call.data.get(ATTR_SEEK_OFFSET)
+        if position is None and offset is None:
+            raise HomeAssistantError("seek needs a position or an offset (seconds)")
+        package = call.data.get(ATTR_PACKAGE)
+        if position is not None:
+            action = lambda client: client.seek(ms=round(position * 1000), package=package)  # noqa: E731
+        else:
+            action = lambda client: client.seek(by=round(offset * 1000), package=package)  # noqa: E731
+        await _control_on_all(call, action, needs=(MEDIA_CLICK_MIN_APP_VERSION, "seek"))
 
     async def handle_send_key(call: ServiceCall) -> None:
         key = call.data[ATTR_KEY]
@@ -984,4 +1067,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SEND_KEY, handle_send_key, schema=SEND_KEY_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_CLICK, handle_click, schema=CLICK_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SEEK, handle_seek, schema=SEEK_SCHEMA
     )

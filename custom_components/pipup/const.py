@@ -47,6 +47,12 @@ ADB_KEYS: Final = [ADB_KEY_OWN, ADB_KEY_ANDROIDTV]
 CONF_AUTO_UPDATE: Final = "auto_update"
 CONF_QUIET_START: Final = "quiet_start"
 CONF_QUIET_END: Final = "quiet_end"
+# What is playing / pressing a button in an app (app >= 0.32.0, PiPup #83). Both are
+# grants only ADB can give, so they live in the Advanced install section and are
+# applied over ADB when saved. click_packages = the apps PiPup may press buttons in
+# (comma-separated; empty = the control service is switched off).
+CONF_MEDIA_ACCESS: Final = "media_access"
+CONF_CLICK_PACKAGES: Final = "click_packages"
 DEFAULT_QUIET_START: Final = "03:00:00"
 DEFAULT_QUIET_END: Final = "05:00:00"
 # a repair only after this many failed nights in a row (or at once when the user
@@ -84,6 +90,8 @@ SERVICE_DISMISS: Final = "dismiss"
 SERVICE_SYNC: Final = "sync"
 SERVICE_LAUNCH_APP: Final = "launch_app"
 SERVICE_SEND_KEY: Final = "send_key"
+SERVICE_CLICK: Final = "click"
+SERVICE_SEEK: Final = "seek"
 
 ATTR_TITLE: Final = "title"
 ATTR_MESSAGE: Final = "message"
@@ -119,6 +127,15 @@ KEYS: Final = [
     "rewind", "fast_forward", "home", "back",
 ]
 CONTROL_MIN_APP_VERSION: Final = "0.29.0"
+# app >= 0.32.0 (PiPup #83): read/seek the media session, press a view in an app
+ATTR_CLICK: Final = "click"
+ATTR_ID: Final = "id"
+ATTR_WAIT: Final = "wait"
+ATTR_SEEK_POSITION: Final = "position"
+ATTR_SEEK_OFFSET: Final = "offset"
+# the app waits at most this long for a view to appear (POST /click, /launch)
+CLICK_MAX_WAIT: Final = 15
+MEDIA_CLICK_MIN_APP_VERSION: Final = "0.32.0"
 ATTR_MEDIA_WIDTH: Final = "media_width"
 ATTR_MEDIA_HEIGHT: Final = "media_height"
 ATTR_MUTED: Final = "muted"

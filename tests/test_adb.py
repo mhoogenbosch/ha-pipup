@@ -170,8 +170,10 @@ async def test_install_steps(hass: HomeAssistant) -> None:
 
     async def shell(command, **_):
         device.calls.append(command)
-        if command.startswith("settings get"):
+        if command == "settings get secure enabled_accessibility_services":
             return next(reads)
+        if command.startswith("settings get"):
+            return "null"  # no media listener granted
         return "Success" if command.startswith("pm install") else ""
 
     device.shell.side_effect = shell
@@ -686,7 +688,8 @@ async def test_options_error_keeps_entered_values(hass: HomeAssistant) -> None:
         schema = {str(k): k for k in result["data_schema"].schema}
         assert schema["default_duration"].default() == 42
         section_schema = result["data_schema"].schema[schema["advanced_install"]].schema.schema
-        defaults = {str(k): k.default() for k in section_schema}
+        # fields without a default (the click list: suggested value, so it can be cleared)
+        defaults = {str(k): k.default() for k in section_schema if callable(k.default)}
         assert defaults["install_method"] == "adb"
         assert defaults["adb_port"] == 5556
     finally:

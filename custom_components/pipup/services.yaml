@@ -353,6 +353,17 @@ launch_app:
       default: true
       selector:
         boolean:
+    click:
+      example: action-button-watch
+      selector:
+        text:
+    wait:
+      selector:
+        number:
+          min: 0
+          max: 15
+          unit_of_measurement: s
+          mode: box
 
 send_key:
   target:
@@ -376,3 +387,55 @@ send_key:
             - fast_forward
             - home
             - back
+
+click:
+  target:
+    entity:
+      integration: pipup
+      domain: media_player
+  fields:
+    package:
+      required: true
+      example: com.plexapp.android
+      selector:
+        text:
+    id:
+      required: true
+      example: action-button-watch
+      selector:
+        text:
+    wait:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 15
+          unit_of_measurement: s
+          mode: box
+
+seek:
+  target:
+    entity:
+      integration: pipup
+      domain: media_player
+  fields:
+    position:
+      example: 2472
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: s
+          mode: box
+    offset:
+      example: -10
+      selector:
+        number:
+          min: -86400
+          max: 86400
+          unit_of_measurement: s
+          mode: box
+    package:
+      example: com.plexapp.android
+      selector:
+        text:

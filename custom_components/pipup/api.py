@@ -296,13 +296,84 @@ class PiPupClient:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
     async def launch(
-        self, package: str | None = None, uri: str | None = None, wake: bool = True
+        self,
+        package: str | None = None,
+        uri: str | None = None,
+        wake: bool = True,
+        click: str | None = None,
+        wait: int | None = None,
     ) -> dict[str, Any]:
-        """Start an app or open a deep link (app >= 0.29.0)."""
+        """Start an app or open a deep link (app >= 0.29.0).
+
+        `click` (app >= 0.32.0) presses that view once the page is up, waiting up to
+        `wait` seconds for it (the app's default is 10 when `click` is given).
+        """
         params = {k: v for k, v in (("package", package), ("uri", uri)) if v}
         if not wake:
             params["wake"] = "false"
-        return await self._control("/launch", params)
+        if click:
+            params["click"] = click
+            if wait is not None:
+                params["wait"] = str(wait)
+        waits = (wait if wait is not None else 10) if click else 0
+        return await self._control("/launch", params, timeout=10 + waits)
+
+    async def click(self, package: str, view_id: str, wait: int = 0) -> dict[str, Any]:
+        """Press a view in an app on the allowed list (app >= 0.32.0).
+
+        The app answers 403 for an app that is not allowed, 404 when the view did not
+        show up within `wait` seconds, and 501 when its control service is off.
+        """
+        params = {"package": package, "id": view_id}
+        if wait:
+            params["wait"] = str(wait)
+        return await self._control("/click", params, timeout=10 + wait)
+
+    async def media(self) -> dict[str, Any]:
+        """The active media session (app >= 0.32.0); {"package": None} when idle.
+
+        501 (media session access not granted, or a low-RAM device) and 400 (an app
+        without /media) are raised as PiPupUnsupportedError.
+        """
+        try:
+            async with self._session.get(
+                f"{self._base}/media", headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                text = await resp.text()
+                try:
+                    body = json.loads(text) if text else {}
+                except ValueError:
+                    body = {"message": text}
+                if not isinstance(body, dict):
+                    body = {"message": text}
+                if resp.status == 200:
+                    return body
+                if resp.status == 400:
+                    raise PiPupUnsupportedError("app has no /media (needs >= 0.32.0)")
+                message = body.get("message") or text
+                if resp.status == 501:
+                    raise PiPupUnsupportedError(message)
+                raise PiPupError(f"media failed ({resp.status}): {message}")
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
+    async def seek(
+        self, ms: int | None = None, by: int | None = None, package: str | None = None
+    ) -> dict[str, Any]:
+        """Seek the media session (app >= 0.32.0): to `ms`, or `by` ± ms.
+
+        Exactly one of the two. 404 = nothing playing, 409 = the app does not allow
+        seeking, 501 = no media session access.
+        """
+        if (ms is None) == (by is None):
+            raise ValueError("give exactly one of ms or by")
+        params = {"ms": str(ms)} if ms is not None else {"by": str(by)}
+        if package:
+            params["package"] = package
+        return await self._control("/media/seek", params)
 
     async def key(self, key: str) -> dict[str, Any]:
         """Send a media key, or home/back (app >= 0.29.0)."""
@@ -324,18 +395,21 @@ class PiPupClient:
             params["mute"] = mute
         return await self._control("/volume", params)
 
-    async def _control(self, path: str, params: dict[str, str]) -> dict[str, Any]:
+    async def _control(
+        self, path: str, params: dict[str, str], timeout: float = 10
+    ) -> dict[str, Any]:
         """POST a TV-control call; the app answers JSON with ok + message.
 
         501 (this device cannot, e.g. a fixed volume) is raised as
         PiPupUnsupportedError, every other failure as PiPupError with the app's message.
+        `timeout` is longer for calls the app holds while it waits for a view.
         """
         try:
             async with self._session.post(
                 f"{self._base}{path}",
                 params=params or None,
                 headers=self._headers,
-                timeout=aiohttp.ClientTimeout(total=10),
+                timeout=aiohttp.ClientTimeout(total=timeout),
             ) as resp:
                 text = await resp.text()
                 try:

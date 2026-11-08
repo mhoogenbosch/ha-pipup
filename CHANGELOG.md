@@ -9,6 +9,28 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.32.0b1] — 2026-11-08 (test release for PiPup #83: what is playing, seek, press a button)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.1)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **What is playing, in any app** (PiPup #83, suggested by @Ltek). With media session access the media player
+  shows the app that holds the media session: **playing / paused / buffering / idle**, title, artist, album,
+  position and duration, and `app_id` / `app_name`. It also gets a **seek bar** (`media_player.media_seek`).
+  Without the access, or with an older app, the media player behaves exactly as before.
+- **`pipup.seek`**: to a `position` (seconds), or by an `offset` (± seconds, e.g. −10 for "back ten seconds");
+  optional `package` to seek that app's session.
+- **`pipup.click`**: presses a view in an app by its resource ID or Compose test tag (`package`, `id`, `wait`
+  up to 15 s for the view to appear), for example Plex's `action-button-watch`. **`pipup.launch_app`** got
+  `click` and `wait`, so one call opens a title and presses Play.
+- **Advanced install** has two new fields, applied over ADB when you save: **What is playing (media session
+  access)** and **Apps PiPup may press buttons in**. The second one switches the app's separate control
+  service on (a list) or off (empty) and hands the app the list. Both only change what you change: a grant
+  given earlier with ADB stays as it is.
+- Media player attributes `media_access` (`granted` / `not_granted` / `low_ram`), `click_service` and
+  `click_packages`, to check the set-up.
+### Changed
+- An ADB install now also brings back the app's control service and media listener when the reinstall switched
+  them off, not only the screen-off accessibility service.
+
 ## [v1.31.0] — 2026-11-08 (video buffer; automatic updates and reload on the device page)
 ### Added
 - **`buffer_ms` on `pipup.show`** for `video_url` and camera streams *(app ≥ 0.31.0, older apps ignore it)*
@@ -502,6 +524,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.32.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b1
 [v1.31.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.31.0
 [v1.30.3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.3
 [v1.30.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.2

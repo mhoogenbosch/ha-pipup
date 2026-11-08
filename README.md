@@ -65,6 +65,9 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     is what to attach to a "the fix button does nothing" report
 - Actions **`pipup.launch_app`** (an app by package, or a deep link) and **`pipup.send_key`** (media
   keys, home, back) — app ≥ 0.29.0
+- **What is playing** in any app on the media player, with a seek bar, plus **`pipup.seek`** and
+  **`pipup.click`** (press a button in an allowed app, e.g. Play in Plex) — app ≥ 0.32.0, one ADB grant
+  each. See [What is playing, seek and click](#what-is-playing-seek-and-click-app--0320)
 - **Camera wall** in `pipup.show` with `grid` (app ≥ 0.29.0): up to nine WHEP streams in one popup, or
   full screen. See [Camera wall](#camera-wall)
 - **Blueprints** for an info card and an "appliance done" card — see [Blueprints](#blueprints)
@@ -273,11 +276,85 @@ the same "display over other apps" permission popups already need.
     key: play_pause
 ```
 
-What it cannot do: PiPup does not see which app is in front or what is playing (that needs usage
-access, a grant a TV has no screen for). The media player's state is therefore the screen (on/off),
-its **source** is only the app PiPup itself started last, and **play/pause** sends the toggle key
-because PiPup does not know which of the two applies. On a box whose volume belongs to the TV set or
-amplifier over HDMI-CEC (`volume_fixed: true`) the slider is hidden; up/down and mute are passed on.
+What it cannot do: PiPup does not see which app is in front (that needs usage access, a grant a TV
+has no screen for). Without media session access (below) it does not see what is playing either: the
+media player's state is then the screen (on/off), its **source** is only the app PiPup itself started
+last, and **play/pause** sends the toggle key because PiPup does not know which of the two applies. On a
+box whose volume belongs to the TV set or amplifier over HDMI-CEC (`volume_fixed: true`) the slider is
+hidden; up/down and mute are passed on.
+
+### What is playing, seek and click (app ≥ 0.32.0)
+
+Two optional grants, each given once over ADB (PiPup #83). Set them in the integration's options under
+**Advanced install** (the same ADB connection as the ADB install; saving applies them), or by hand with
+the commands below.
+
+**What is playing (media session access).** The app reads the active media session of any app (Plex,
+Netflix, YouTube, Spotify, …). The media player then shows **playing / paused / buffering / idle**, the
+title, artist, album, position and duration, `app_id` (the package) and `app_name`, and gets a **seek
+bar**. The grant is a notification-listener grant, because Android hands out media sessions only to
+notification listeners; PiPup's listener reads no notifications. Android ignores the grant on **low-RAM
+devices** (some Fire TV sticks); the media player's `media_access` attribute then says `low_ram`.
+
+```sh
+adb shell cmd notification allow_listener nl.rogro82.pipup/nl.rogro82.pipup.MediaListenerService
+# withdraw:
+adb shell cmd notification disallow_listener nl.rogro82.pipup/nl.rogro82.pipup.MediaListenerService
+```
+
+```yaml
+- action: pipup.seek          # or media_player.media_seek with an absolute position
+  target:
+    entity_id: media_player.pipup_living_room
+  data:
+    offset: -10               # back ten seconds; or position: 2472 (seconds from the start)
+```
+
+**Press a button in an app (click).** A separate accessibility service, **PiPup control**, presses a view
+by its resource ID or Compose test tag — for example Plex's Watch/Resume button, `action-button-watch`,
+which Plex's deep links open but never press. It is **off by default**, and the screen-off accessibility
+service stays as it was (it reads nothing). PiPup control only acts for the apps on its list, looks at
+the screen only while a click call runs and only when that app is in front, and never returns anything
+from the screen — only whether the click happened. The list can only be set over ADB, never over the
+app's HTTP port, so nothing on the network can widen it. In the options: **Apps PiPup may press buttons
+in** (comma-separated packages; empty switches the service off). By hand:
+
+```sh
+# the list (empty string = clear it); answers result=1 and the list now in use
+adb shell am broadcast -f 0x20 -n nl.rogro82.pipup/.ControlConfigReceiver \
+    -a nl.rogro82.pipup.SET_CLICK_PACKAGES --es packages "com.plexapp.android"
+# the service: add it to what is already enabled (keep the existing entries, ':'-separated)
+adb shell settings get secure enabled_accessibility_services
+adb shell settings put secure enabled_accessibility_services \
+    "<existing>:nl.rogro82.pipup/nl.rogro82.pipup.PiPupControlService"
+adb shell settings put secure accessibility_enabled 1
+```
+
+Find an ID with `adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml`: it is the
+`resource-id` (a bare name such as `action-button-watch`, or `package:id/name`).
+
+```yaml
+- action: pipup.launch_app    # open the title and press Play in one call
+  target:
+    entity_id: media_player.pipup_living_room
+  data:
+    uri: plex://libraries/<serverId>/movie/x/<ratingKey>
+    package: com.plexapp.android
+    click: action-button-watch
+    wait: 10                  # seconds to wait for the button (max 15)
+- action: pipup.click         # or press something on the screen that is already up
+  target:
+    entity_id: media_player.pipup_living_room
+  data:
+    package: com.plexapp.android
+    id: action-button-watchFromStart
+    wait: 5
+```
+
+The app answers **403** for an app that is not on the list, **404** when the view did not appear within
+`wait` (the message says whether the app was not in front or the view was missing) and **501** when PiPup
+control is off; the action shows that message. To check the set-up: the media player's attributes
+`media_access`, `click_service` and `click_packages`.
 
 ## Camera wall
 
@@ -818,6 +895,8 @@ The integration can do that ADB install itself, in pure Python, so it also works
 | Install method | **App self-update** (as before) / **Auto** (app on Android 12+, ADB below) / **ADB** | App self-update |
 | ADB port | the TV's network-debugging port | 5555 |
 | ADB key | **PiPup's own key** (`.storage/pipup_adbkey`, created on first use) / **the Android TV integration's key** (`.storage/androidtv_adbkey`) | own |
+| What is playing (media session access) | on / off — granted or withdrawn over ADB when it changes (app ≥ 0.32.0, see [What is playing, seek and click](#what-is-playing-seek-and-click-app--0320)) | off |
+| Apps PiPup may press buttons in | comma-separated packages; filled in switches PiPup control on, empty switches it off (app ≥ 0.32.0) | empty |
 
 Turn on **network debugging (ADB)** in the TV's developer options first. Choosing Auto or ADB tests the
 connection when you save. With a key the TV does not know yet, the TV shows *Allow debugging from this
@@ -827,7 +906,7 @@ Android TV integration needs nothing: pick that integration's key.
 After that, **Install** on the update entity installs over ADB: the latest release's APK is downloaded
 (and checked against the release's sha256), pushed to the TV, installed with `pm install -r`, and
 the app-ops a reinstall resets are granted again (overlay, install, `android:auto_start` on TCL, the
-accessibility service if it was on). The app's service is started in the background; only if it does not
+accessibility services and the media listener if they were on). The app's service is started in the background; only if it does not
 come back (TCL's vendor guard) is the app opened briefly, and the TV goes back to sleep if it was
 asleep. It never uninstalls the app (that would lose its device id): a build with another signature is
 reported instead. The update entity's `install_method` attribute shows `app` or `adb`, and

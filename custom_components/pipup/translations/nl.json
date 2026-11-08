@@ -74,20 +74,24 @@
         "sections": {
           "advanced_install": {
             "name": "Geavanceerd installeren",
-            "description": "Hoe de PiPup-app wordt bijgewerkt. Op Android < 12 vraagt de tv bij een self-update om een bevestiging met de afstandsbediening; een ingebouwde ADB-install (zoals install.sh) niet. Vereist netwerkfoutopsporing (ADB) op de tv.",
+            "description": "Hoe de PiPup-app wordt bijgewerkt. Op Android < 12 vraagt de tv bij een self-update om een bevestiging met de afstandsbediening; een ingebouwde ADB-install (zoals install.sh) niet. Vereist netwerkfoutopsporing (ADB) op de tv. Ook toegang tot de mediasessie en de kliklijst worden via ADB ingesteld.",
             "data": {
               "install_method": "Installatiemethode",
               "adb_port": "ADB-poort",
               "adb_key": "ADB-sleutel",
               "auto_update": "Automatische updates",
               "quiet_start": "Rustig venster vanaf",
-              "quiet_end": "Rustig venster tot"
+              "quiet_end": "Rustig venster tot",
+              "media_access": "Wat er speelt (toegang tot mediasessie)",
+              "click_packages": "Apps waarin PiPup knoppen mag indrukken"
             },
             "data_description": {
               "install_method": "Self-update van de app: zoals voorheen; op Android < 12 vraagt de tv om een druk op OK. Automatisch: de eigen update van de app op Android 12+ (stil), een ADB-install op oudere versies. ADB: altijd ADB. Bij kiezen van Automatisch of ADB wordt de verbinding getest zodra je opslaat.",
               "adb_key": "De eigen sleutel van PiPup (.storage/pipup_adbkey), of die van de Android TV-integratie, zodat een tv die die al vertrouwt geen nieuwe melding toont.",
               "auto_update": "Installeer een nieuwe PiPup-release vanzelf binnen het rustige venster: één tv tegelijk, nooit terwijl er een popup in beeld is, en op een tv die aan staat wordt de app nooit geopend. Een geslaagde update komt alleen in het logboek; een mislukte wordt de volgende nacht opnieuw geprobeerd, met een repair na 3 mislukte nachten (of meteen als er op de tv iets opgelost moet worden). Vereist ADB op Android < 12.",
-              "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag."
+              "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag.",
+              "media_access": "Laat PiPup de actieve mediasessie van elke app lezen (titel, spelen of pauze, positie) en erin zoeken, voor de mediaspeler. Wordt bij opslaan via ADB gegeven; het is een toegang voor meldingen-luisteraars, maar PiPup leest geen meldingen. Android negeert hem op toestellen met weinig geheugen. App 0.32.0 of nieuwer.",
+              "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 0.32.0 of nieuwer."
             }
           }
         }
@@ -103,7 +107,10 @@
       "adb_not_authorized": "De tv heeft foutopsporing vanaf Home Assistant niet toegestaan.",
       "adb_no_androidtv_key": "De ADB-sleutel van de Android TV-integratie bestaat niet. Kies de eigen sleutel.",
       "adb_key_unreadable": "Het ADB-sleutelbestand (of de .pub ervan) is niet leesbaar. Kies de andere sleutel, of verwijder het beschadigde bestand uit .storage.",
-      "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB."
+      "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB.",
+      "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
+      "media_click_needs_app": "Toegang tot de mediasessie en klikken vereisen PiPup-app 0.32.0 of nieuwer op deze tv.",
+      "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv."
     }
   },
   "entity": {
@@ -644,6 +651,14 @@
         "wake": {
           "name": "Scherm wekken",
           "description": "Zet een slapend scherm eerst aan."
+        },
+        "click": {
+          "name": "View indrukken",
+          "description": "App 0.32.0 of nieuwer: druk deze view in zodra de app open is (resource-ID of Compose-testtag, bijv. action-button-watch). De app moet op de kliklijst van de tv staan (opties, Geavanceerd installeren)."
+        },
+        "wait": {
+          "name": "Wachten",
+          "description": "Hoe lang op de view gewacht wordt, in seconden (0-15; 10 als View indrukken is ingevuld en dit leeg is)."
         }
       }
     },
@@ -654,6 +669,42 @@
         "key": {
           "name": "Toets",
           "description": "De toets om te sturen."
+        }
+      }
+    },
+    "click": {
+      "name": "Knop indrukken in app",
+      "description": "Drukt een view in een app op de tv in, op resource-ID of Compose-testtag (app 0.32.0 of nieuwer). Alleen voor apps op de kliklijst van de tv (opties, Geavanceerd installeren). De bedieningsdienst van PiPup kijkt alleen tijdens deze aanroep naar het scherm en geeft er niets van terug.",
+      "fields": {
+        "package": {
+          "name": "Pakket",
+          "description": "De app waar de view bij hoort; die moet vooraan staan."
+        },
+        "id": {
+          "name": "View-ID",
+          "description": "Resource-ID (com.plexapp.android:id/naam, of alleen naam) of Compose-testtag, bijv. action-button-watch. `uiautomator dump` toont ze als resource-id."
+        },
+        "wait": {
+          "name": "Wachten",
+          "description": "Wacht maximaal zoveel seconden tot de view verschijnt (0-15)."
+        }
+      }
+    },
+    "seek": {
+      "name": "Zoeken",
+      "description": "Springt naar een positie in wat er speelt, of verschuift met een aantal seconden (app 0.32.0 of nieuwer, met toegang tot de mediasessie).",
+      "fields": {
+        "position": {
+          "name": "Positie",
+          "description": "Positie in seconden vanaf het begin."
+        },
+        "offset": {
+          "name": "Verschuiving",
+          "description": "Seconden vooruit (positief) of terug (negatief) vanaf de huidige positie."
+        },
+        "package": {
+          "name": "Pakket",
+          "description": "Zoek in de mediasessie van deze app in plaats van de actieve."
         }
       }
     }

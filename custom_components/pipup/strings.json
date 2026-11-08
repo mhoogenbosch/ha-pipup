@@ -74,20 +74,24 @@
         "sections": {
           "advanced_install": {
             "name": "Advanced install",
-            "description": "How the PiPup app is updated. On Android < 12 the TV asks for a remote press on a self-update; a built-in ADB install (like install.sh) does not. Needs network debugging (ADB) on the TV.",
+            "description": "How the PiPup app is updated. On Android < 12 the TV asks for a remote press on a self-update; a built-in ADB install (like install.sh) does not. Needs network debugging (ADB) on the TV. Media session access and the click list are set over ADB as well.",
             "data": {
               "install_method": "Install method",
               "adb_port": "ADB port",
               "adb_key": "ADB key",
               "auto_update": "Automatic updates",
               "quiet_start": "Quiet window from",
-              "quiet_end": "Quiet window until"
+              "quiet_end": "Quiet window until",
+              "media_access": "What is playing (media session access)",
+              "click_packages": "Apps PiPup may press buttons in"
             },
             "data_description": {
               "install_method": "App self-update: as before; on Android < 12 the TV asks for a press of OK. Auto: the app's own update on Android 12+ (silent), an ADB install on older versions. ADB: always ADB. Choosing Auto or ADB tests the connection when you save.",
               "adb_key": "PiPup's own key (.storage/pipup_adbkey), or the Android TV integration's, so a TV that already trusts it shows no new prompt.",
               "auto_update": "Install a new PiPup release by itself inside the quiet window: one TV at a time, never while a popup is on screen, and on a TV that is on the app is never opened. Success only writes a logbook entry; a failure retries the next night, with a repair after 3 failed nights (or at once when something on the TV needs fixing). Needs ADB on Android < 12.",
-              "quiet_start": "Local time. A window may cross midnight; the same start and end time = all day."
+              "quiet_start": "Local time. A window may cross midnight; the same start and end time = all day.",
+              "media_access": "Lets PiPup read the active media session of any app (title, playing or paused, position) and seek it, for the media player. Granted over ADB when you save; it is a notification-listener grant, but PiPup reads no notifications. Android ignores it on low-RAM devices. App 0.32.0 or newer.",
+              "click_packages": "Package names separated by commas, e.g. com.plexapp.android. Filled in: switches on PiPup's separate control service (an accessibility service that looks at the screen only during a click call, only in these apps, and returns nothing from it) and sets this list over ADB when you save. Empty: switches the control service off. App 0.32.0 or newer."
             }
           }
         }
@@ -103,7 +107,10 @@
       "adb_not_authorized": "The TV did not allow debugging from Home Assistant.",
       "adb_no_androidtv_key": "The Android TV integration's ADB key does not exist. Choose the own key.",
       "adb_key_unreadable": "The ADB key file (or its .pub) cannot be read. Choose the other key, or remove the damaged file from .storage.",
-      "auto_update_needs_adb": "On this TV the app's own update needs a press on the remote, so automatic updates need the install method Auto or ADB."
+      "auto_update_needs_adb": "On this TV the app's own update needs a press on the remote, so automatic updates need the install method Auto or ADB.",
+      "invalid_click_packages": "Use package names separated by commas, e.g. com.plexapp.android,com.google.android.youtube.tv.",
+      "media_click_needs_app": "Media session access and clicking need PiPup app 0.32.0 or newer on this TV.",
+      "adb_grant_failed": "ADB connected, but the TV did not accept the change. The log has the TV's answer."
     }
   },
   "entity": {
@@ -644,6 +651,14 @@
         "wake": {
           "name": "Wake the screen",
           "description": "Turn a sleeping screen on first."
+        },
+        "click": {
+          "name": "Press view",
+          "description": "App 0.32.0 or newer: once the app is open, press this view (resource ID or Compose test tag, e.g. action-button-watch). The app has to be on the TV's click list (options, Advanced install)."
+        },
+        "wait": {
+          "name": "Wait",
+          "description": "How long to wait for the view, in seconds (0-15; 10 when Press view is set and this is empty)."
         }
       }
     },
@@ -654,6 +669,42 @@
         "key": {
           "name": "Key",
           "description": "The key to send."
+        }
+      }
+    },
+    "click": {
+      "name": "Press button in app",
+      "description": "Presses a view in an app on the TV by its resource ID or Compose test tag (app 0.32.0 or newer). Only for apps on the TV's click list (options, Advanced install). PiPup's control service looks at the screen only during this call and returns nothing from it.",
+      "fields": {
+        "package": {
+          "name": "Package",
+          "description": "The app the view belongs to; it has to be in front."
+        },
+        "id": {
+          "name": "View ID",
+          "description": "Resource ID (com.plexapp.android:id/name, or just name) or Compose test tag, e.g. action-button-watch. `uiautomator dump` lists them as resource-id."
+        },
+        "wait": {
+          "name": "Wait",
+          "description": "Wait up to this many seconds for the view to appear (0-15)."
+        }
+      }
+    },
+    "seek": {
+      "name": "Seek",
+      "description": "Jumps to a position in what is playing, or by an offset (app 0.32.0 or newer, with media session access).",
+      "fields": {
+        "position": {
+          "name": "Position",
+          "description": "Position in seconds from the start."
+        },
+        "offset": {
+          "name": "Offset",
+          "description": "Seconds forward (positive) or back (negative) from the current position."
+        },
+        "package": {
+          "name": "Package",
+          "description": "Seek this app's media session instead of the active one."
         }
       }
     }

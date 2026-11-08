@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import logging
 import re
 
 import voluptuous as vol
@@ -47,7 +48,10 @@ from .const import (
     CONF_ADB_PORT,
     CONF_ADVANCED_INSTALL,
     CONF_AUTO_UPDATE,
+    CONF_CLICK_PACKAGES,
     CONF_INSTALL_METHOD,
+    CONF_MEDIA_ACCESS,
+    MEDIA_CLICK_MIN_APP_VERSION,
     CONF_QUIET_END,
     CONF_QUIET_START,
     DEFAULT_QUIET_END,
@@ -94,6 +98,8 @@ from .const import (
     POSITIONS,
     SUBENTRY_OVERLAY,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -347,6 +353,27 @@ _ADVANCED_INSTALL_DEFAULTS = {
 _UPDATE_SOURCE_RE = re.compile(
     r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"
 )
+# an Android package name: at least two segments
+_PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$")
+# ADB errors that are about the connection; anything after it is "the TV said no"
+_CONNECT_ERRORS = {"cannot_connect", "not_authorized", "no_androidtv_key", "key_unreadable"}
+
+
+def parse_click_packages(value: str) -> tuple[list[str], list[str]]:
+    """The click list as entered: (valid packages in order, invalid entries).
+
+    Commas, spaces and new lines all separate; duplicates are dropped.
+    """
+    valid: list[str] = []
+    invalid: list[str] = []
+    for part in re.split(r"[\s,]+", value or ""):
+        if not part:
+            continue
+        if not _PACKAGE_RE.match(part):
+            invalid.append(part)
+        elif part not in valid:
+            valid.append(part)
+    return valid, invalid
 
 
 class PiPupOptionsFlow(OptionsFlow):
@@ -354,6 +381,8 @@ class PiPupOptionsFlow(OptionsFlow):
 
     # options waiting for the ADB prompt to be accepted on the TV
     _pending: dict[str, Any]
+    # whether those options also carry media access / click list changes to apply
+    _pending_grants: bool = False
 
     def _device_data(self) -> dict[str, Any]:
         coordinator = getattr(self.config_entry, "runtime_data", None)
@@ -383,13 +412,60 @@ class PiPupOptionsFlow(OptionsFlow):
             return f"adb_{err.reason}"
         return None
 
+    def _grants_changed(self, options: dict[str, Any]) -> bool:
+        """Whether media access or the click list differ from what is stored."""
+        stored = self.config_entry.options
+        return options.get(CONF_MEDIA_ACCESS, False) != stored.get(
+            CONF_MEDIA_ACCESS, False
+        ) or options.get(CONF_CLICK_PACKAGES, "") != stored.get(CONF_CLICK_PACKAGES, "")
+
+    def _grants_unsupported(self) -> str | None:
+        """Error key when the app on this TV is known to be older than 0.32.0."""
+        from .services import _needs_newer_app  # local: services imports a lot
+
+        version = self._device_data().get("version")
+        if _needs_newer_app(MEDIA_CLICK_MIN_APP_VERSION, version):
+            return "media_click_needs_app"
+        return None
+
+    async def _apply_grants(
+        self, options: dict[str, Any], auth_timeout: float
+    ) -> str | None:
+        """Apply the changed media access / click list over ADB; None when done.
+
+        Only what changed is sent: a grant the user gave with install.sh stays as it
+        is until this form changes it.
+        """
+        stored = self.config_entry.options
+        try:
+            async with PiPupAdb(
+                self.hass, self.config_entry.data[CONF_HOST], options
+            ) as adb:
+                await adb.connect(auth_timeout)
+                media = options.get(CONF_MEDIA_ACCESS, False)
+                if media != stored.get(CONF_MEDIA_ACCESS, False):
+                    await adb.set_media_access(media)
+                click = options.get(CONF_CLICK_PACKAGES, "")
+                if click != stored.get(CONF_CLICK_PACKAGES, ""):
+                    await adb.set_click_packages(parse_click_packages(click)[0])
+        except AdbError as err:
+            if err.reason in _CONNECT_ERRORS:
+                return f"adb_{err.reason}"
+            _LOGGER.warning(
+                "PiPup %s: applying media access / click list over ADB failed: %s",
+                self.config_entry.title, err,
+            )
+            return "adb_grant_failed"
+        return None
+
     async def async_step_adb_authorize(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Ask for "Allow debugging from this computer?" to be accepted on the TV."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            error = await self._test_adb(self._pending, ADB_AUTHORIZE_AUTH_TIMEOUT)
+            check = self._apply_grants if self._pending_grants else self._test_adb
+            error = await check(self._pending, ADB_AUTHORIZE_AUTH_TIMEOUT)
             if error is None:
                 return self.async_create_entry(title="", data=self._pending)
             errors["base"] = error
@@ -498,19 +574,37 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_AUTO_UPDATE] = bool(advanced.get(CONF_AUTO_UPDATE, False))
             options[CONF_QUIET_START] = advanced.get(CONF_QUIET_START, DEFAULT_QUIET_START)
             options[CONF_QUIET_END] = advanced.get(CONF_QUIET_END, DEFAULT_QUIET_END)
+            # app >= 0.32.0 (PiPup #83): grants only ADB can give
+            options[CONF_MEDIA_ACCESS] = bool(advanced.get(CONF_MEDIA_ACCESS, False))
+            packages, invalid = parse_click_packages(advanced.get(CONF_CLICK_PACKAGES) or "")
+            options[CONF_CLICK_PACKAGES] = ",".join(packages)
             # Test ADB only when the section changed: a sleeping Fire TV has no
             # network at all, and that must not block saving a popup default.
             changed = any(
                 options[key] != self.config_entry.options.get(key, default)
                 for key, default in _ADVANCED_INSTALL_DEFAULTS.items()
             )
-            if self._auto_update_needs_adb(options):
+            if invalid:
+                errors["base"] = "invalid_click_packages"
+            elif self._auto_update_needs_adb(options):
                 # the update would wait for a press on the remote, at night
                 errors["base"] = "auto_update_needs_adb"
+            elif self._grants_changed(options):
+                # applying them connects too, so this also tests a changed ADB setup
+                error = self._grants_unsupported() or await self._apply_grants(
+                    options, ADB_TEST_AUTH_TIMEOUT
+                )
+                if error == "adb_not_authorized":
+                    self._pending = options
+                    self._pending_grants = True
+                    return await self.async_step_adb_authorize()
+                if error is not None:
+                    errors["base"] = error
             elif changed and self._needs_adb(options):
                 error = await self._test_adb(options, ADB_TEST_AUTH_TIMEOUT)
                 if error == "adb_not_authorized":
                     self._pending = options
+                    self._pending_grants = False
                     return await self.async_step_adb_authorize()
                 if error is not None:
                     errors["base"] = error
@@ -697,6 +791,16 @@ class PiPupOptionsFlow(OptionsFlow):
                                     CONF_QUIET_END,
                                     default=opts.get(CONF_QUIET_END, DEFAULT_QUIET_END),
                                 ): TimeSelector(),
+                                vol.Required(
+                                    CONF_MEDIA_ACCESS,
+                                    default=opts.get(CONF_MEDIA_ACCESS, False),
+                                ): bool,
+                                vol.Optional(
+                                    CONF_CLICK_PACKAGES,
+                                    description={
+                                        "suggested_value": opts.get(CONF_CLICK_PACKAGES, "")
+                                    },
+                                ): str,
                             }
                         ),
                         {"collapsed": True},
