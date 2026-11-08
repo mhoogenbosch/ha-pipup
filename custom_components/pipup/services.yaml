@@ -224,6 +224,14 @@ show:
     video_url:
       selector:
         text:
+    buffer_ms:
+      selector:
+        number:
+          min: 100
+          max: 10000
+          step: 50
+          unit_of_measurement: ms
+          mode: box
     web_url:
       selector:
         text:

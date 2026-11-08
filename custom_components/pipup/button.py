@@ -26,6 +26,7 @@ async def async_setup_entry(
     buttons: list[ButtonEntity] = [
         PiPupDismissButton(coordinator, entry),
         PiPupSyncButton(coordinator, entry),
+        PiPupReloadButton(coordinator, entry),
     ]
     # Needs the fork app >= 0.8.0.
     if isinstance((coordinator.data.get("permissions") or {}).get("fixable"), dict):
@@ -128,3 +129,24 @@ class PiPupFixInstallButton(PiPupEntity, ButtonEntity):
         except PiPupError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_refresh_soon()
+
+
+class PiPupReloadButton(PiPupEntity, ButtonEntity):
+    """Reload this TV's entry, as Settings → Devices & services → ⋮ → Reload does (#53).
+
+    Handy on the device page after a TV was reset or moved. It does not load new code:
+    after a HACS update of ha-pipup itself Home Assistant still needs a restart.
+    """
+
+    _attr_translation_key = "reload"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:reload"
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, entry, "reload")
+        self._entry = entry
+
+    async def async_press(self) -> None:
+        """Schedule the reload: it unloads this button too, so don't wait for it here."""
+        self.hass.config_entries.async_schedule_reload(self._entry.entry_id)

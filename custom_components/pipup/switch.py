@@ -1,21 +1,29 @@
-"""Switch: the TV's screen on/off (app >= 0.7.0)."""
+"""Switches: the TV's screen on/off (app >= 0.7.0) and the automatic app updates."""
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
+from .adb import auto_update_installs
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
+    CONF_AUTO_UPDATE,
+    CONF_UPDATE_SOURCE,
+    DEFAULT_UPDATE_SOURCE,
+    DOMAIN,
     POWER_OPTIMISTIC_TTL,
     POWER_SETTLE_DELAY,
     POWER_STATE_OFF,
     POWER_STATE_ON,
+    UPDATE_SOURCE_OFF,
 )
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
@@ -27,12 +35,23 @@ async def async_setup_entry(
     entry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the screen switch, if the app supports /power."""
+    """Set up the screen switch (if the app supports /power) and the auto-update switch."""
     coordinator: PiPupCoordinator = entry.runtime_data
+    entities: list[SwitchEntity] = []
     # Needs the fork app >= 0.7.0. Older apps have no /power at all, and a switch
     # whose every call fails is worse than no switch.
     if isinstance(coordinator.data.get("power"), dict):
-        async_add_entities([PiPupScreenSwitch(coordinator, entry)])
+        entities.append(PiPupScreenSwitch(coordinator, entry))
+    # Automatic updates belong to the update entity: with the update source "off"
+    # there is none, so drop a leftover switch the same way update.py drops its entity.
+    if (entry.options.get(CONF_UPDATE_SOURCE) or DEFAULT_UPDATE_SOURCE) == UPDATE_SOURCE_OFF:
+        registry = er.async_get(hass)
+        unique_id = f"{entry.unique_id or entry.entry_id}_auto_update"
+        if entity_id := registry.async_get_entity_id("switch", DOMAIN, unique_id):
+            registry.async_remove(entity_id)
+    else:
+        entities.append(PiPupAutoUpdateSwitch(coordinator, entry))
+    async_add_entities(entities)
     async_add_overlay_switches(coordinator.overlays, async_add_entities)
 
 
@@ -136,3 +155,48 @@ class PiPupScreenSwitch(PiPupEntity, SwitchEntity):
     def _settle(self, _now) -> None:
         self._cancel_settle = None
         self.hass.async_create_task(self.coordinator.async_refresh_soon())
+
+
+class PiPupAutoUpdateSwitch(PiPupEntity, SwitchEntity):
+    """Automatic app updates on/off (ha-pipup #53): the same option as Advanced install.
+
+    The quiet window and the install method stay in the options flow. Turning it on is
+    refused when the nightly run could not install by itself on this TV (no ADB and an
+    app self-update that needs a press on the remote): the options flow tests ADB when
+    you set that up, a switch cannot ask you to accept the prompt on the TV.
+    """
+
+    _attr_translation_key = "auto_update"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator, entry, "auto_update")
+        self._entry = entry
+
+    @property
+    def is_on(self) -> bool:
+        """Read live from the options, so a change in the options flow shows too."""
+        return bool(self._entry.options.get(CONF_AUTO_UPDATE, False))
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Switch on, if the nightly update can install on this TV by itself."""
+        options = {**self._entry.options, CONF_AUTO_UPDATE: True}
+        if not auto_update_installs(options, self.coordinator.data or {}):
+            raise HomeAssistantError(
+                f"{self.entity_id}: automatic updates can't install on this TV by "
+                "themselves. Set the install method under the gear icon → Advanced "
+                "install first (ADB, or Auto on Android 12+); saving there also tests "
+                "the ADB connection."
+            )
+        self._set(options)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Switch off."""
+        self._set({**self._entry.options, CONF_AUTO_UPDATE: False})
+
+    def _set(self, options: dict[str, Any]) -> None:
+        # the update entity reads the option live; the entry's update listener has
+        # nothing to reload for it
+        self.hass.config_entries.async_update_entry(self._entry, options=options)
+        self.async_write_ha_state()

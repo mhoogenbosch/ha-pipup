@@ -158,6 +158,9 @@
       },
       "sync": {
         "name": "Synchroniseren"
+      },
+      "reload": {
+        "name": "Herladen"
       }
     },
     "select": {
@@ -234,6 +237,9 @@
       },
       "overlay_transparent": {
         "name": "Transparant"
+      },
+      "auto_update": {
+        "name": "Automatische updates"
       }
     },
     "number": {
@@ -400,6 +406,10 @@
         "video_url": {
           "name": "Video-URL",
           "description": "Af te spelen video (HLS/MP4/RTSP-ondersteuning hangt van de TV af)."
+        },
+        "buffer_ms": {
+          "name": "Videobuffer",
+          "description": "Alleen video-URL en camerastreams: begin met afspelen zodra er zoveel milliseconden gebufferd zijn, en blijf zo dicht bij live. Een RTSP-stream loopt dan ongeveer 1 s achter de camera in plaats van 3–4 s (150–300 is een goed begin voor terugpraten). Bedoeld voor RTSP; app 0.31.0 of nieuwer, oudere apps negeren het."
         },
         "web_url": {
           "name": "Web-URL",

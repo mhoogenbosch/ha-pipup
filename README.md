@@ -55,6 +55,10 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     the TV for the permission the self-updater needs. Neither HA nor the app can *grant* it (it is an
     app-op), so on a device that **blocks** it outright the button's error carries the exact adb command
     instead of pretending the press worked
+  - **Automatic updates** switch (1.31.0) — the same setting as in Advanced install, on the device page
+    and usable in automations. See [Automatic updates](#automatic-updates-1300)
+  - **Reload** button (1.31.0) — reloads this TV's entry, like ⋮ → Reload under Devices & services.
+    It does not load new code: after a HACS update of ha-pipup itself Home Assistant still needs a restart
   - **App uptime** diagnostic sensor and a diagnostics download — which, with app ≥ 0.9.0, includes
     the app's own permission diagnosis (which activity handles each settings screen, whether it is a
     vendor placeholder, whether a background launch is allowed, how the last attempt ended). That file
@@ -423,6 +427,11 @@ fallback. Full table and the reasoning: the
 plays them fine. Lower the camera's main-stream bitrate until its keyframes fit, or point that TV at
 the sub-stream; how to measure is in the
 [app README](https://github.com/mhoogenbosch/PiPup#keep-the-cameras-keyframes-under-the-tvs-udp-buffer).
+
+**Talking back (intercom, doorbell) over RTSP?** `video_url` (or a camera stream) plays through ExoPlayer,
+which buffers 2.5 s before it starts, so the popup runs 3–4 s behind the camera. `buffer_ms: 150` to `300`
+(app ≥ 0.31.0, ha-pipup ≥ 1.31.0) brings that to about 1–2 s, with clean audio where the WebView's WebRTC
+audio crackles on some boxes (PiPup #79). Meant for RTSP; with HLS the playlist sets the delay.
 
 ## Examples
 
@@ -840,6 +849,13 @@ In the same section, **Automatic updates** installs each new release by itself i
 - the app's own *update available* popup stays away (app ≥ 0.30.1, ha-pipup ≥ 1.30.2): its Install
   button would take the remote's focus from whatever is playing. Every request tells the app
   (`X-HA-PiPup-Auto-Update`), and `/state.update.haManaged` shows it on the TV's side.
+
+Since 1.31.0 there is also an **Automatic updates** switch on the device page (not with the update source
+`off`). It sets the same option, so an automation can pause the updates, for example during a party or on a
+TV that is being moved. Turning it on is refused on a TV that could not install by itself (Android < 12 with
+the app's own update): set the install method under the gear icon first, which also tests ADB. The quiet
+window stays in the options. With ADB the switch does not test the connection; a TV that refuses shows up as
+a repair after the first night.
 
 A success only writes a logbook entry such as *PiPup app updated 0.29.2 → 0.30.0 (ADB)*. A failure
 is logged and counted; a repair appears after three failed nights, or at once when something on the TV
