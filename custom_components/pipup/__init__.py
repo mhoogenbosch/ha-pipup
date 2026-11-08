@@ -217,15 +217,25 @@ def _async_apply_name_suffix(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -> None:
-    """Reload when the polling interval changed.
+    """Apply an entry change; reload when it can't be applied in place.
 
-    Other option changes (e.g. the default-position select) apply at
-    call time and don't need a reload.
+    Reloads on a new address, an added or removed overlay, another update source
+    or a changed polling interval. Other option changes (e.g. the default-position
+    select) apply at call time and don't need a reload.
     """
     _async_apply_name_suffix(hass, entry)
     async_link_parent(hass, entry)
 
     coordinator = entry.runtime_data
+    # a new address (zeroconf or the user step found the TV elsewhere): the client is
+    # built for one host:port. The config flow used to reload the entry itself;
+    # since HA 2026.12 it leaves that to an entry's update listener (#55).
+    if (entry.data[CONF_HOST], entry.data[CONF_PORT]) != (
+        coordinator.client.host,
+        coordinator.client.port,
+    ):
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+        return
     # an overlay added or removed: its entities are built at setup
     current = {sub.subentry_id for sub in overlay_subentries(entry)}
     if current != coordinator.overlays.subentry_ids:
