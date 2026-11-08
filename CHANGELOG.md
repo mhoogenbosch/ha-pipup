@@ -9,6 +9,21 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.31.0] — 2026-11-08 (video buffer; automatic updates and reload on the device page)
+### Added
+- **`buffer_ms` on `pipup.show`** for `video_url` and camera streams *(app ≥ 0.31.0, older apps ignore it)*
+  (PiPup #79). ExoPlayer buffers 2.5 s before it starts, so an RTSP popup ran 3–4 s behind the camera, too
+  late to talk back through an intercom or doorbell. With `buffer_ms: 150` it is about 1 s. 100–10000 ms.
+- **Automatic updates switch** on the device page (#53, suggested by @Ltek): the same option as in
+  Advanced install, so an automation can pause the updates. Turning it on is refused where the nightly
+  update could not install by itself (Android < 12 with the app's own update); the install method and the
+  quiet window stay in the options. Not created with the update source `off`.
+- **Reload button** on the device page (#53): reloads the TV's entry. A HACS update of ha-pipup itself
+  still needs a Home Assistant restart.
+### Changed
+- The default-position select and the new switch redraw at once after a change in the options flow,
+  instead of at the next poll or push.
+
 ## [v1.30.3] — 2026-11-08 (ready for Home Assistant 2026.12: a TV at a new address)
 ### Fixed
 - **A TV that moves to a new IP address is picked up again on Home Assistant 2026.12** (#55, reported by @Ltek).
@@ -487,6 +502,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.31.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.31.0
 [v1.30.3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.3
 [v1.30.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.2
 [v1.30.1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.1

@@ -158,6 +158,9 @@
       },
       "sync": {
         "name": "Sync"
+      },
+      "reload": {
+        "name": "Reload"
       }
     },
     "select": {
@@ -234,6 +237,9 @@
       },
       "overlay_bring_to_front": {
         "name": "Redraw on top"
+      },
+      "auto_update": {
+        "name": "Automatic updates"
       }
     },
     "number": {
@@ -400,6 +406,10 @@
         "video_url": {
           "name": "Video URL",
           "description": "Video to play (HLS/MP4/RTSP support depends on the TV)."
+        },
+        "buffer_ms": {
+          "name": "Video buffer",
+          "description": "Video URL and camera streams only: start playing once this many milliseconds are buffered, and stay that close to live. An RTSP stream then runs about 1 s behind the camera instead of 3–4 s (150–300 is a good start for talk-back). Meant for RTSP; app 0.31.0 or newer, older apps ignore it."
         },
         "web_url": {
           "name": "Web URL",

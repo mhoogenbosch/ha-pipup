@@ -258,6 +258,10 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
         hass.config_entries.async_schedule_reload(entry.entry_id)
         return
     coordinator.applied_update_source = source
+    # No reload coming: config entities (default position, automatic updates) read the
+    # options live, so redraw them now instead of at the next poll or push. Not earlier:
+    # entities of a removed overlay would look up a subentry that is gone.
+    coordinator.async_update_listeners()
     if coordinator.push_active:
         return  # push: the poll interval does not apply
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL)

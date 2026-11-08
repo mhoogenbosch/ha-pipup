@@ -97,6 +97,7 @@ ATTR_MESSAGE_SIZE: Final = "message_size"
 ATTR_BACKGROUND_COLOR: Final = "background_color"
 ATTR_IMAGE_URL: Final = "image_url"
 ATTR_VIDEO_URL: Final = "video_url"
+ATTR_BUFFER_MS: Final = "buffer_ms"
 ATTR_WEB_URL: Final = "web_url"
 # app >= 0.25.0: WebRTC straight from a WHEP endpoint (go2rtc: /api/webrtc?src=<name>)
 ATTR_WHEP_URL: Final = "whep_url"

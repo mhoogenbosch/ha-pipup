@@ -55,6 +55,7 @@ from .const import (
     ATTR_IMAGE_URL,
     ATTR_BUTTONS_INLINE,
     ATTR_MEDIA_FULL_BLEED,
+    ATTR_BUFFER_MS,
     ATTR_MEDIA_HEIGHT,
     ATTR_MEDIA_WIDTH,
     ATTR_MESSAGE,
@@ -195,6 +196,7 @@ SHOW_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=2160)
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
+        vol.Optional(ATTR_BUFFER_MS): vol.All(vol.Coerce(int), vol.Range(min=100, max=10000)),
         vol.Optional(ATTR_MEDIA_FULL_BLEED): cv.boolean,
         vol.Optional(ATTR_BUTTONS_INLINE): cv.boolean,
         vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
@@ -580,6 +582,11 @@ def build_device_payload(
             payload["media"]["video"]["height"] = video_height
     elif url := data.get(ATTR_IMAGE_URL):
         payload["media"] = {"image": {"uri": url, "width": width}}
+
+    # app >= 0.31.0 (older ones ignore it, PiPup #79): a live video stream starts once this
+    # much is buffered and stays that close to the camera, instead of ExoPlayer's 2.5 s
+    if (buffer_ms := data.get(ATTR_BUFFER_MS)) and "video" in (payload.get("media") or {}):
+        payload["media"]["video"]["bufferMs"] = buffer_ms
 
     # app >= 0.17.0: poster — a still shown over the stream area until the first frame
     # renders, so a live popup never opens as an empty box while the stream connects.
