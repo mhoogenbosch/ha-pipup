@@ -286,8 +286,9 @@ hidden; up/down and mute are passed on.
 ### What is playing, seek and click (app ≥ 0.32.0)
 
 Two optional grants, each given once over ADB (PiPup #83). Set them in the integration's options under
-**Advanced install** (the same ADB connection as the ADB install; saving applies them), or by hand with
-the commands below.
+**Advanced install** (the same ADB connection as the ADB install; saving applies them), with the app's
+installer (`install.sh --media --click com.plexapp.android <tv-ip>`; `--no-click` switches clicking off
+again), or by hand with the commands below.
 
 **What is playing (media session access).** The app reads the active media session of any app (Plex,
 Netflix, YouTube, Spotify, …). The media player then shows **playing / paused / buffering / idle**, the
