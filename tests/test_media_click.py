@@ -33,6 +33,13 @@ SESSION = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _no_restart_pause():
+    """The control service restart waits 2 s on a real TV; not in tests."""
+    with patch("custom_components.pipup.adb.CONTROL_RESTART_PAUSE", 0):
+        yield
+
+
 # ------------------------------------------------------------------ client
 
 
@@ -98,13 +105,27 @@ async def test_launch_with_click(client, aioclient_mock) -> None:
     aioclient_mock.post(f"{BASE_URL}/launch", json={"ok": True, "clicked": True})
     await client.launch(uri="plex://x", click="action-button-watch")
     await client.launch(package=PLEX, click="action-button-watch", wait=3)
+    await client.launch(package=PLEX, click="action-button-watch", method="tap")
+    await client.launch(package=PLEX, method="tap")  # no click: method means nothing, left out
     await client.launch(package=PLEX)  # no click: the call as before
     queries = [dict(call[1].query) for call in aioclient_mock.mock_calls]
     assert queries == [
         {"uri": "plex://x", "click": "action-button-watch"},
         {"package": PLEX, "click": "action-button-watch", "wait": "3"},
+        {"package": PLEX, "click": "action-button-watch", "method": "tap"},
+        {"package": PLEX},
         {"package": PLEX},
     ]
+
+
+async def test_click_with_tap_answers_changed(client, aioclient_mock) -> None:
+    """App >= 0.32.0-beta.2: method=tap goes along, the answer carries method + changed."""
+    answer = {"ok": True, "message": "tapped action-button-watch", "method": "tap", "changed": True}
+    aioclient_mock.post(f"{BASE_URL}/click", json=answer)
+    assert await client.click(PLEX, "action-button-watch", 30, method="tap") == answer
+    assert dict(aioclient_mock.mock_calls[0][1].query) == {
+        "package": PLEX, "id": "action-button-watch", "wait": "30", "method": "tap",
+    }
 
 
 # ------------------------------------------------------------------ media player
@@ -218,12 +239,17 @@ async def test_player_seek() -> None:
 
 def test_service_schemas() -> None:
     assert CLICK_SCHEMA({"package": PLEX, "id": "action-button-watch"})["wait"] == 0
-    assert CLICK_SCHEMA({"package": PLEX, "id": f"{PLEX}:id/play_button", "wait": 15})
-    for bad in ({"package": PLEX, "id": "a b"}, {"package": PLEX, "id": "x", "wait": 16},
-                {"package": "rm -rf /", "id": "x"}, {"package": PLEX}):
+    assert CLICK_SCHEMA({"package": PLEX, "id": f"{PLEX}:id/play_button", "wait": 30})
+    assert CLICK_SCHEMA({"package": PLEX, "id": "x", "method": "TAP"})["method"] == "tap"
+    for bad in ({"package": PLEX, "id": "a b"}, {"package": PLEX, "id": "x", "wait": 31},
+                {"package": "rm -rf /", "id": "x"}, {"package": PLEX},
+                {"package": PLEX, "id": "x", "method": "press"}):
         with pytest.raises(vol.Invalid):
             CLICK_SCHEMA(bad)
     assert LAUNCH_APP_SCHEMA({"package": PLEX, "click": "action-button-watch", "wait": 5})
+    assert LAUNCH_APP_SCHEMA({"uri": "plex://x", "click": "x", "method": "tap", "wait": 30})
+    with pytest.raises(vol.Invalid):
+        LAUNCH_APP_SCHEMA({"uri": "plex://x", "click": "x", "method": "swipe"})
     assert SEEK_SCHEMA({"offset": -10})["offset"] == -10
     with pytest.raises(vol.Invalid):
         SEEK_SCHEMA({"position": 10, "offset": 5})
@@ -295,7 +321,43 @@ async def test_click_service_gates_older_apps(hass: HomeAssistant, tvs) -> None:
             DOMAIN, "click", {"package": PLEX, "id": "action-button-watch", "wait": 4}, blocking=True
         )
     # the TV with 0.32.0-beta.1 counts as 0.32.0 and got the click
-    tvs["click"].assert_awaited_once_with("192.168.1.21", PLEX, "action-button-watch", 4)
+    tvs["click"].assert_awaited_once_with(
+        "192.168.1.21", PLEX, "action-button-watch", 4, method=None
+    )
+
+
+async def test_click_and_launch_respond_per_tv(hass: HomeAssistant, tvs) -> None:
+    """With return_response, each TV's answer comes back (method, changed since beta.2)."""
+    answer = {"ok": True, "message": "tapped action-button-watch", "method": "tap", "changed": False}
+    tvs["click"].return_value = answer
+    tvs["launch"].return_value = {**answer, "launched": True, "clicked": True}
+    new = next(e for e in hass.config_entries.async_entries(DOMAIN) if e.title == "New TV")
+    with patch(
+        "custom_components.pipup.services.async_extract_config_entry_ids",
+        AsyncMock(return_value=[new.entry_id]),
+    ):
+        result = await hass.services.async_call(
+            DOMAIN, "click", {"package": PLEX, "id": "action-button-watch", "method": "tap"},
+            blocking=True, return_response=True,
+        )
+        assert result == {"tvs": {"New TV": answer}}
+        tvs["click"].assert_awaited_with(
+            "192.168.1.21", PLEX, "action-button-watch", 0, method="tap"
+        )
+        result = await hass.services.async_call(
+            DOMAIN, "launch_app",
+            {"uri": "plex://x", "click": "action-button-watch", "method": "tap", "wait": 30},
+            blocking=True, return_response=True,
+        )
+        assert result["tvs"]["New TV"]["clicked"] is True
+        tvs["launch"].assert_awaited_with(
+            "192.168.1.21", package=None, uri="plex://x", wake=True,
+            click="action-button-watch", wait=30, method="tap",
+        )
+        # without return_response it stays a plain action
+        assert await hass.services.async_call(
+            DOMAIN, "click", {"package": PLEX, "id": "x"}, blocking=True
+        ) is None
 
 
 async def test_seek_service(hass: HomeAssistant, tvs) -> None:
@@ -346,6 +408,19 @@ async def test_click_packages_switch_the_control_service(hass: HomeAssistant) ->
     assert device.calls[0] == _broadcast(PLEX)
     assert f"settings put secure enabled_accessibility_services {other}:{ACCESS}:{CONTROL}" in device.calls
     assert "settings put secure accessibility_enabled 1" in device.calls
+
+    # already on: switched off and on again (an update keeps the old capabilities)
+    device = _fake_device({
+        "am broadcast": 'Broadcast completed: result=1, data="com.plexapp.android"',
+        "settings get secure enabled_accessibility_services": f"{other}:{CONTROL}:{ACCESS}",
+    })
+    adb = await _adb_session(hass, device)
+    await adb.set_click_packages([PLEX])
+    puts = [c for c in device.calls if c.startswith("settings put secure enabled_accessibility")]
+    assert puts == [
+        f"settings put secure enabled_accessibility_services {other}:{ACCESS}",
+        f"settings put secure enabled_accessibility_services {other}:{ACCESS}:{CONTROL}",
+    ]
 
     # emptied: only the control service goes (the short form counts as the same)
     device = _fake_device({
@@ -424,13 +499,30 @@ async def test_install_restores_every_grant(hass: HomeAssistant) -> None:
 async def test_install_leaves_what_survived(hass: HomeAssistant) -> None:
     device = _fake_device({
         "pm install": "Success",
-        "settings get secure enabled_accessibility_services": CONTROL,
+        "settings get secure enabled_accessibility_services": ACCESS,
         "settings get secure enabled_notification_listeners": LISTENER,
     })
     adb = await _adb_session(hass, device)
     await adb.install(APK)
-    assert not any(c.startswith("settings put") for c in device.calls)
+    assert not any(c.startswith("settings") and "get" not in c for c in device.calls)
     assert not any(c.startswith("cmd notification") for c in device.calls)
+
+
+async def test_install_restarts_a_surviving_control_service(hass: HomeAssistant) -> None:
+    """Android keeps binding it with the old version's capabilities: off and on again."""
+    device = _fake_device({
+        "pm install": "Success",
+        "settings get secure enabled_accessibility_services": f"{ACCESS}:{CONTROL}",
+        "settings get secure enabled_notification_listeners": "null",
+    })
+    adb = await _adb_session(hass, device)
+    await adb.install(APK)
+    writes = [c for c in device.calls if c.startswith("settings") and " get " not in c]
+    assert writes == [
+        f"settings put secure enabled_accessibility_services {ACCESS}",
+        f"settings put secure enabled_accessibility_services {ACCESS}:{CONTROL}",
+        "settings put secure accessibility_enabled 1",
+    ]
 
 
 # ------------------------------------------------------------------ options

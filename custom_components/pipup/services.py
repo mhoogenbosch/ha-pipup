@@ -15,7 +15,7 @@ import voluptuous as vol
 
 from homeassistant.components import webhook as webhook_component
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from awesomeversion import AwesomeVersion, AwesomeVersionException
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
@@ -96,7 +96,9 @@ from .const import (
     ATTR_SEEK_OFFSET,
     ATTR_SEEK_POSITION,
     ATTR_WAIT,
+    ATTR_METHOD,
     CLICK_MAX_WAIT,
+    CLICK_METHODS,
     CONTROL_MIN_APP_VERSION,
     MEDIA_CLICK_MIN_APP_VERSION,
     SERVICE_CLICK,
@@ -277,6 +279,7 @@ _PACKAGE = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.]{1,255}$"))
 # a view: "pkg:id/name", a bare resource name, or a Compose testTag ("action-button-watch")
 _VIEW_ID = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.:/-]{1,255}$"))
 _WAIT = vol.All(vol.Coerce(int), vol.Range(min=0, max=CLICK_MAX_WAIT))
+_METHOD = vol.All(cv.string, vol.Lower, vol.In(CLICK_METHODS))
 
 LAUNCH_APP_SCHEMA = vol.Schema(
     {
@@ -286,6 +289,8 @@ LAUNCH_APP_SCHEMA = vol.Schema(
         # app >= 0.32.0: press this view once the app is up (PiPup #83)
         vol.Optional(ATTR_CLICK): _VIEW_ID,
         vol.Optional(ATTR_WAIT): _WAIT,
+        # app >= 0.32.0-beta.2: "tap" touches the view, for apps that ignore a click
+        vol.Optional(ATTR_METHOD): _METHOD,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -295,6 +300,7 @@ CLICK_SCHEMA = vol.Schema(
         vol.Required(ATTR_PACKAGE): _PACKAGE,
         vol.Required(ATTR_ID): _VIEW_ID,
         vol.Optional(ATTR_WAIT, default=0): _WAIT,
+        vol.Optional(ATTR_METHOD): _METHOD,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -952,9 +958,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def _control_on_all(
         call: ServiceCall, action, needs: tuple[str, str] | None = None
-    ) -> None:
-        """Run a TV-control call on every targeted TV; `needs` = (app version, what)."""
+    ) -> dict[str, Any]:
+        """Run a TV-control call on every targeted TV; `needs` = (app version, what).
+
+        Returns the app's answer per TV (by entry title), for actions that respond.
+        """
         coordinators = await _coordinators_for_call(hass, call)
+        answers: dict[str, Any] = {}
 
         async def _one(coordinator) -> str | None:
             if reason := _control_unsupported(coordinator):
@@ -962,7 +972,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             if needs and (reason := _app_too_old(coordinator, *needs)):
                 return reason
             try:
-                await action(coordinator.client)
+                answer = await action(coordinator.client)
+                answers[coordinator.config_entry.title] = answer if isinstance(answer, dict) else {}
                 await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
                 return f"{coordinator.config_entry.title}: {err}"
@@ -971,8 +982,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _raise_errors(
             await asyncio.gather(*(_one(c) for c in coordinators), return_exceptions=True)
         )
+        return answers
 
-    async def handle_launch_app(call: ServiceCall) -> None:
+    async def handle_launch_app(call: ServiceCall) -> ServiceResponse:
         package = call.data.get(ATTR_PACKAGE)
         uri = call.data.get(ATTR_URI)
         click = call.data.get(ATTR_CLICK)
@@ -983,21 +995,28 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             # app >= 0.32.0 only; left out otherwise, so older apps get the old call
             kwargs["click"] = click
             kwargs["wait"] = call.data.get(ATTR_WAIT)
-        await _control_on_all(
+            if method := call.data.get(ATTR_METHOD):
+                kwargs["method"] = method
+        answers = await _control_on_all(
             call,
             lambda client: client.launch(**kwargs),
             needs=(MEDIA_CLICK_MIN_APP_VERSION, "launch_app with click") if click else None,
         )
+        # the app's answer per TV: launched, clicked, and since 0.32.0-beta.2 method + changed
+        return {"tvs": answers} if call.return_response else None
 
-    async def handle_click(call: ServiceCall) -> None:
+    async def handle_click(call: ServiceCall) -> ServiceResponse:
         """Press a view in an app on the TV's allowed list (app >= 0.32.0)."""
-        await _control_on_all(
+        answers = await _control_on_all(
             call,
             lambda client: client.click(
-                call.data[ATTR_PACKAGE], call.data[ATTR_ID], call.data[ATTR_WAIT]
+                call.data[ATTR_PACKAGE], call.data[ATTR_ID], call.data[ATTR_WAIT],
+                method=call.data.get(ATTR_METHOD),
             ),
             needs=(MEDIA_CLICK_MIN_APP_VERSION, "click"),
         )
+        # per TV: ok, message, and since app 0.32.0-beta.2 method + changed (did the screen react)
+        return {"tvs": answers} if call.return_response else None
 
     async def handle_seek(call: ServiceCall) -> None:
         """Seek the media session to a position, or by an offset (app >= 0.32.0)."""
@@ -1063,13 +1082,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SYNC, handle_sync, schema=vol.Schema({}, extra=vol.ALLOW_EXTRA)
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_LAUNCH_APP, handle_launch_app, schema=LAUNCH_APP_SCHEMA
+        DOMAIN, SERVICE_LAUNCH_APP, handle_launch_app, schema=LAUNCH_APP_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SEND_KEY, handle_send_key, schema=SEND_KEY_SCHEMA
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_CLICK, handle_click, schema=CLICK_SCHEMA
+        DOMAIN, SERVICE_CLICK, handle_click, schema=CLICK_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SEEK, handle_seek, schema=SEEK_SCHEMA

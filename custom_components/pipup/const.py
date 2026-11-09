@@ -131,10 +131,14 @@ CONTROL_MIN_APP_VERSION: Final = "0.29.0"
 ATTR_CLICK: Final = "click"
 ATTR_ID: Final = "id"
 ATTR_WAIT: Final = "wait"
+# how the app presses the view (app >= 0.32.0-beta.2): "click" = accessibility click (default),
+# "tap" = a touch on its centre, for apps that ignore the click (Plex, React Native)
+ATTR_METHOD: Final = "method"
+CLICK_METHODS: Final = ("click", "tap")
 ATTR_SEEK_POSITION: Final = "position"
 ATTR_SEEK_OFFSET: Final = "offset"
 # the app waits at most this long for a view to appear (POST /click, /launch)
-CLICK_MAX_WAIT: Final = 15
+CLICK_MAX_WAIT: Final = 30  # 15 before app 0.32.0-beta.2
 MEDIA_CLICK_MIN_APP_VERSION: Final = "0.32.0"
 ATTR_MEDIA_WIDTH: Final = "media_width"
 ATTR_MEDIA_HEIGHT: Final = "media_height"

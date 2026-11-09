@@ -342,19 +342,34 @@ Find an ID with `adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdc
     uri: plex://libraries/<serverId>/movie/x/<ratingKey>
     package: com.plexapp.android
     click: action-button-watch
-    wait: 10                  # seconds to wait for the button (max 15)
+    method: tap               # Plex ignores the accessibility click; a tap starts it
+    wait: 30                  # seconds to wait for the button (max 30; 15 before app 0.32.0-beta.2)
 - action: pipup.click         # or press something on the screen that is already up
   target:
     entity_id: media_player.pipup_living_room
   data:
     package: com.plexapp.android
     id: action-button-watchFromStart
+    method: tap
     wait: 5
+  response_variable: pressed  # optional: per TV ok, message, method and changed
 ```
+
+**`method`** (app ≥ 0.32.0-beta.2): `click` (the default) is an accessibility click, which works in apps
+built with Android views or Jetpack Compose. `tap` is a short touch on the centre of the view, for apps
+whose buttons accept the click and then do nothing, such as **Plex** (React Native). Tapping needs Android
+7 or newer. When you come from app 0.32.0-beta.1, save the click list in the options once more (or run
+`install.sh --click` again): Android keeps the control service of the old version until it is switched off
+and on, and saving does that. An ADB install by the integration does it by itself.
+
+**`changed`**: with `response_variable`, `pipup.click` and `pipup.launch_app` return each TV's answer under
+`tvs`, keyed by the TV's name. After a press the app watches the view for up to 1.5 s: `changed: true`
+when it left the screen, moved, or its app left the front (a player opened), `false` when nothing happened
+to it. A hint, not proof: a button that only changes its own label reads as `false`.
 
 The app answers **403** for an app that is not on the list, **404** when the view did not appear within
 `wait` (the message says whether the app was not in front or the view was missing) and **501** when PiPup
-control is off; the action shows that message. To check the set-up: the media player's attributes
+control is off, or for a tap: when it may not tap yet (see above); the action shows that message. To check the set-up: the media player's attributes
 `media_access`, `click_service` and `click_packages`.
 
 ## Camera wall

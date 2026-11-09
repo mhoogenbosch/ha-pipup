@@ -24,6 +24,9 @@ _HEADERS: dict[str, str] = {"X-HA-PiPup-Version": _VERSION}
 # popup, whose Install button took the remote's focus mid-film (PiPup #76).
 AUTO_UPDATE_HEADER = "X-HA-PiPup-Auto-Update"
 
+# seconds the app spends after a press watching the view for `changed` (app >= 0.32.0-beta.2)
+CLICK_WATCH = 2
+
 
 class PiPupError(Exception):
     """Communication error with the PiPup device."""
@@ -302,11 +305,13 @@ class PiPupClient:
         wake: bool = True,
         click: str | None = None,
         wait: int | None = None,
+        method: str | None = None,
     ) -> dict[str, Any]:
         """Start an app or open a deep link (app >= 0.29.0).
 
         `click` (app >= 0.32.0) presses that view once the page is up, waiting up to
-        `wait` seconds for it (the app's default is 10 when `click` is given).
+        `wait` seconds for it (the app's default is 10 when `click` is given); `method`
+        "tap" (app >= 0.32.0-beta.2) touches it instead of an accessibility click.
         """
         params = {k: v for k, v in (("package", package), ("uri", uri)) if v}
         if not wake:
@@ -315,19 +320,28 @@ class PiPupClient:
             params["click"] = click
             if wait is not None:
                 params["wait"] = str(wait)
-        waits = (wait if wait is not None else 10) if click else 0
+            if method:
+                params["method"] = method
+        # + CLICK_WATCH: after the press the app watches the view up to 1.5 s for `changed`
+        waits = (wait if wait is not None else 10) + CLICK_WATCH if click else 0
         return await self._control("/launch", params, timeout=10 + waits)
 
-    async def click(self, package: str, view_id: str, wait: int = 0) -> dict[str, Any]:
+    async def click(
+        self, package: str, view_id: str, wait: int = 0, method: str | None = None
+    ) -> dict[str, Any]:
         """Press a view in an app on the allowed list (app >= 0.32.0).
 
-        The app answers 403 for an app that is not allowed, 404 when the view did not
-        show up within `wait` seconds, and 501 when its control service is off.
+        `method` "tap" (app >= 0.32.0-beta.2) touches the view instead of an accessibility
+        click. The app answers 403 for an app that is not allowed, 404 when the view did not
+        show up within `wait` seconds, and 501 when its control service is off (or, for a
+        tap, may not tap). Since 0.32.0-beta.2 the answer has `method` and `changed`.
         """
         params = {"package": package, "id": view_id}
         if wait:
             params["wait"] = str(wait)
-        return await self._control("/click", params, timeout=10 + wait)
+        if method:
+            params["method"] = method
+        return await self._control("/click", params, timeout=10 + wait + CLICK_WATCH)
 
     async def media(self) -> dict[str, Any]:
         """The active media session (app >= 0.32.0); {"package": None} when idle.

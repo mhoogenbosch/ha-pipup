@@ -371,6 +371,12 @@
         "own": "Eigen sleutel van PiPup",
         "androidtv": "Sleutel van de Android TV-integratie"
       }
+    },
+    "method": {
+      "options": {
+        "click": "Klikken",
+        "tap": "Tikken"
+      }
     }
   },
   "services": {
@@ -658,7 +664,11 @@
         },
         "wait": {
           "name": "Wachten",
-          "description": "Hoe lang op de view gewacht wordt, in seconden (0-15; 10 als View indrukken is ingevuld en dit leeg is)."
+          "description": "Hoe lang op de view gewacht wordt, in seconden (0-30; 10 als View indrukken is ingevuld en dit leeg is). Maximaal 15 bij apps ouder dan 0.32.0-beta.2."
+        },
+        "method": {
+          "name": "Hoe indrukken",
+          "description": "App 0.32.0-beta.2 of nieuwer: Klikken (een toegankelijkheidsklik, standaard) of Tikken (een aanraking op het midden van de view). Gebruik Tikken voor apps die de klik negeren, zoals Plex."
         }
       }
     },
@@ -686,7 +696,11 @@
         },
         "wait": {
           "name": "Wachten",
-          "description": "Wacht maximaal zoveel seconden tot de view verschijnt (0-15)."
+          "description": "Wacht maximaal zoveel seconden tot de view verschijnt (0-30; maximaal 15 bij apps ouder dan 0.32.0-beta.2)."
+        },
+        "method": {
+          "name": "Hoe indrukken",
+          "description": "Klikken (een toegankelijkheidsklik, standaard) of Tikken (een aanraking op het midden van de view, app 0.32.0-beta.2 of nieuwer). Gebruik Tikken voor apps die de klik negeren, zoals Plex."
         }
       }
     },

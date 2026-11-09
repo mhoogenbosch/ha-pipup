@@ -361,9 +361,16 @@ launch_app:
       selector:
         number:
           min: 0
-          max: 15
+          max: 30
           unit_of_measurement: s
           mode: box
+    method:
+      selector:
+        select:
+          translation_key: method
+          options:
+            - click
+            - tap
 
 send_key:
   target:
@@ -409,9 +416,16 @@ click:
       selector:
         number:
           min: 0
-          max: 15
+          max: 30
           unit_of_measurement: s
           mode: box
+    method:
+      selector:
+        select:
+          translation_key: method
+          options:
+            - click
+            - tap
 
 seek:
   target:

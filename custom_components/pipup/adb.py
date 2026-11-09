@@ -70,6 +70,8 @@ CLICK_RECEIVER = f"{PACKAGE}/.ControlConfigReceiver"
 CLICK_ACTION = f"{PACKAGE}.SET_CLICK_PACKAGES"
 # every PiPup accessibility service a reinstall may switch off
 ACCESSIBILITY_COMPONENTS = (ACCESSIBILITY_COMPONENT, CONTROL_COMPONENT)
+# seconds between switching the control service off and on again (see _restart_control_service)
+CONTROL_RESTART_PAUSE = 2
 DEVICE_APK = "/data/local/tmp/pipup.apk"
 
 OWN_KEY = "pipup_adbkey"
@@ -386,6 +388,10 @@ class PiPupAdb:
                 merged = ":".join(component_list(current) + missing)
                 await self.shell(f"settings put secure enabled_accessibility_services {merged}")
                 await self.shell("settings put secure accessibility_enabled 1")
+            if CONTROL_COMPONENT in was_on and CONTROL_COMPONENT not in missing:
+                # survived the update: Android keeps binding it with the old version's
+                # capabilities (app 0.32.0-beta.2 added tapping), so switch it off and on
+                await self._restart_control_service()
         if has_component(listeners, MEDIA_LISTENER_COMPONENT):
             current = await self.shell("settings get secure enabled_notification_listeners")
             if not has_component(current, MEDIA_LISTENER_COMPONENT):
@@ -430,7 +436,10 @@ class PiPupAdb:
             raise AdbError("grant_failed", out)
         current = await self.shell("settings get secure enabled_accessibility_services")
         enabled = has_component(current, CONTROL_COMPONENT)
-        if packages and not enabled:
+        if packages and enabled:
+            # already on: off and on again, so it gets the installed app's capabilities
+            await self._restart_control_service()
+        elif packages and not enabled:
             await self._put_components(
                 "enabled_accessibility_services",
                 component_list(current) + [CONTROL_COMPONENT],
@@ -441,6 +450,20 @@ class PiPupAdb:
                 "enabled_accessibility_services",
                 [c for c in component_list(current) if full_component(c) != CONTROL_COMPONENT],
             )
+
+    async def _restart_control_service(self) -> None:
+        """Switch PiPup's control service off and on, leaving every other service as is.
+
+        After an app update Android keeps binding an enabled accessibility service with
+        the info of the old version: going from app 0.32.0-beta.1 to beta.2 the service
+        could not tap until it was restarted. The pause lets Android see both changes.
+        """
+        current = await self.shell("settings get secure enabled_accessibility_services")
+        others = [c for c in component_list(current) if full_component(c) != CONTROL_COMPONENT]
+        await self._put_components("enabled_accessibility_services", others)
+        await asyncio.sleep(CONTROL_RESTART_PAUSE)
+        await self._put_components("enabled_accessibility_services", others + [CONTROL_COMPONENT])
+        await self.shell("settings put secure accessibility_enabled 1")
 
     async def _put_components(self, setting: str, components: list[str]) -> None:
         """Write a ':'-separated component setting; an empty list deletes it."""

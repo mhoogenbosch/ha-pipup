@@ -9,6 +9,22 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.32.0b2] — 2026-11-09 (second test release for PiPup #83: tap, longer wait, `changed`)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.2)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **`method` on `pipup.click` and `pipup.launch_app`** *(app ≥ 0.32.0-beta.2)*: `click` (an accessibility
+  click, the default) or `tap` (a touch on the centre of the view). Plex (React Native) ignores the click:
+  @Ltek's test found `action-button-watch` and "clicked" it, but the film only started with a real touch.
+- **Both actions can respond** (`response_variable`): per TV the app's answer under `tvs`, with `method` and
+  **`changed`** *(app ≥ 0.32.0-beta.2)*: whether the pressed view left the screen, moved, or its app left the
+  front within 1.5 s. A hint: a button that only changes its own label reads as `false`.
+### Changed
+- **`wait` up to 30 s** (was 15): a cold start of Plex took longer than 10 s. Apps before 0.32.0-beta.2
+  still stop at 15 and answer 400 above that.
+- **The control service is switched off and on** when the click list is saved while it is already on, and
+  after an ADB install that it survived. After an app update Android keeps binding an enabled service with
+  the old version's capabilities: going from app beta.1 to beta.2 it could not tap until restarted.
+
 ## [v1.32.0b1] — 2026-11-08 (test release for PiPup #83: what is playing, seek, press a button)
 Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.1)*; HACS only offers it with *Show beta versions* on.
 ### Added
@@ -524,6 +540,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.32.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b2
 [v1.32.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b1
 [v1.31.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.31.0
 [v1.30.3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.3

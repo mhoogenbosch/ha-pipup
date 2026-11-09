@@ -371,6 +371,12 @@
         "own": "PiPup's own key",
         "androidtv": "Android TV integration's key"
       }
+    },
+    "method": {
+      "options": {
+        "click": "Click",
+        "tap": "Tap"
+      }
     }
   },
   "services": {
@@ -658,7 +664,11 @@
         },
         "wait": {
           "name": "Wait",
-          "description": "How long to wait for the view, in seconds (0-15; 10 when Press view is set and this is empty)."
+          "description": "How long to wait for the view, in seconds (0-30; 10 when Press view is set and this is empty). Up to 15 with apps older than 0.32.0-beta.2."
+        },
+        "method": {
+          "name": "How to press",
+          "description": "App 0.32.0-beta.2 or newer: Click (an accessibility click, the default) or Tap (a touch on the centre of the view). Use Tap for apps that ignore the click, such as Plex."
         }
       }
     },
@@ -686,7 +696,11 @@
         },
         "wait": {
           "name": "Wait",
-          "description": "Wait up to this many seconds for the view to appear (0-15)."
+          "description": "Wait up to this many seconds for the view to appear (0-30; up to 15 with apps older than 0.32.0-beta.2)."
+        },
+        "method": {
+          "name": "How to press",
+          "description": "Click (an accessibility click, the default) or Tap (a touch on the centre of the view, app 0.32.0-beta.2 or newer). Use Tap for apps that ignore the click, such as Plex."
         }
       }
     },
