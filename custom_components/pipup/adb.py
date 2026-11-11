@@ -46,7 +46,9 @@ from .const import (
     CONF_ADB_KEY,
     CONF_ADB_PORT,
     CONF_AUTO_UPDATE,
+    CONF_CLICK_PACKAGES,
     CONF_INSTALL_METHOD,
+    CONF_MEDIA_ACCESS,
     DEFAULT_ADB_PORT,
     DEFAULT_INSTALL_METHOD,
     INSTALL_METHOD_ADB,
@@ -138,10 +140,17 @@ REASONS: dict[str, str] = {
 
 
 def component_list(value: str) -> list[str]:
-    """Entries of a ':'-separated component setting; "null" or empty = none."""
-    if value.strip() in ("", "null"):
-        return []
-    return [part.strip() for part in value.split(":") if part.strip()]
+    """Entries of a ':'-separated component setting; "null" or empty = none.
+
+    A "null" entry inside the list is dropped too: `settings get` prints null for an
+    unset setting, and the readme's hand-written append before app 0.32.0 kept it
+    (`null:nl.rogro82.pipup/...`, PiPup #83). The next write leaves it out.
+    """
+    return [
+        part.strip()
+        for part in value.split(":")
+        if part.strip() and part.strip() != "null"
+    ]
 
 
 def full_component(component: str) -> str:
@@ -213,6 +222,41 @@ def auto_update_installs(options: dict[str, Any], data: dict[str, Any]) -> bool:
     return effective_method(options, data) == INSTALL_METHOD_ADB or not requires_remote(
         data
     )
+
+
+def adb_ready(options: dict[str, Any], data: dict[str, Any]) -> bool:
+    """Whether this TV has an ADB setup in ha-pipup that the options flow tested.
+
+    Only then may a service call open ADB by itself (pressing OK, waking the screen):
+    a TV that does not know our key would show "Allow debugging?" to whoever is
+    watching. Tested = the install uses ADB, or media access / the click list were
+    applied over ADB.
+    """
+    return (
+        effective_method(options, data) == INSTALL_METHOD_ADB
+        or bool(options.get(CONF_CLICK_PACKAGES))
+        or bool(options.get(CONF_MEDIA_ACCESS))
+    )
+
+
+# Keys a service call may send over ADB. Fixed names only: the app's answer says
+# which key it needs, and nothing from the network goes into a shell command.
+KEYCODE_DPAD_CENTER = "KEYCODE_DPAD_CENTER"
+KEYCODE_WAKEUP = "KEYCODE_WAKEUP"
+_ADB_KEYS = (KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP)
+# the key is authorised already (adb_ready): no long wait for a prompt
+KEY_AUTH_TIMEOUT = 5.0
+
+
+async def async_adb_key(
+    hass: HomeAssistant, host: str, options: dict[str, Any], key: str
+) -> None:
+    """Send one key to the TV over ADB (`input keyevent`); raises AdbError."""
+    if key not in _ADB_KEYS:
+        raise ValueError(f"not a key ha-pipup sends: {key}")
+    async with PiPupAdb(hass, host, options) as adb:
+        await adb.connect(KEY_AUTH_TIMEOUT)
+        await adb.shell(f"input keyevent {key}")
 
 
 def _load_signer(path: str) -> PythonRSASigner:

@@ -117,7 +117,11 @@ class PiPupScreenSwitch(PiPupEntity, SwitchEntity):
 
     async def _set_power(self, state: str) -> None:
         try:
-            await self.coordinator.client.power(state)
+            if state == POWER_STATE_ON:
+                # 1.32.0b3: over ADB as well when the app could not wake the screen
+                await self.coordinator.async_screen_on()
+            else:
+                await self.coordinator.client.power(state)
         except PiPupUnsupportedError as err:
             raise HomeAssistantError(
                 f"{self.entity_id}: this device has no granted way to switch its "

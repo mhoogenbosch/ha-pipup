@@ -371,6 +371,7 @@ launch_app:
           options:
             - click
             - tap
+            - ok
 
 send_key:
   target:
@@ -426,6 +427,7 @@ click:
           options:
             - click
             - tap
+            - ok
 
 seek:
   target:

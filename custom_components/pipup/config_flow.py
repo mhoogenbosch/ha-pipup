@@ -48,6 +48,7 @@ from .const import (
     CONF_ADB_PORT,
     CONF_ADVANCED_INSTALL,
     CONF_AUTO_UPDATE,
+    CONF_BETA_UPDATES,
     CONF_CLICK_PACKAGES,
     CONF_INSTALL_METHOD,
     CONF_MEDIA_ACCESS,
@@ -572,6 +573,7 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_ADB_PORT] = int(advanced.get(CONF_ADB_PORT, DEFAULT_ADB_PORT))
             options[CONF_ADB_KEY] = advanced.get(CONF_ADB_KEY, ADB_KEY_OWN)
             options[CONF_AUTO_UPDATE] = bool(advanced.get(CONF_AUTO_UPDATE, False))
+            options[CONF_BETA_UPDATES] = bool(advanced.get(CONF_BETA_UPDATES, False))
             options[CONF_QUIET_START] = advanced.get(CONF_QUIET_START, DEFAULT_QUIET_START)
             options[CONF_QUIET_END] = advanced.get(CONF_QUIET_END, DEFAULT_QUIET_END)
             # app >= 0.32.0 (PiPup #83): grants only ADB can give
@@ -589,6 +591,9 @@ class PiPupOptionsFlow(OptionsFlow):
             elif self._auto_update_needs_adb(options):
                 # the update would wait for a press on the remote, at night
                 errors["base"] = "auto_update_needs_adb"
+            elif options[CONF_BETA_UPDATES] and not self._needs_adb(options):
+                # the app's own update only knows releases; betas need HA's ADB install
+                errors["base"] = "beta_needs_adb"
             elif self._grants_changed(options):
                 # applying them connects too, so this also tests a changed ADB setup
                 error = self._grants_unsupported() or await self._apply_grants(
@@ -782,6 +787,10 @@ class PiPupOptionsFlow(OptionsFlow):
                                 vol.Required(
                                     CONF_AUTO_UPDATE,
                                     default=opts.get(CONF_AUTO_UPDATE, False),
+                                ): bool,
+                                vol.Required(
+                                    CONF_BETA_UPDATES,
+                                    default=opts.get(CONF_BETA_UPDATES, False),
                                 ): bool,
                                 vol.Required(
                                     CONF_QUIET_START,

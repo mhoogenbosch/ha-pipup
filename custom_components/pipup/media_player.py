@@ -28,7 +28,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import PiPupError, PiPupUnsupportedError
-from .const import POWER_STATE_OFF, POWER_STATE_ON
+from .const import POWER_STATE_OFF
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
 
@@ -336,8 +336,8 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return result
 
     async def async_turn_on(self) -> None:
-        """Wake the TV."""
-        await self._call(self.coordinator.client.power(POWER_STATE_ON))
+        """Wake the TV (over ADB as well when the app could not; 1.32.0b3)."""
+        await self._call(self.coordinator.async_screen_on())
 
     async def async_turn_off(self) -> None:
         """Put the TV in standby."""

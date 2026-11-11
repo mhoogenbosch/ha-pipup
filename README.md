@@ -342,7 +342,7 @@ Find an ID with `adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdc
     uri: plex://libraries/<serverId>/movie/x/<ratingKey>
     package: com.plexapp.android
     click: action-button-watch
-    method: tap               # Plex ignores the accessibility click; a tap starts it
+    method: ok                # Plex ignores the accessibility click; focus + OK starts it
     wait: 30                  # seconds to wait for the button (max 30; 15 before app 0.32.0-beta.2)
 - action: pipup.click         # or press something on the screen that is already up
   target:
@@ -350,15 +350,24 @@ Find an ID with `adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdc
   data:
     package: com.plexapp.android
     id: action-button-watchFromStart
-    method: tap
+    method: ok
     wait: 5
   response_variable: pressed  # optional: per TV ok, message, method and changed
 ```
 
 **`method`** (app ≥ 0.32.0-beta.2): `click` (the default) is an accessibility click, which works in apps
-built with Android views or Jetpack Compose. `tap` is a short touch on the centre of the view, for apps
-whose buttons accept the click and then do nothing, such as **Plex** (React Native). Tapping needs Android
-7 or newer. When you come from app 0.32.0-beta.1, save the click list in the options once more (or run
+built with Android views or Jetpack Compose. For apps whose buttons accept the click and then do nothing,
+such as **Plex** (React Native), there are two others:
+
+- **`ok`** (app ≥ 0.32.0-beta.3, 1.32.0b3): gives the view the focus and presses OK, as the remote does.
+  Works on any TV. Android 13+ lets the app press OK; below that only ADB can, so ha-pipup sends
+  `KEYCODE_DPAD_CENTER` over ADB. That needs a tested ADB setup on that TV (*Advanced install*: install
+  method ADB, media access or a click list). Nothing is pressed when the view does not take the focus.
+- **`tap`**: a short touch on the centre of the view. **Only on devices with touch input**: Android drops a
+  tap from an app on Android 11 without a touchscreen and on Android 12+ without `faketouch`, which is
+  most TVs (it answers *the tap was cancelled*, or since app 0.32.0-beta.3 a 501 that says why). Fire OS 7
+  (Android 9) and other Android 7–10 devices do deliver it.
+ When you come from app 0.32.0-beta.1, save the click list in the options once more (or run
 `install.sh --click` again): Android keeps the control service of the old version until it is switched off
 and on, and saving does that. An ADB install by the integration does it by itself.
 
@@ -369,7 +378,7 @@ to it. A hint, not proof: a button that only changes its own label reads as `fal
 
 The app answers **403** for an app that is not on the list, **404** when the view did not appear within
 `wait` (the message says whether the app was not in front or the view was missing) and **501** when PiPup
-control is off, or for a tap: when it may not tap yet (see above); the action shows that message. To check the set-up: the media player's attributes
+control is off, or for a tap: when this device cannot tap or may not yet (see above); the action shows that message. To check the set-up: the media player's attributes
 `media_access`, `click_service` and `click_packages`.
 
 ## Camera wall
@@ -957,6 +966,15 @@ is logged and counted; a repair appears after three failed nights, or at once wh
 needs fixing (debugging not allowed, a build with another signature, a key that cannot be read). It
 disappears after the next successful update. The update entity shows `auto_update`,
 `last_auto_update` (time, result, versions, method) and `auto_update_failures`.
+
+**Beta versions of the app** (1.32.0b3, in the same section): the update entity also offers the app's
+prereleases (such as 0.32.0-beta.3) and installs them over ADB, for trying a fix before it is released.
+Only with the ADB install, because the app's own update only knows releases. With automatic updates on, the
+TV also gets betas at night. Switched off again, a TV on a beta moves on with the next release.
+
+**Waking over ADB** (1.32.0b3): when the app could not turn the screen on *(app ≥ 0.32.0-beta.3 reports
+that)*, `media_player.turn_on`, the screen switch and `pipup.launch_app` send `KEYCODE_WAKEUP` over the same
+ADB connection, on a TV with a tested ADB setup. Seen on a TCL (Android 11).
 
 Network debugging gives shell access to anyone on the LAN who is allowed by the TV, so it is opt-in and
 off by default; the integration does nothing beyond what `install.sh` does.

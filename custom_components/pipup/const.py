@@ -53,6 +53,9 @@ CONF_QUIET_END: Final = "quiet_end"
 # (comma-separated; empty = the control service is switched off).
 CONF_MEDIA_ACCESS: Final = "media_access"
 CONF_CLICK_PACKAGES: Final = "click_packages"
+# ha-pipup 1.32.0b3 (PiPup #83): also offer and install the app's prereleases (beta.N);
+# only with the ADB install, where Home Assistant downloads the APK itself
+CONF_BETA_UPDATES: Final = "beta_updates"
 DEFAULT_QUIET_START: Final = "03:00:00"
 DEFAULT_QUIET_END: Final = "05:00:00"
 # a repair only after this many failed nights in a row (or at once when the user
@@ -132,9 +135,12 @@ ATTR_CLICK: Final = "click"
 ATTR_ID: Final = "id"
 ATTR_WAIT: Final = "wait"
 # how the app presses the view (app >= 0.32.0-beta.2): "click" = accessibility click (default),
-# "tap" = a touch on its centre, for apps that ignore the click (Plex, React Native)
+# "tap" = a touch on its centre, for apps that ignore the click (Plex, React Native) - only on
+# devices with touch input; "ok" (app >= 0.32.0-beta.3) = focus the view and press OK, which
+# below Android 13 ha-pipup does over ADB (KEYCODE_DPAD_CENTER)
 ATTR_METHOD: Final = "method"
-CLICK_METHODS: Final = ("click", "tap")
+CLICK_METHODS: Final = ("click", "tap", "ok")
+CLICK_METHOD_OK: Final = "ok"
 ATTR_SEEK_POSITION: Final = "position"
 ATTR_SEEK_OFFSET: Final = "offset"
 # the app waits at most this long for a view to appear (POST /click, /launch)

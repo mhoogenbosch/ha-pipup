@@ -23,6 +23,7 @@ from homeassistant.helpers.network import get_url
 from homeassistant.helpers.service import async_extract_config_entry_ids
 from homeassistant.util import dt as dt_util
 
+from .adb import AdbError, KEYCODE_DPAD_CENTER, adb_ready, async_adb_key
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ANIMATIONS,
@@ -99,6 +100,7 @@ from .const import (
     ATTR_METHOD,
     CLICK_MAX_WAIT,
     CLICK_METHODS,
+    CLICK_METHOD_OK,
     CONTROL_MIN_APP_VERSION,
     MEDIA_CLICK_MIN_APP_VERSION,
     SERVICE_CLICK,
@@ -956,11 +958,46 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         return None
 
+    async def _press_ok_over_adb(coordinator, answer: Any) -> Any:
+        """method=ok below Android 13: the app focused the view, ADB presses OK.
+
+        App >= 0.32.0-beta.3 answers `pressed: false, key: KEYCODE_DPAD_CENTER` when it
+        cannot press OK itself (Android < 13). Only that one fixed key is sent, and only
+        to a TV with a tested ADB setup.
+        """
+        if not (
+            isinstance(answer, dict)
+            and answer.get("method") == CLICK_METHOD_OK
+            and answer.get("focused") is True
+            and answer.get("pressed") is False
+            and answer.get("key") == KEYCODE_DPAD_CENTER
+        ):
+            return answer
+        options = coordinator.config_entry.options
+        if not adb_ready(options, coordinator.data or {}):
+            raise PiPupError(
+                "the view has the focus, but before Android 13 only ADB can press OK. "
+                "Set up ADB under Advanced install in this TV's options"
+            )
+        try:
+            await async_adb_key(hass, coordinator.client.host, options, KEYCODE_DPAD_CENTER)
+        except AdbError as err:
+            raise PiPupError(f"the view has the focus, but pressing OK over ADB failed: {err}") from err
+        # `changed` is the app's to measure, and it answered before the press
+        return {**answer, "pressed": True, "pressed_over_adb": True, "changed": None}
+
     async def _control_on_all(
-        call: ServiceCall, action, needs: tuple[str, str] | None = None
+        call: ServiceCall,
+        action,
+        needs: tuple[str, str] | None = None,
+        wake: bool = False,
+        after=None,
     ) -> dict[str, Any]:
         """Run a TV-control call on every targeted TV; `needs` = (app version, what).
 
+        `wake`: wake a TV whose screen is off first (the app, then ADB; 1.32.0b3), so
+        an app is not opened on a dark screen. `after(coordinator, answer)` may finish
+        the job (press OK over ADB) and returns the answer to report.
         Returns the app's answer per TV (by entry title), for actions that respond.
         """
         coordinators = await _coordinators_for_call(hass, call)
@@ -972,7 +1009,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             if needs and (reason := _app_too_old(coordinator, *needs)):
                 return reason
             try:
+                if wake and (coordinator.data or {}).get("screenOn") is False:
+                    await coordinator.async_screen_on()
                 answer = await action(coordinator.client)
+                if after is not None:
+                    answer = await after(coordinator, answer)
                 answers[coordinator.config_entry.title] = answer if isinstance(answer, dict) else {}
                 await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
@@ -1001,6 +1042,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             call,
             lambda client: client.launch(**kwargs),
             needs=(MEDIA_CLICK_MIN_APP_VERSION, "launch_app with click") if click else None,
+            wake=call.data[ATTR_WAKE],
+            after=_press_ok_over_adb if click else None,
         )
         # the app's answer per TV: launched, clicked, and since 0.32.0-beta.2 method + changed
         return {"tvs": answers} if call.return_response else None
@@ -1014,6 +1057,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 method=call.data.get(ATTR_METHOD),
             ),
             needs=(MEDIA_CLICK_MIN_APP_VERSION, "click"),
+            after=_press_ok_over_adb,
         )
         # per TV: ok, message, and since app 0.32.0-beta.2 method + changed (did the screen react)
         return {"tvs": answers} if call.return_response else None

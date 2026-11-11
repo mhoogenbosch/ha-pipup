@@ -80,6 +80,7 @@
               "adb_port": "ADB-poort",
               "adb_key": "ADB-sleutel",
               "auto_update": "Automatische updates",
+              "beta_updates": "Bèta-versies van de app",
               "quiet_start": "Rustig venster vanaf",
               "quiet_end": "Rustig venster tot",
               "media_access": "Wat er speelt (toegang tot mediasessie)",
@@ -89,6 +90,7 @@
               "install_method": "Self-update van de app: zoals voorheen; op Android < 12 vraagt de tv om een druk op OK. Automatisch: de eigen update van de app op Android 12+ (stil), een ADB-install op oudere versies. ADB: altijd ADB. Bij kiezen van Automatisch of ADB wordt de verbinding getest zodra je opslaat.",
               "adb_key": "De eigen sleutel van PiPup (.storage/pipup_adbkey), of die van de Android TV-integratie, zodat een tv die die al vertrouwt geen nieuwe melding toont.",
               "auto_update": "Installeer een nieuwe PiPup-release vanzelf binnen het rustige venster: één tv tegelijk, nooit terwijl er een popup in beeld is, en op een tv die aan staat wordt de app nooit geopend. Een geslaagde update komt alleen in het logboek; een mislukte wordt de volgende nacht opnieuw geprobeerd, met een repair na 3 mislukte nachten (of meteen als er op de tv iets opgelost moet worden). Vereist ADB op Android < 12.",
+              "beta_updates": "Bied ook de testversies van de app aan en installeer ze (prereleases zoals 0.32.0-beta.3), om een fix te proberen vóór de release. Alleen met installatiemethode ADB (of Automatisch waar dat ADB betekent): Home Assistant downloadt de APK dan zelf. Met automatische updates aan krijgt een tv 's nachts ook bèta's. Uit: weer alleen releases; een tv op een bèta gaat door naar de volgende release.",
               "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag.",
               "media_access": "Laat PiPup de actieve mediasessie van elke app lezen (titel, spelen of pauze, positie) en erin zoeken, voor de mediaspeler. Wordt bij opslaan via ADB gegeven; het is een toegang voor meldingen-luisteraars, maar PiPup leest geen meldingen. Android negeert hem op toestellen met weinig geheugen. App 0.32.0 of nieuwer.",
               "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 0.32.0 of nieuwer."
@@ -108,6 +110,7 @@
       "adb_no_androidtv_key": "De ADB-sleutel van de Android TV-integratie bestaat niet. Kies de eigen sleutel.",
       "adb_key_unreadable": "Het ADB-sleutelbestand (of de .pub ervan) is niet leesbaar. Kies de andere sleutel, of verwijder het beschadigde bestand uit .storage.",
       "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB.",
+      "beta_needs_adb": "Bèta-versies vereisen op deze tv installatiemethode ADB (of Automatisch waar dat ADB betekent): de eigen update van de app kent alleen releases.",
       "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
       "media_click_needs_app": "Toegang tot de mediasessie en klikken vereisen PiPup-app 0.32.0 of nieuwer op deze tv.",
       "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv."
@@ -375,7 +378,8 @@
     "method": {
       "options": {
         "click": "Klikken",
-        "tap": "Tikken"
+        "tap": "Tikken",
+        "ok": "OK (focus en OK)"
       }
     }
   },
@@ -668,7 +672,7 @@
         },
         "method": {
           "name": "Hoe indrukken",
-          "description": "App 0.32.0-beta.2 of nieuwer: Klikken (een toegankelijkheidsklik, standaard) of Tikken (een aanraking op het midden van de view). Gebruik Tikken voor apps die de klik negeren, zoals Plex."
+          "description": "Klikken (een toegankelijkheidsklik, standaard), Tikken (een aanraking op het midden van de view, app 0.32.0-beta.2 of nieuwer; alleen op toestellen met aanraakinvoer) of OK (app 0.32.0-beta.3: focus de view en druk op OK, zoals de afstandsbediening; onder Android 13 drukt Home Assistant OK via ADB). Gebruik OK voor apps die de klik negeren, zoals Plex."
         }
       }
     },
@@ -700,7 +704,7 @@
         },
         "method": {
           "name": "Hoe indrukken",
-          "description": "Klikken (een toegankelijkheidsklik, standaard) of Tikken (een aanraking op het midden van de view, app 0.32.0-beta.2 of nieuwer). Gebruik Tikken voor apps die de klik negeren, zoals Plex."
+          "description": "App 0.32.0-beta.2 of nieuwer: Klikken (een toegankelijkheidsklik, standaard), Tikken (een aanraking op het midden van de view; alleen op toestellen met aanraakinvoer, tv's met Android 11+ hebben die meestal niet) of OK (app 0.32.0-beta.3: focus de view en druk op OK, zoals de afstandsbediening; onder Android 13 drukt Home Assistant OK via ADB). Gebruik OK voor apps die de klik negeren, zoals Plex."
         }
       }
     },

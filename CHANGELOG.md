@@ -9,6 +9,28 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.32.0b3] — 2026-11-11 (third test release for PiPup #83: `method: ok`, waking over ADB, beta APKs)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.3)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **`method: ok` on `pipup.click` and `pipup.launch_app`** *(app ≥ 0.32.0-beta.3)*: the app gives the view the
+  focus and OK is pressed, the way the remote does. On Android 13+ the app presses OK; below that only ADB
+  can, so ha-pipup sends `KEYCODE_DPAD_CENTER` over ADB when the app answers that it focused the view
+  (`pressed_over_adb: true`; `changed` is then unknown). Needs a tested ADB setup on that TV (*Advanced
+  install*: install method ADB, media access or a click list); without it the call fails with that hint.
+  Why: `tap` cannot work on most TVs. Android drops taps from apps on Android 11 without a touchscreen and
+  on Android 12+ without `faketouch`; @Ltek's TCL answered "the tap was cancelled" every time.
+- **Beta versions of the app** (*Advanced install*): the update entity also offers the app's prereleases
+  and installs them over ADB. Only with the ADB install (the app's own update only knows releases);
+  saving it with another install method says so. Asked for by @Ltek, to test fixes sooner.
+### Fixed
+- **Waking a TV the app could not wake.** `media_player.turn_on`, the screen switch and `launch_app` (with
+  `wake`) now check the app's answer *(app ≥ 0.32.0-beta.3: `reached`)* and send `KEYCODE_WAKEUP` over ADB
+  when the screen stayed off, on a TV with a tested ADB setup (a warning in the log otherwise).
+  `launch_app` wakes a TV whose screen is off before it opens the app. On @Ltek's TCL the app's wake left
+  the screen off and Plex was opened on a dark TV.
+- **A `null` entry in the accessibility list is dropped** when ha-pipup next writes the list. The readme's
+  hand-written append before app 0.32.0 kept it (`null:nl.rogro82.pipup/…`); harmless, but untidy.
+
 ## [v1.32.0b2] — 2026-11-09 (second test release for PiPup #83: tap, longer wait, `changed`)
 Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.2)*; HACS only offers it with *Show beta versions* on.
 ### Added
@@ -540,6 +562,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.32.0b3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b3
 [v1.32.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b2
 [v1.32.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b1
 [v1.31.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.31.0
