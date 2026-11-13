@@ -51,6 +51,7 @@
           "default_button_size": "Standaard knop-tekstgrootte (sp; 0 = klassieke look)",
           "default_animation": "Standaard popup-animatie",
           "default_stack": "Standaard stapelen van popups op dezelfde positie",
+          "default_video_decoder": "Videodecoder voor video- en camerastreams (auto, hardware, software)",
           "default_media_width": "Standaard mediabreedte (px)",
           "default_media_height": "Standaard mediahoogte (px)",
           "default_title_size": "Standaard titelgrootte (0 = app-standaard)",
@@ -69,25 +70,32 @@
         "data_description": {
           "name_suffix": "Wordt achter alle entiteitsnamen van dit apparaat gezet (bv. \"Veranda\" geeft \"Popup Veranda\") zodat meerdere TV's te onderscheiden zijn in keuzelijsten.",
           "overlay_pages": "De Pagina-keuzelijst van elke overlay biedt deze aan, plus Eigen URL. Voorbeeld: Agenda | http://192.168.1.10:8123/local/agenda.html",
-          "parent_device": "De tv waarop deze PiPup-app draait; het PiPup-apparaat staat daaronder. Leeg: automatisch gevonden via de Android TV-integraties (eerst remote, dan ADB) op hetzelfde IP-adres."
+          "parent_device": "De tv waarop deze PiPup-app draait; het PiPup-apparaat staat daaronder. Leeg: automatisch gevonden via de Android TV-integraties (eerst remote, dan ADB) op hetzelfde IP-adres.",
+          "default_video_decoder": "Auto laat de app kiezen (hardware; software op Android < 8 en op Amlogic). Software voor een tv die vastloopt of hapert bij videopopups, bv. terwijl Live TV de hardwaredecoder bezet houdt. Het veld Softwaredecoder van pipup.show wint per popup. App 0.17.2 of nieuwer."
         },
         "sections": {
           "advanced_install": {
             "name": "Geavanceerd installeren",
-            "description": "Hoe de PiPup-app wordt bijgewerkt. Op Android < 12 vraagt de tv bij een self-update om een bevestiging met de afstandsbediening; een ingebouwde ADB-install (zoals install.sh) niet. Vereist netwerkfoutopsporing (ADB) op de tv.",
+            "description": "Hoe de PiPup-app wordt bijgewerkt. Op Android < 12 vraagt de tv bij een self-update om een bevestiging met de afstandsbediening; een ingebouwde ADB-install (zoals install.sh) niet. Vereist netwerkfoutopsporing (ADB) op de tv. Ook toegang tot de mediasessie en de kliklijst worden via ADB ingesteld.",
             "data": {
               "install_method": "Installatiemethode",
               "adb_port": "ADB-poort",
               "adb_key": "ADB-sleutel",
               "auto_update": "Automatische updates",
+              "beta_updates": "Bèta-versies van de app",
               "quiet_start": "Rustig venster vanaf",
-              "quiet_end": "Rustig venster tot"
+              "quiet_end": "Rustig venster tot",
+              "media_access": "Wat er speelt (toegang tot mediasessie)",
+              "click_packages": "Apps waarin PiPup knoppen mag indrukken"
             },
             "data_description": {
               "install_method": "Self-update van de app: zoals voorheen; op Android < 12 vraagt de tv om een druk op OK. Automatisch: de eigen update van de app op Android 12+ (stil), een ADB-install op oudere versies. ADB: altijd ADB. Bij kiezen van Automatisch of ADB wordt de verbinding getest zodra je opslaat.",
               "adb_key": "De eigen sleutel van PiPup (.storage/pipup_adbkey), of die van de Android TV-integratie, zodat een tv die die al vertrouwt geen nieuwe melding toont.",
               "auto_update": "Installeer een nieuwe PiPup-release vanzelf binnen het rustige venster: één tv tegelijk, nooit terwijl er een popup in beeld is, en op een tv die aan staat wordt de app nooit geopend. Een geslaagde update komt alleen in het logboek; een mislukte wordt de volgende nacht opnieuw geprobeerd, met een repair na 3 mislukte nachten (of meteen als er op de tv iets opgelost moet worden). Vereist ADB op Android < 12.",
-              "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag."
+              "beta_updates": "Bied ook de testversies van de app aan en installeer ze (prereleases zoals 0.32.0-beta.3), om een fix te proberen vóór de release. Alleen met installatiemethode ADB (of Automatisch waar dat ADB betekent): Home Assistant downloadt de APK dan zelf. Met automatische updates aan krijgt een tv 's nachts ook bèta's. Uit: weer alleen releases; een tv op een bèta gaat door naar de volgende release.",
+              "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag.",
+              "media_access": "Laat PiPup de actieve mediasessie van elke app lezen (titel, spelen of pauze, positie) en erin zoeken, voor de mediaspeler. Wordt bij opslaan via ADB gegeven; het is een toegang voor meldingen-luisteraars, maar PiPup leest geen meldingen. Android negeert hem op toestellen met weinig geheugen. App 0.32.0 of nieuwer.",
+              "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 0.32.0 of nieuwer."
             }
           }
         }
@@ -103,7 +111,11 @@
       "adb_not_authorized": "De tv heeft foutopsporing vanaf Home Assistant niet toegestaan.",
       "adb_no_androidtv_key": "De ADB-sleutel van de Android TV-integratie bestaat niet. Kies de eigen sleutel.",
       "adb_key_unreadable": "Het ADB-sleutelbestand (of de .pub ervan) is niet leesbaar. Kies de andere sleutel, of verwijder het beschadigde bestand uit .storage.",
-      "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB."
+      "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB.",
+      "beta_needs_adb": "Bèta-versies vereisen op deze tv installatiemethode ADB (of Automatisch waar dat ADB betekent): de eigen update van de app kent alleen releases.",
+      "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
+      "media_click_needs_app": "Toegang tot de mediasessie en klikken vereisen PiPup-app 0.32.0 of nieuwer op deze tv.",
+      "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv."
     }
   },
   "entity": {
@@ -338,6 +350,14 @@
         "horizontal": "Horizontaal"
       }
     },
+    "poster_mode": {
+      "options": {
+        "fit": "Passend (heel beeld)",
+        "fill": "Vullen (bijsnijden)",
+        "stretch": "Uitrekken",
+        "center": "Midden (oorspronkelijke grootte)"
+      }
+    },
     "key": {
       "options": {
         "play_pause": "Afspelen/pauzeren",
@@ -363,6 +383,13 @@
       "options": {
         "own": "Eigen sleutel van PiPup",
         "androidtv": "Sleutel van de Android TV-integratie"
+      }
+    },
+    "method": {
+      "options": {
+        "click": "Klikken",
+        "tap": "Tikken",
+        "ok": "OK (focus en OK)"
       }
     }
   },
@@ -410,6 +437,10 @@
         "buffer_ms": {
           "name": "Videobuffer",
           "description": "Alleen video-URL en camerastreams: begin met afspelen zodra er zoveel milliseconden gebufferd zijn, en blijf zo dicht bij live. Een RTSP-stream loopt dan ongeveer 1 s achter de camera in plaats van 3–4 s (150–300 is een goed begin voor terugpraten). Bedoeld voor RTSP; app 0.31.0 of nieuwer, oudere apps negeren het."
+        },
+        "software_decoder": {
+          "name": "Softwaredecoder",
+          "description": "Alleen video-URL en camerastreams (stream-modus): aan = in software decoderen, uit = de hardwaredecoder van de tv, voor deze popup. Laat weg voor de optie Videodecoder van de tv. Software helpt een tv waarvan de hardwaredecoder bezet is (Live TV op de achtergrond) of vastloopt; het kost meer CPU. App 0.17.2 of nieuwer."
         },
         "web_url": {
           "name": "Web-URL",
@@ -506,6 +537,10 @@
         "poster_url": {
           "name": "Posterbeeld",
           "description": "Stilstaand beeld (URL) dat over een video-/webstream staat tot het eerste frame rendert — bv. een camera-snapshot — zodat de popup nooit leeg opent. Vereist app 0.17.0+; een camera_entity-popup krijgt automatisch z'n eigen snapshot."
+        },
+        "poster_mode": {
+          "name": "Posterweergave",
+          "description": "Hoe de poster het mediavlak vult, zonder de grootte van het vlak te veranderen: Passend (het hele beeld, balken waar het niet vult), Vullen (bijgesneden), Uitrekken of Midden (oorspronkelijke grootte). Laat weg om de poster de vorm van het vlak te laten bepalen, zoals voorheen. Video-, web- en WHEP-popups; app 0.32.0-beta.4 of nieuwer, oudere apps negeren het."
         },
         "sound": {
           "name": "Geluid",
@@ -644,6 +679,18 @@
         "wake": {
           "name": "Scherm wekken",
           "description": "Zet een slapend scherm eerst aan."
+        },
+        "click": {
+          "name": "View indrukken",
+          "description": "App 0.32.0 of nieuwer: druk deze view in zodra de app open is (resource-ID of Compose-testtag, bijv. action-button-watch). De app moet op de kliklijst van de tv staan (opties, Geavanceerd installeren)."
+        },
+        "wait": {
+          "name": "Wachten",
+          "description": "Hoe lang op de view gewacht wordt, in seconden (0-30; 10 als View indrukken is ingevuld en dit leeg is). Maximaal 15 bij apps ouder dan 0.32.0-beta.2."
+        },
+        "method": {
+          "name": "Hoe indrukken",
+          "description": "Klikken (een toegankelijkheidsklik, standaard), Tikken (een aanraking op het midden van de view, app 0.32.0-beta.2 of nieuwer; alleen op toestellen met aanraakinvoer) of OK (app 0.32.0-beta.3: focus de view en druk op OK, zoals de afstandsbediening; onder Android 13 drukt Home Assistant OK via ADB). Gebruik OK voor apps die de klik negeren, zoals Plex."
         }
       }
     },
@@ -654,6 +701,46 @@
         "key": {
           "name": "Toets",
           "description": "De toets om te sturen."
+        }
+      }
+    },
+    "click": {
+      "name": "Knop indrukken in app",
+      "description": "Drukt een view in een app op de tv in, op resource-ID of Compose-testtag (app 0.32.0 of nieuwer). Alleen voor apps op de kliklijst van de tv (opties, Geavanceerd installeren). De bedieningsdienst van PiPup kijkt alleen tijdens deze aanroep naar het scherm en geeft er niets van terug.",
+      "fields": {
+        "package": {
+          "name": "Pakket",
+          "description": "De app waar de view bij hoort; die moet vooraan staan."
+        },
+        "id": {
+          "name": "View-ID",
+          "description": "Resource-ID (com.plexapp.android:id/naam, of alleen naam) of Compose-testtag, bijv. action-button-watch. `uiautomator dump` toont ze als resource-id."
+        },
+        "wait": {
+          "name": "Wachten",
+          "description": "Wacht maximaal zoveel seconden tot de view verschijnt (0-30; maximaal 15 bij apps ouder dan 0.32.0-beta.2)."
+        },
+        "method": {
+          "name": "Hoe indrukken",
+          "description": "App 0.32.0-beta.2 of nieuwer: Klikken (een toegankelijkheidsklik, standaard), Tikken (een aanraking op het midden van de view; alleen op toestellen met aanraakinvoer, tv's met Android 11+ hebben die meestal niet) of OK (app 0.32.0-beta.3: focus de view en druk op OK, zoals de afstandsbediening; onder Android 13 drukt Home Assistant OK via ADB). Gebruik OK voor apps die de klik negeren, zoals Plex."
+        }
+      }
+    },
+    "seek": {
+      "name": "Zoeken",
+      "description": "Springt naar een positie in wat er speelt, of verschuift met een aantal seconden (app 0.32.0 of nieuwer, met toegang tot de mediasessie).",
+      "fields": {
+        "position": {
+          "name": "Positie",
+          "description": "Positie in seconden vanaf het begin."
+        },
+        "offset": {
+          "name": "Verschuiving",
+          "description": "Seconden vooruit (positief) of terug (negatief) vanaf de huidige positie."
+        },
+        "package": {
+          "name": "Pakket",
+          "description": "Zoek in de mediasessie van deze app in plaats van de actieve."
         }
       }
     }

@@ -23,9 +23,17 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .adb import auto_update_installs
+from .adb import (
+    ADB_MEDIA_KEYS,
+    AdbError,
+    KEYCODE_WAKEUP,
+    adb_ready,
+    async_adb_key,
+    auto_update_installs,
+)
 from .api import PiPupClient, PiPupError
 from .const import (
+    POWER_STATE_ON,
     CONF_PUSH_WEBHOOK_ID,
     CONF_SCAN_INTERVAL,
     CONF_UPDATE_SOURCE,
@@ -383,6 +391,65 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data={"entry_id": self.config_entry.entry_id},
             learn_more_url="https://github.com/mhoogenbosch/PiPup#install",
         )
+
+    async def async_screen_on(self) -> dict[str, Any]:
+        """Wake the screen: the app first, then KEYCODE_WAKEUP over ADB if it stayed off.
+
+        App >= 0.32.0-beta.3 waits up to 3 s for the screen and answers `reached`; on a
+        TCL (Android 11) the app's wake attempt left the screen off (PiPup #83). An ADB
+        key wakes any TV, but only a TV with a tested ADB setup gets one (`adb_ready`):
+        otherwise the call stays as it was, with a warning. Older apps do not answer
+        `reached`, so nothing changes for them. Returns the app's /power answer.
+        """
+        answer = await self.client.power(POWER_STATE_ON)
+        if answer.get("reached") is not False or answer.get("screenOn") is not False:
+            return answer
+        title = self.config_entry.title
+        options = self.config_entry.options
+        if not adb_ready(options, self.data or {}):
+            _LOGGER.warning(
+                "PiPup %s: the screen stayed off after the wake request. Set up ADB under "
+                "Advanced install so Home Assistant can wake it with KEYCODE_WAKEUP",
+                title,
+            )
+            return answer
+        try:
+            await async_adb_key(self.hass, self.client.host, options, KEYCODE_WAKEUP)
+        except AdbError as err:
+            raise PiPupError(
+                f"the screen stayed off, and waking it over ADB failed: {err}"
+            ) from err
+        _LOGGER.debug("PiPup %s: screen woken over ADB", title)
+        return {**answer, "woken_over_adb": True}
+
+    async def async_send_key(self, key: str) -> dict[str, Any]:
+        """Send a key to the TV; a media key over ADB when the app sees no media session.
+
+        1.32.0b4 (PiPup #83): app >= 0.32.0-beta.4 sends a media key straight to the
+        session of the app that plays (MediaController transport controls). Without a
+        session - no media access, nothing reported, an older app - the app can only
+        hand Android a media-button event, and Plex ignored that on @Ltek's TCL. ADB
+        presses the key in the app on screen, as the remote does. Only on a TV with a
+        tested ADB setup (`adb_ready`): elsewhere, and for home/back, the app sends it.
+        Returns the app's answer, or one with `via: adb`.
+        """
+        adb_key = ADB_MEDIA_KEYS.get(key)
+        data = self.data or {}
+        media = data.get("media")
+        session = (
+            isinstance(media, dict)
+            and media.get("access") is True
+            and bool(media.get("package"))
+        )
+        options = self.config_entry.options
+        if adb_key is None or session or not adb_ready(options, data):
+            return await self.client.key(key)
+        try:
+            await async_adb_key(self.hass, self.client.host, options, adb_key)
+        except AdbError as err:
+            raise PiPupError(f"{key} over ADB failed: {err}") from err
+        _LOGGER.debug("PiPup %s: %s sent over ADB", self.config_entry.title, key)
+        return {"ok": True, "message": f"sent {key} over ADB", "via": "adb"}
 
     async def async_refresh_soon(self) -> None:
         """Refresh state right after a show/dismiss call.

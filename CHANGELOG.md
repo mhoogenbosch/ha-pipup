@@ -9,6 +9,88 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.32.0b4] — 2026-11-13 (fourth test release for PiPup #83: play/pause to the session, artwork, video decoder)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.4)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **Artwork on the media player** *(app ≥ 0.32.0-beta.4)*: the media session's picture (cover, poster or
+  the app's icon, whatever the app publishes) is the entity picture, served through Home Assistant's image
+  proxy. It follows the app's `artKey`, so a new title brings a new picture. Asked for by @DragonFlye (#61).
+- **`software_decoder` on `pipup.show`** *(app ≥ 0.17.2)* and a per-TV **Video decoder** option
+  (auto / hardware / software) for the video route (`video_url`, `camera_mode: stream`). The call wins over
+  the option; *auto* leaves the choice to the app, as before. A TCL with MediaTek on Android 8 froze on
+  stacked video popups while Live TV held the hardware decoder, and played them in software without
+  trouble. Asked for by @bboykaos (#60).
+- **`poster_mode` on `pipup.show`** *(app ≥ 0.32.0-beta.4, PiPup #87 by @rshadow)*: `fit`, `fill`,
+  `stretch` or `center` places the poster in the media area without the poster resizing that area (a 4:3
+  snapshot over a 16:9 stream). Left out, nothing changes.
+### Fixed
+- **Play, pause, stop, next and previous reach the playing app.** @Ltek's TCL with Plex ignored all of
+  them (PiPup #83): the app sent media-button events, which Android routes in a way Plex does not act on.
+  App 0.32.0-beta.4 sends them to the app's media session instead. A TV without a session (no media
+  access, nothing reported, an older app) but with a tested ADB setup now gets the key over ADB, pressed
+  in the app on screen as the remote does. The media player's buttons and `pipup.send_key` take the same
+  route; home and back still go through the app.
+
+## [v1.32.0b3] — 2026-11-11 (third test release for PiPup #83: `method: ok`, waking over ADB, beta APKs)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.3)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **`method: ok` on `pipup.click` and `pipup.launch_app`** *(app ≥ 0.32.0-beta.3)*: the app gives the view the
+  focus and OK is pressed, the way the remote does. On Android 13+ the app presses OK; below that only ADB
+  can, so ha-pipup sends `KEYCODE_DPAD_CENTER` over ADB when the app answers that it focused the view
+  (`pressed_over_adb: true`; `changed` is then unknown). Needs a tested ADB setup on that TV (*Advanced
+  install*: install method ADB, media access or a click list); without it the call fails with that hint.
+  Why: `tap` cannot work on most TVs. Android drops taps from apps on Android 11 without a touchscreen and
+  on Android 12+ without `faketouch`; @Ltek's TCL answered "the tap was cancelled" every time.
+- **Beta versions of the app** (*Advanced install*): the update entity also offers the app's prereleases
+  and installs them over ADB. Only with the ADB install (the app's own update only knows releases);
+  saving it with another install method says so. Asked for by @Ltek, to test fixes sooner.
+### Fixed
+- **Waking a TV the app could not wake.** `media_player.turn_on`, the screen switch and `launch_app` (with
+  `wake`) now check the app's answer *(app ≥ 0.32.0-beta.3: `reached`)* and send `KEYCODE_WAKEUP` over ADB
+  when the screen stayed off, on a TV with a tested ADB setup (a warning in the log otherwise).
+  `launch_app` wakes a TV whose screen is off before it opens the app. On @Ltek's TCL the app's wake left
+  the screen off and Plex was opened on a dark TV.
+- **A `null` entry in the accessibility list is dropped** when ha-pipup next writes the list. The readme's
+  hand-written append before app 0.32.0 kept it (`null:nl.rogro82.pipup/…`); harmless, but untidy.
+
+## [v1.32.0b2] — 2026-11-09 (second test release for PiPup #83: tap, longer wait, `changed`)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.2)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **`method` on `pipup.click` and `pipup.launch_app`** *(app ≥ 0.32.0-beta.2)*: `click` (an accessibility
+  click, the default) or `tap` (a touch on the centre of the view). Plex (React Native) ignores the click:
+  @Ltek's test found `action-button-watch` and "clicked" it, but the film only started with a real touch.
+- **Both actions can respond** (`response_variable`): per TV the app's answer under `tvs`, with `method` and
+  **`changed`** *(app ≥ 0.32.0-beta.2)*: whether the pressed view left the screen, moved, or its app left the
+  front within 1.5 s. A hint: a button that only changes its own label reads as `false`.
+### Changed
+- **`wait` up to 30 s** (was 15): a cold start of Plex took longer than 10 s. Apps before 0.32.0-beta.2
+  still stop at 15 and answer 400 above that.
+- **The control service is switched off and on** when the click list is saved while it is already on, and
+  after an ADB install that it survived. After an app update Android keeps binding an enabled service with
+  the old version's capabilities: going from app beta.1 to beta.2 it could not tap until restarted.
+
+## [v1.32.0b1] — 2026-11-08 (test release for PiPup #83: what is playing, seek, press a button)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.1)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **What is playing, in any app** (PiPup #83, suggested by @Ltek). With media session access the media player
+  shows the app that holds the media session: **playing / paused / buffering / idle**, title, artist, album,
+  position and duration, and `app_id` / `app_name`. It also gets a **seek bar** (`media_player.media_seek`).
+  Without the access, or with an older app, the media player behaves exactly as before.
+- **`pipup.seek`**: to a `position` (seconds), or by an `offset` (± seconds, e.g. −10 for "back ten seconds");
+  optional `package` to seek that app's session.
+- **`pipup.click`**: presses a view in an app by its resource ID or Compose test tag (`package`, `id`, `wait`
+  up to 15 s for the view to appear), for example Plex's `action-button-watch`. **`pipup.launch_app`** got
+  `click` and `wait`, so one call opens a title and presses Play.
+- **Advanced install** has two new fields, applied over ADB when you save: **What is playing (media session
+  access)** and **Apps PiPup may press buttons in**. The second one switches the app's separate control
+  service on (a list) or off (empty) and hands the app the list. Both only change what you change: a grant
+  given earlier with ADB stays as it is.
+- Media player attributes `media_access` (`granted` / `not_granted` / `low_ram`), `click_service` and
+  `click_packages`, to check the set-up.
+### Changed
+- An ADB install now also brings back the app's control service and media listener when the reinstall switched
+  them off, not only the screen-off accessibility service.
+
 ## [v1.31.0] — 2026-11-08 (video buffer; automatic updates and reload on the device page)
 ### Added
 - **`buffer_ms` on `pipup.show`** for `video_url` and camera streams *(app ≥ 0.31.0, older apps ignore it)*
@@ -502,6 +584,10 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.32.0b4]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b4
+[v1.32.0b3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b3
+[v1.32.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b2
+[v1.32.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b1
 [v1.31.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.31.0
 [v1.30.3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.3
 [v1.30.2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.30.2

@@ -15,7 +15,7 @@ import voluptuous as vol
 
 from homeassistant.components import webhook as webhook_component
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from awesomeversion import AwesomeVersion, AwesomeVersionException
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
@@ -23,10 +23,12 @@ from homeassistant.helpers.network import get_url
 from homeassistant.helpers.service import async_extract_config_entry_ids
 from homeassistant.util import dt as dt_util
 
+from .adb import AdbError, KEYCODE_DPAD_CENTER, adb_ready, async_adb_key
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ANIMATIONS,
     STACKS,
+    POSTER_MODES,
     ATTR_BACKGROUND_COLOR,
     ATTR_PERMISSION,
     ATTR_BORDER_COLOR,
@@ -56,6 +58,7 @@ from .const import (
     ATTR_BUTTONS_INLINE,
     ATTR_MEDIA_FULL_BLEED,
     ATTR_BUFFER_MS,
+    ATTR_SOFTWARE_DECODER,
     ATTR_MEDIA_HEIGHT,
     ATTR_MEDIA_WIDTH,
     ATTR_MESSAGE,
@@ -69,6 +72,7 @@ from .const import (
     ATTR_ALL,
     ATTR_POPUP_ID,
     ATTR_POSITION,
+    ATTR_POSTER_MODE,
     ATTR_POSTER_URL,
     ATTR_SHOW_PROGRESS,
     ATTR_TITLE,
@@ -91,7 +95,19 @@ from .const import (
     ATTR_PACKAGE,
     ATTR_URI,
     ATTR_WAKE,
+    ATTR_CLICK,
+    ATTR_ID,
+    ATTR_SEEK_OFFSET,
+    ATTR_SEEK_POSITION,
+    ATTR_WAIT,
+    ATTR_METHOD,
+    CLICK_MAX_WAIT,
+    CLICK_METHODS,
+    CLICK_METHOD_OK,
     CONTROL_MIN_APP_VERSION,
+    MEDIA_CLICK_MIN_APP_VERSION,
+    SERVICE_CLICK,
+    SERVICE_SEEK,
     GRID_MAX_TILES,
     KEYS,
     SERVICE_LAUNCH_APP,
@@ -108,6 +124,7 @@ from .const import (
     CONF_DEFAULT_ICON_POSITION,
     CONF_DEFAULT_ANIMATION,
     CONF_DEFAULT_STACK,
+    CONF_DEFAULT_VIDEO_DECODER,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_ICON_WIDTH,
@@ -189,6 +206,8 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_GRID_LABELS): cv.boolean,
         vol.Optional(ATTR_FULLSCREEN): cv.boolean,
         vol.Optional(ATTR_POSTER_URL): cv.string,
+        # app >= 0.32.0-beta.4 (PiPup #87): the poster keeps the media area's size
+        vol.Optional(ATTR_POSTER_MODE): vol.All(cv.string, vol.Lower, vol.In(POSTER_MODES)),
         vol.Optional(ATTR_MEDIA_WIDTH): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=3840)
         ),
@@ -197,6 +216,8 @@ SHOW_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_BUFFER_MS): vol.All(vol.Coerce(int), vol.Range(min=100, max=10000)),
+        # app >= 0.17.2 (1.32.0b4, ha-pipup #60): decoder for this video popup
+        vol.Optional(ATTR_SOFTWARE_DECODER): cv.boolean,
         vol.Optional(ATTR_MEDIA_FULL_BLEED): cv.boolean,
         vol.Optional(ATTR_BUTTONS_INLINE): cv.boolean,
         vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
@@ -264,11 +285,43 @@ FIX_PERMISSION_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+_PACKAGE = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.]{1,255}$"))
+# a view: "pkg:id/name", a bare resource name, or a Compose testTag ("action-button-watch")
+_VIEW_ID = vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.:/-]{1,255}$"))
+_WAIT = vol.All(vol.Coerce(int), vol.Range(min=0, max=CLICK_MAX_WAIT))
+_METHOD = vol.All(cv.string, vol.Lower, vol.In(CLICK_METHODS))
+
 LAUNCH_APP_SCHEMA = vol.Schema(
     {
-        vol.Optional(ATTR_PACKAGE): vol.All(cv.string, vol.Match(r"^[A-Za-z0-9_.]{1,255}$")),
+        vol.Optional(ATTR_PACKAGE): _PACKAGE,
         vol.Optional(ATTR_URI): cv.string,
         vol.Optional(ATTR_WAKE, default=True): cv.boolean,
+        # app >= 0.32.0: press this view once the app is up (PiPup #83)
+        vol.Optional(ATTR_CLICK): _VIEW_ID,
+        vol.Optional(ATTR_WAIT): _WAIT,
+        # app >= 0.32.0-beta.2: "tap" touches the view, for apps that ignore a click
+        vol.Optional(ATTR_METHOD): _METHOD,
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+CLICK_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_PACKAGE): _PACKAGE,
+        vol.Required(ATTR_ID): _VIEW_ID,
+        vol.Optional(ATTR_WAIT, default=0): _WAIT,
+        vol.Optional(ATTR_METHOD): _METHOD,
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+SEEK_SCHEMA = vol.Schema(
+    {
+        vol.Exclusive(ATTR_SEEK_POSITION, "seek"): vol.All(
+            vol.Coerce(float), vol.Range(min=0)
+        ),
+        vol.Exclusive(ATTR_SEEK_OFFSET, "seek"): vol.Coerce(float),
+        vol.Optional(ATTR_PACKAGE): _PACKAGE,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -588,13 +641,32 @@ def build_device_payload(
     if (buffer_ms := data.get(ATTR_BUFFER_MS)) and "video" in (payload.get("media") or {}):
         payload["media"]["video"]["bufferMs"] = buffer_ms
 
+    # app >= 0.17.2 (1.32.0b4, ha-pipup #60): which decoder the video route uses. The call
+    # first, then the TV's Video decoder option; auto (or unset) sends nothing, so the app
+    # keeps its own rule. Only the video route (ExoPlayer) has a choice: web, WHEP and the
+    # grid play in a WebView. A MediaTek TV on Android 8 froze on stacked video popups
+    # while Live TV held the hardware decoder, and played them fine in software.
+    media = payload.get("media") or {}
+    if "video" in media:
+        decoder = data.get(ATTR_SOFTWARE_DECODER)
+        if decoder is None:
+            decoder = {"software": True, "hardware": False}.get(
+                opts.get(CONF_DEFAULT_VIDEO_DECODER)
+            )
+        if decoder is not None:
+            media["video"]["softwareDecoder"] = decoder
+
     # app >= 0.17.0: poster — a still shown over the stream area until the first frame
     # renders, so a live popup never opens as an empty box while the stream connects.
     # An explicit poster_url wins; a camera_entity popup gets its own snapshot for free.
-    media = payload.get("media") or {}
     kind = next((k for k in ("video", "web", "whep") if k in media), None)
     if kind and (poster := data.get(ATTR_POSTER_URL) or poster_uri):
         media[kind]["poster"] = poster
+    # app >= 0.32.0-beta.4 (PiPup #87): how the poster fills the media area, without the
+    # poster resizing it (a 4:3 snapshot over a 16:9 stream). Only sent when given: unset,
+    # the poster gives the area its aspect as before. Older apps ignore the field.
+    if kind and (poster_mode := data.get(ATTR_POSTER_MODE)):
+        media[kind]["posterMode"] = poster_mode
 
     return payload
 
@@ -903,14 +975,80 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             f"{CONTROL_MIN_APP_VERSION} or newer (this TV runs {version or 'unknown'})"
         )
 
-    async def _control_on_all(call: ServiceCall, action) -> None:
+    def _app_too_old(coordinator, required: str, what: str) -> str | None:
+        """Why this TV's app is too old for `what`, or None (also when unknown)."""
+        version = (coordinator.data or {}).get("version")
+        if _needs_newer_app(required, version):
+            return (
+                f"{coordinator.config_entry.title}: {what} needs PiPup app "
+                f"{required} or newer (this TV runs {version})"
+            )
+        return None
+
+    async def _press_ok_over_adb(coordinator, answer: Any) -> Any:
+        """method=ok below Android 13: the app focused the view, ADB presses OK.
+
+        App >= 0.32.0-beta.3 answers `pressed: false, key: KEYCODE_DPAD_CENTER` when it
+        cannot press OK itself (Android < 13). Only that one fixed key is sent, and only
+        to a TV with a tested ADB setup.
+        """
+        if not (
+            isinstance(answer, dict)
+            and answer.get("method") == CLICK_METHOD_OK
+            and answer.get("focused") is True
+            and answer.get("pressed") is False
+            and answer.get("key") == KEYCODE_DPAD_CENTER
+        ):
+            return answer
+        options = coordinator.config_entry.options
+        if not adb_ready(options, coordinator.data or {}):
+            raise PiPupError(
+                "the view has the focus, but before Android 13 only ADB can press OK. "
+                "Set up ADB under Advanced install in this TV's options"
+            )
+        try:
+            await async_adb_key(hass, coordinator.client.host, options, KEYCODE_DPAD_CENTER)
+        except AdbError as err:
+            raise PiPupError(f"the view has the focus, but pressing OK over ADB failed: {err}") from err
+        # `changed` is the app's to measure, and it answered before the press
+        return {**answer, "pressed": True, "pressed_over_adb": True, "changed": None}
+
+    async def _control_on_all(
+        call: ServiceCall,
+        action,
+        needs: tuple[str, str] | None = None,
+        wake: bool = False,
+        after=None,
+        on_coordinator=None,
+    ) -> dict[str, Any]:
+        """Run a TV-control call on every targeted TV; `needs` = (app version, what).
+
+        `action(client)` makes the call; `on_coordinator(coordinator)` instead, for a
+        call that may go over ADB as well (send_key, 1.32.0b4).
+
+        `wake`: wake a TV whose screen is off first (the app, then ADB; 1.32.0b3), so
+        an app is not opened on a dark screen. `after(coordinator, answer)` may finish
+        the job (press OK over ADB) and returns the answer to report.
+        Returns the app's answer per TV (by entry title), for actions that respond.
+        """
         coordinators = await _coordinators_for_call(hass, call)
+        answers: dict[str, Any] = {}
 
         async def _one(coordinator) -> str | None:
             if reason := _control_unsupported(coordinator):
                 return reason
+            if needs and (reason := _app_too_old(coordinator, *needs)):
+                return reason
             try:
-                await action(coordinator.client)
+                if wake and (coordinator.data or {}).get("screenOn") is False:
+                    await coordinator.async_screen_on()
+                if on_coordinator is not None:
+                    answer = await on_coordinator(coordinator)
+                else:
+                    answer = await action(coordinator.client)
+                if after is not None:
+                    answer = await after(coordinator, answer)
+                answers[coordinator.config_entry.title] = answer if isinstance(answer, dict) else {}
                 await _refresh_unless_pushed(coordinator)
             except PiPupError as err:
                 return f"{coordinator.config_entry.title}: {err}"
@@ -919,19 +1057,62 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _raise_errors(
             await asyncio.gather(*(_one(c) for c in coordinators), return_exceptions=True)
         )
+        return answers
 
-    async def handle_launch_app(call: ServiceCall) -> None:
+    async def handle_launch_app(call: ServiceCall) -> ServiceResponse:
         package = call.data.get(ATTR_PACKAGE)
         uri = call.data.get(ATTR_URI)
+        click = call.data.get(ATTR_CLICK)
         if not package and not uri:
             raise HomeAssistantError("launch_app needs a package and/or a uri")
-        await _control_on_all(
-            call, lambda client: client.launch(package=package, uri=uri, wake=call.data[ATTR_WAKE])
+        kwargs: dict[str, Any] = {"package": package, "uri": uri, "wake": call.data[ATTR_WAKE]}
+        if click:
+            # app >= 0.32.0 only; left out otherwise, so older apps get the old call
+            kwargs["click"] = click
+            kwargs["wait"] = call.data.get(ATTR_WAIT)
+            if method := call.data.get(ATTR_METHOD):
+                kwargs["method"] = method
+        answers = await _control_on_all(
+            call,
+            lambda client: client.launch(**kwargs),
+            needs=(MEDIA_CLICK_MIN_APP_VERSION, "launch_app with click") if click else None,
+            wake=call.data[ATTR_WAKE],
+            after=_press_ok_over_adb if click else None,
         )
+        # the app's answer per TV: launched, clicked, and since 0.32.0-beta.2 method + changed
+        return {"tvs": answers} if call.return_response else None
+
+    async def handle_click(call: ServiceCall) -> ServiceResponse:
+        """Press a view in an app on the TV's allowed list (app >= 0.32.0)."""
+        answers = await _control_on_all(
+            call,
+            lambda client: client.click(
+                call.data[ATTR_PACKAGE], call.data[ATTR_ID], call.data[ATTR_WAIT],
+                method=call.data.get(ATTR_METHOD),
+            ),
+            needs=(MEDIA_CLICK_MIN_APP_VERSION, "click"),
+            after=_press_ok_over_adb,
+        )
+        # per TV: ok, message, and since app 0.32.0-beta.2 method + changed (did the screen react)
+        return {"tvs": answers} if call.return_response else None
+
+    async def handle_seek(call: ServiceCall) -> None:
+        """Seek the media session to a position, or by an offset (app >= 0.32.0)."""
+        position = call.data.get(ATTR_SEEK_POSITION)
+        offset = call.data.get(ATTR_SEEK_OFFSET)
+        if position is None and offset is None:
+            raise HomeAssistantError("seek needs a position or an offset (seconds)")
+        package = call.data.get(ATTR_PACKAGE)
+        if position is not None:
+            action = lambda client: client.seek(ms=round(position * 1000), package=package)  # noqa: E731
+        else:
+            action = lambda client: client.seek(by=round(offset * 1000), package=package)  # noqa: E731
+        await _control_on_all(call, action, needs=(MEDIA_CLICK_MIN_APP_VERSION, "seek"))
 
     async def handle_send_key(call: ServiceCall) -> None:
         key = call.data[ATTR_KEY]
-        await _control_on_all(call, lambda client: client.key(key))
+        # 1.32.0b4: the same route as the media player's buttons (session, or ADB)
+        await _control_on_all(call, None, on_coordinator=lambda c: c.async_send_key(key))
 
     async def handle_sync(call: ServiceCall) -> None:
         """Read /state now on the targeted TV(s) and re-send the push webhook."""
@@ -980,8 +1161,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SYNC, handle_sync, schema=vol.Schema({}, extra=vol.ALLOW_EXTRA)
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_LAUNCH_APP, handle_launch_app, schema=LAUNCH_APP_SCHEMA
+        DOMAIN, SERVICE_LAUNCH_APP, handle_launch_app, schema=LAUNCH_APP_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SEND_KEY, handle_send_key, schema=SEND_KEY_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_CLICK, handle_click, schema=CLICK_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SEEK, handle_seek, schema=SEEK_SCHEMA
     )

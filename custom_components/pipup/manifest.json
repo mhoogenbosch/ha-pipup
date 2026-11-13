@@ -22,7 +22,7 @@
   "requirements": [
     "adb-shell[async]>=0.4.4"
   ],
-  "version": "1.31.0",
+  "version": "1.32.0b4",
   "zeroconf": [
     "_pipup._tcp.local."
   ]

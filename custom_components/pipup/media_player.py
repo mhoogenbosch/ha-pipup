@@ -1,15 +1,23 @@
 """Media player: launch apps, media keys and volume on the TV (app >= 0.29.0).
 
-PiPup cannot see what is playing or which app is in front (that needs usage access, a
-grant a TV has no screen for), so this entity is a remote control, not a now-playing
-card: state is the screen (on/off), volume is the TV's media volume, the source list is
-the installed apps, and the transport buttons send media keys to whatever app holds the
+Without media session access this entity is a remote control, not a now-playing card:
+state is the screen (on/off), volume is the TV's media volume, the source list is the
+installed apps, and the transport buttons send media keys to whatever app holds the
 media session.
+
+With media session access (app >= 0.32.0, one ADB grant; PiPup #83) the app reports
+the active session of any app - package, playing/paused, title, position, duration -
+and can seek it. The entity then shows what is playing and offers SEEK. Which app is
+in front is still unknown; only the app that holds the media session is.
+
+1.32.0b4 (app >= 0.32.0-beta.4): the transport buttons reach the session itself, the
+session's artwork is the entity picture (PiPup #83, ha-pipup #61), and a TV without a
+session but with a tested ADB setup gets the media keys over ADB.
 """
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.media_player import (
@@ -24,7 +32,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import PiPupError, PiPupUnsupportedError
-from .const import POWER_STATE_OFF, POWER_STATE_ON
+from .const import POWER_STATE_OFF
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity
 
@@ -33,6 +41,19 @@ _LOGGER = logging.getLogger(__name__)
 # The installed apps rarely change; re-read them at most this often (and on demand
 # when a source is not found).
 APPS_REFRESH_INTERVAL = timedelta(hours=6)
+
+# A re-read position within this of where the last one would be by now is the same
+# position: the app stamps positionUpdatedAt with every answer, and taking each new
+# stamp would write a new state on every poll and push while something plays.
+POSITION_TOLERANCE_MS = 1500
+
+# the app's media session states (GET /media, /state.media)
+MEDIA_STATES = {
+    "playing": MediaPlayerState.PLAYING,
+    "paused": MediaPlayerState.PAUSED,
+    "buffering": MediaPlayerState.BUFFERING,
+    "stopped": MediaPlayerState.IDLE,
+}
 
 KEY_FOR_FEATURE = {
     "play": MediaPlayerEntityFeature.PLAY,
@@ -85,6 +106,8 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         super().__init__(coordinator, entry, "media_player")
         self._apps: list[dict[str, Any]] = []
         self._apps_read_at = None
+        # (package, state, position ms, valid at) of the last real position change
+        self._position: tuple[str, str, float, datetime] | None = None
 
     async def async_added_to_hass(self) -> None:
         """Read the app list once the entity is in place."""
@@ -133,6 +156,18 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return value if isinstance(value, dict) else {}
 
     @property
+    def _media(self) -> dict[str, Any]:
+        """The app's media block: access, and the active session (app >= 0.32.0)."""
+        value = self.coordinator.data.get("media")
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def _session(self) -> dict[str, Any] | None:
+        """The active media session, or None (no access, nothing active, older app)."""
+        media = self._media
+        return media if media.get("access") is True and media.get("package") else None
+
+    @property
     def supported_features(self) -> MediaPlayerEntityFeature:
         """What this TV can do; volume set only where the volume is not fixed."""
         features = (
@@ -149,6 +184,11 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         for key, feature in KEY_FOR_FEATURE.items():
             if key in keys:
                 features |= feature
+        session = self._session
+        if self._media.get("access") is True and (
+            session is None or session.get("canSeek") is not False
+        ):
+            features |= MediaPlayerEntityFeature.SEEK
         return features
 
     @property
@@ -156,13 +196,20 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         """On while the screen is on; off in standby (also when unreachable).
 
         Fire TV sticks drop off the network in standby, so unreachable reads as off.
+        With a media session (app >= 0.32.0) a screen that is on shows the session's
+        state instead: playing, paused, buffering, or idle when it stopped.
         """
         if not self.coordinator.online:
             return MediaPlayerState.OFF
         screen = self.coordinator.data.get("screenOn")
         if screen is None:
             return None
-        return MediaPlayerState.ON if screen else MediaPlayerState.OFF
+        if not screen:
+            return MediaPlayerState.OFF
+        session = self._session
+        if session is not None:
+            return MEDIA_STATES.get(session.get("state"), MediaPlayerState.ON)
+        return MediaPlayerState.ON
 
     @property
     def volume_level(self) -> float | None:
@@ -188,14 +235,118 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return next((a["label"] for a in self._apps if a.get("package") == pkg), None)
 
     @property
+    def media_title(self) -> str | None:
+        """Title of the active media session."""
+        return (self._session or {}).get("title")
+
+    @property
+    def media_artist(self) -> str | None:
+        """Artist of the active media session."""
+        return (self._session or {}).get("artist")
+
+    @property
+    def media_album_name(self) -> str | None:
+        """Album of the active media session."""
+        return (self._session or {}).get("album")
+
+    @property
+    def media_duration(self) -> int | None:
+        """Duration in seconds; None when the app does not report one."""
+        duration = (self._session or {}).get("durationMs")
+        return round(duration / 1000) if isinstance(duration, (int, float)) else None
+
+    def _position_now(self) -> tuple[float, datetime] | None:
+        """(position ms, valid at), kept from the last real change.
+
+        A new reading replaces the kept one only when the app, the state or the
+        position itself changed (a seek, a pause, more than POSITION_TOLERANCE_MS
+        off the extrapolation), so the frontend's counter runs on smoothly and a poll
+        writes no new state.
+        """
+        session = self._session or {}
+        position = session.get("positionMs")
+        stamp = session.get("positionUpdatedAt")
+        at = dt_util.parse_datetime(stamp) if isinstance(stamp, str) else None
+        if not isinstance(position, (int, float)) or at is None:
+            self._position = None
+            return None
+        package, state = session.get("package"), session.get("state")
+        kept = getattr(self, "_position", None)  # entities built without __init__ (tests)
+        if kept is not None and kept[:2] == (package, state):
+            speed = session.get("speed") if state == "playing" else 0
+            speed = speed if isinstance(speed, (int, float)) else 1.0
+            expected = kept[2] + (at - kept[3]).total_seconds() * 1000 * speed
+            if abs(position - expected) <= POSITION_TOLERANCE_MS:
+                return kept[2], kept[3]
+        self._position = (package, state, float(position), at)
+        return float(position), at
+
+    @property
+    def media_position(self) -> int | None:
+        """Position in seconds at media_position_updated_at."""
+        now = self._position_now()
+        return round(now[0] / 1000) if now else None
+
+    @property
+    def media_position_updated_at(self) -> datetime | None:
+        """When the position was valid (the frontend counts on from there)."""
+        now = self._position_now()
+        return now[1] if now else None
+
+    @property
+    def media_image_hash(self) -> str | None:
+        """The app's key for the session's artwork (app >= 0.32.0-beta.4, ha-pipup #61).
+
+        None without artwork, without a session, and with an older app: no picture then.
+        The key changes with the picture, so HA's image proxy fetches it anew.
+        """
+        key = (self._session or {}).get("artKey")
+        return str(key) if key else None
+
+    async def async_get_media_image(self) -> tuple[bytes | None, str | None]:
+        """The artwork from the app (GET /media/art); HA serves it through its proxy."""
+        if self.media_image_hash is None:
+            return None, None
+        try:
+            return await self.coordinator.client.media_art(package=self.app_id)
+        except PiPupError as err:
+            # a session that just ended, a TV that went to standby: no picture
+            _LOGGER.debug("%s: artwork not read: %s", self.entity_id, err)
+            return None, None
+
+    @property
+    def app_id(self) -> str | None:
+        """The package that holds the media session."""
+        return (self._session or {}).get("package")
+
+    @property
+    def app_name(self) -> str | None:
+        """Label of the app that holds the media session, when it is a known source."""
+        pkg = self.app_id
+        if pkg is None:
+            return None
+        return next((a["label"] for a in self._apps if a.get("package") == pkg), None)
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """What the TV reports about its controls."""
-        return {
+        attrs = {
             "keys": self._control.get("keys"),
             "last_launched": self._control.get("lastLaunched"),
             "volume_fixed": self._volume.get("fixed"),
             "volume_steps": self._volume.get("max"),
         }
+        # app >= 0.32.0: whether the ADB grants for PiPup #83 are in place
+        media = self._media
+        if media:
+            attrs["media_access"] = (
+                "granted" if media.get("access") is True
+                else media.get("reason") or "not_granted"
+            )
+        if "click" in self._control:
+            attrs["click_service"] = bool(self._control.get("click"))
+            attrs["click_packages"] = self._control.get("clickPackages") or []
+        return attrs
 
     # ------------------------------------------------------------ actions
 
@@ -210,8 +361,8 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return result
 
     async def async_turn_on(self) -> None:
-        """Wake the TV."""
-        await self._call(self.coordinator.client.power(POWER_STATE_ON))
+        """Wake the TV (over ADB as well when the app could not; 1.32.0b3)."""
+        await self._call(self.coordinator.async_screen_on())
 
     async def async_turn_off(self) -> None:
         """Put the TV in standby."""
@@ -249,26 +400,38 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         """Mute or unmute the media stream."""
         await self._call(self.coordinator.client.volume(mute="on" if mute else "off"))
 
+    # The transport buttons go through coordinator.async_send_key (1.32.0b4): the app
+    # sends them to the media session (app >= 0.32.0-beta.4), or ADB presses the key
+    # when the app sees no session (PiPup #83: Plex ignored the media-button event).
+
     async def async_media_play(self) -> None:
         """Send play."""
-        await self._call(self.coordinator.client.key("play"))
+        await self._call(self.coordinator.async_send_key("play"))
 
     async def async_media_pause(self) -> None:
         """Send pause."""
-        await self._call(self.coordinator.client.key("pause"))
+        await self._call(self.coordinator.async_send_key("pause"))
 
     async def async_media_play_pause(self) -> None:
         """Send play/pause: PiPup does not know which of the two applies."""
-        await self._call(self.coordinator.client.key("play_pause"))
+        await self._call(self.coordinator.async_send_key("play_pause"))
 
     async def async_media_stop(self) -> None:
         """Send stop."""
-        await self._call(self.coordinator.client.key("stop"))
+        await self._call(self.coordinator.async_send_key("stop"))
+
+    async def async_media_seek(self, position: float) -> None:
+        """Seek the active media session to `position` seconds (app >= 0.32.0)."""
+        await self._call(
+            self.coordinator.client.seek(
+                ms=max(0, round(position * 1000)), package=self.app_id
+            )
+        )
 
     async def async_media_next_track(self) -> None:
         """Send next."""
-        await self._call(self.coordinator.client.key("next"))
+        await self._call(self.coordinator.async_send_key("next"))
 
     async def async_media_previous_track(self) -> None:
         """Send previous."""
-        await self._call(self.coordinator.client.key("previous"))
+        await self._call(self.coordinator.async_send_key("previous"))
