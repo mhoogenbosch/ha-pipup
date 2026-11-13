@@ -243,7 +243,19 @@ def adb_ready(options: dict[str, Any], data: dict[str, Any]) -> bool:
 # which key it needs, and nothing from the network goes into a shell command.
 KEYCODE_DPAD_CENTER = "KEYCODE_DPAD_CENTER"
 KEYCODE_WAKEUP = "KEYCODE_WAKEUP"
-_ADB_KEYS = (KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP)
+# 1.32.0b4 (PiPup #83): the app's media key names and the same key over ADB. ADB presses
+# the key in the app on screen, as the remote does; used when the app sees no media session.
+ADB_MEDIA_KEYS: dict[str, str] = {
+    "play_pause": "KEYCODE_MEDIA_PLAY_PAUSE",
+    "play": "KEYCODE_MEDIA_PLAY",
+    "pause": "KEYCODE_MEDIA_PAUSE",
+    "stop": "KEYCODE_MEDIA_STOP",
+    "next": "KEYCODE_MEDIA_NEXT",
+    "previous": "KEYCODE_MEDIA_PREVIOUS",
+    "rewind": "KEYCODE_MEDIA_REWIND",
+    "fast_forward": "KEYCODE_MEDIA_FAST_FORWARD",
+}
+_ADB_KEYS = (KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP, *ADB_MEDIA_KEYS.values())
 # the key is authorised already (adb_ready): no long wait for a prompt
 KEY_AUTH_TIMEOUT = 5.0
 

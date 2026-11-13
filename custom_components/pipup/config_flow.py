@@ -64,6 +64,7 @@ from .const import (
     INSTALL_METHODS,
     ANIMATIONS,
     STACKS,
+    VIDEO_DECODERS,
     CONF_DEFAULT_BACKGROUND_COLOR,
     CONF_DEFAULT_BORDER_COLOR,
     CONF_DEFAULT_BORDER_WIDTH,
@@ -77,6 +78,7 @@ from .const import (
     CONF_DEFAULT_MESSAGE_SIZE,
     CONF_DEFAULT_ANIMATION,
     CONF_DEFAULT_STACK,
+    CONF_DEFAULT_VIDEO_DECODER,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_MUTED,
@@ -522,6 +524,10 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_DEFAULT_BUTTON_SIZE] = user_input.get(CONF_DEFAULT_BUTTON_SIZE, 0)
             options[CONF_DEFAULT_ANIMATION] = user_input.get(CONF_DEFAULT_ANIMATION, "none")
             options[CONF_DEFAULT_STACK] = user_input.get(CONF_DEFAULT_STACK, "none")
+            # 1.32.0b4 (ha-pipup #60): auto = the app decides
+            options[CONF_DEFAULT_VIDEO_DECODER] = user_input.get(
+                CONF_DEFAULT_VIDEO_DECODER, "auto"
+            )
             sound = (user_input.get(CONF_DEFAULT_SOUND) or "").strip()
             if sound:
                 options[CONF_DEFAULT_SOUND] = sound
@@ -687,6 +693,10 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_DEFAULT_STACK,
                         default=opts.get(CONF_DEFAULT_STACK, "none"),
                     ): vol.In(STACKS),
+                    vol.Optional(
+                        CONF_DEFAULT_VIDEO_DECODER,
+                        default=opts.get(CONF_DEFAULT_VIDEO_DECODER, "auto"),
+                    ): vol.In(VIDEO_DECODERS),
                     vol.Optional(
                         CONF_DEFAULT_MEDIA_WIDTH,
                         default=opts.get(CONF_DEFAULT_MEDIA_WIDTH, 640),

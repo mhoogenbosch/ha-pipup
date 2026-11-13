@@ -9,6 +9,28 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.32.0b4] — 2026-11-13 (fourth test release for PiPup #83: play/pause to the session, artwork, video decoder)
+Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.4)*; HACS only offers it with *Show beta versions* on.
+### Added
+- **Artwork on the media player** *(app ≥ 0.32.0-beta.4)*: the media session's picture (cover, poster or
+  the app's icon, whatever the app publishes) is the entity picture, served through Home Assistant's image
+  proxy. It follows the app's `artKey`, so a new title brings a new picture. Asked for by @DragonFlye (#61).
+- **`software_decoder` on `pipup.show`** *(app ≥ 0.17.2)* and a per-TV **Video decoder** option
+  (auto / hardware / software) for the video route (`video_url`, `camera_mode: stream`). The call wins over
+  the option; *auto* leaves the choice to the app, as before. A TCL with MediaTek on Android 8 froze on
+  stacked video popups while Live TV held the hardware decoder, and played them in software without
+  trouble. Asked for by @bboykaos (#60).
+- **`poster_mode` on `pipup.show`** *(app ≥ 0.32.0-beta.4, PiPup #87 by @rshadow)*: `fit`, `fill`,
+  `stretch` or `center` places the poster in the media area without the poster resizing that area (a 4:3
+  snapshot over a 16:9 stream). Left out, nothing changes.
+### Fixed
+- **Play, pause, stop, next and previous reach the playing app.** @Ltek's TCL with Plex ignored all of
+  them (PiPup #83): the app sent media-button events, which Android routes in a way Plex does not act on.
+  App 0.32.0-beta.4 sends them to the app's media session instead. A TV without a session (no media
+  access, nothing reported, an older app) but with a tested ADB setup now gets the key over ADB, pressed
+  in the app on screen as the remote does. The media player's buttons and `pipup.send_key` take the same
+  route; home and back still go through the app.
+
 ## [v1.32.0b3] — 2026-11-11 (third test release for PiPup #83: `method: ok`, waking over ADB, beta APKs)
 Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.3)*; HACS only offers it with *Show beta versions* on.
 ### Added
@@ -562,6 +584,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v1.32.0b4]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b4
 [v1.32.0b3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b3
 [v1.32.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b2
 [v1.32.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b1

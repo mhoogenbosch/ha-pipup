@@ -181,6 +181,15 @@ show:
       example: "http://192.168.1.10:5000/api/doorbell/latest.jpg"
       selector:
         text:
+    poster_mode:
+      selector:
+        select:
+          options:
+            - fit
+            - fill
+            - stretch
+            - center
+          translation_key: poster_mode
     icon:
       example: "http://homeassistant.local:8123/local/icons/deurbel.png"
       selector:
@@ -232,6 +241,9 @@ show:
           step: 50
           unit_of_measurement: ms
           mode: box
+    software_decoder:
+      selector:
+        boolean:
     web_url:
       selector:
         text:

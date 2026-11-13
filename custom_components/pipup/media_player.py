@@ -9,6 +9,10 @@ With media session access (app >= 0.32.0, one ADB grant; PiPup #83) the app repo
 the active session of any app - package, playing/paused, title, position, duration -
 and can seek it. The entity then shows what is playing and offers SEEK. Which app is
 in front is still unknown; only the app that holds the media session is.
+
+1.32.0b4 (app >= 0.32.0-beta.4): the transport buttons reach the session itself, the
+session's artwork is the entity picture (PiPup #83, ha-pipup #61), and a TV without a
+session but with a tested ADB setup gets the media keys over ADB.
 """
 from __future__ import annotations
 
@@ -290,6 +294,27 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return now[1] if now else None
 
     @property
+    def media_image_hash(self) -> str | None:
+        """The app's key for the session's artwork (app >= 0.32.0-beta.4, ha-pipup #61).
+
+        None without artwork, without a session, and with an older app: no picture then.
+        The key changes with the picture, so HA's image proxy fetches it anew.
+        """
+        key = (self._session or {}).get("artKey")
+        return str(key) if key else None
+
+    async def async_get_media_image(self) -> tuple[bytes | None, str | None]:
+        """The artwork from the app (GET /media/art); HA serves it through its proxy."""
+        if self.media_image_hash is None:
+            return None, None
+        try:
+            return await self.coordinator.client.media_art(package=self.app_id)
+        except PiPupError as err:
+            # a session that just ended, a TV that went to standby: no picture
+            _LOGGER.debug("%s: artwork not read: %s", self.entity_id, err)
+            return None, None
+
+    @property
     def app_id(self) -> str | None:
         """The package that holds the media session."""
         return (self._session or {}).get("package")
@@ -375,21 +400,25 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         """Mute or unmute the media stream."""
         await self._call(self.coordinator.client.volume(mute="on" if mute else "off"))
 
+    # The transport buttons go through coordinator.async_send_key (1.32.0b4): the app
+    # sends them to the media session (app >= 0.32.0-beta.4), or ADB presses the key
+    # when the app sees no session (PiPup #83: Plex ignored the media-button event).
+
     async def async_media_play(self) -> None:
         """Send play."""
-        await self._call(self.coordinator.client.key("play"))
+        await self._call(self.coordinator.async_send_key("play"))
 
     async def async_media_pause(self) -> None:
         """Send pause."""
-        await self._call(self.coordinator.client.key("pause"))
+        await self._call(self.coordinator.async_send_key("pause"))
 
     async def async_media_play_pause(self) -> None:
         """Send play/pause: PiPup does not know which of the two applies."""
-        await self._call(self.coordinator.client.key("play_pause"))
+        await self._call(self.coordinator.async_send_key("play_pause"))
 
     async def async_media_stop(self) -> None:
         """Send stop."""
-        await self._call(self.coordinator.client.key("stop"))
+        await self._call(self.coordinator.async_send_key("stop"))
 
     async def async_media_seek(self, position: float) -> None:
         """Seek the active media session to `position` seconds (app >= 0.32.0)."""
@@ -401,8 +430,8 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
 
     async def async_media_next_track(self) -> None:
         """Send next."""
-        await self._call(self.coordinator.client.key("next"))
+        await self._call(self.coordinator.async_send_key("next"))
 
     async def async_media_previous_track(self) -> None:
         """Send previous."""
-        await self._call(self.coordinator.client.key("previous"))
+        await self._call(self.coordinator.async_send_key("previous"))

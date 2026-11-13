@@ -83,6 +83,12 @@ CONF_DEFAULT_DISMISS_SCREENSAVER: Final = "default_dismiss_screensaver"
 CONF_DEFAULT_BUTTON_SIZE: Final = "default_button_size"
 CONF_DEFAULT_ANIMATION: Final = "default_animation"
 CONF_DEFAULT_STACK: Final = "default_stack"
+# 1.32.0b4 (ha-pipup #60): the decoder for the video route (RTSP/HLS through the app's
+# player) on this TV: auto = the app decides (hardware, software on Android < 8 and on
+# Amlogic), hardware, or software. A MediaTek TV on Android 8 froze on stacked video
+# popups while Live TV held the hardware decoder; software decoding did not.
+CONF_DEFAULT_VIDEO_DECODER: Final = "default_video_decoder"
+VIDEO_DECODERS: Final = ["auto", "hardware", "software"]
 CONF_NAME_SUFFIX: Final = "name_suffix"
 # internal marker: which suffix we last applied to the entity registry names
 CONF_NAME_SUFFIX_APPLIED: Final = "name_suffix_applied"
@@ -109,6 +115,9 @@ ATTR_BACKGROUND_COLOR: Final = "background_color"
 ATTR_IMAGE_URL: Final = "image_url"
 ATTR_VIDEO_URL: Final = "video_url"
 ATTR_BUFFER_MS: Final = "buffer_ms"
+# app >= 0.17.2 (1.32.0b4, ha-pipup #60): true = software decoder, false = hardware, for
+# this popup only; absent = the TV's Video decoder option
+ATTR_SOFTWARE_DECODER: Final = "software_decoder"
 ATTR_WEB_URL: Final = "web_url"
 # app >= 0.25.0: WebRTC straight from a WHEP endpoint (go2rtc: /api/webrtc?src=<name>)
 ATTR_WHEP_URL: Final = "whep_url"
@@ -162,6 +171,10 @@ ATTR_BORDER_WIDTH: Final = "border_width"
 ATTR_CORNER_RADIUS: Final = "corner_radius"
 # app >= 0.17.0: still image shown over a video/web stream until its first frame renders
 ATTR_POSTER_URL: Final = "poster_url"
+# app >= 0.32.0-beta.4 (PiPup #87): how the poster fills the media area, without the poster
+# resizing that area; absent = the poster gives the area its aspect (as before)
+ATTR_POSTER_MODE: Final = "poster_mode"
+POSTER_MODES: Final = ["fit", "fill", "stretch", "center"]
 # app >= 0.13.0: an icon beside the title/message block
 ATTR_ICON: Final = "icon"
 ATTR_ICON_POSITION: Final = "icon_position"

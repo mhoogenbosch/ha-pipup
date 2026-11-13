@@ -28,6 +28,7 @@ from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ANIMATIONS,
     STACKS,
+    POSTER_MODES,
     ATTR_BACKGROUND_COLOR,
     ATTR_PERMISSION,
     ATTR_BORDER_COLOR,
@@ -57,6 +58,7 @@ from .const import (
     ATTR_BUTTONS_INLINE,
     ATTR_MEDIA_FULL_BLEED,
     ATTR_BUFFER_MS,
+    ATTR_SOFTWARE_DECODER,
     ATTR_MEDIA_HEIGHT,
     ATTR_MEDIA_WIDTH,
     ATTR_MESSAGE,
@@ -70,6 +72,7 @@ from .const import (
     ATTR_ALL,
     ATTR_POPUP_ID,
     ATTR_POSITION,
+    ATTR_POSTER_MODE,
     ATTR_POSTER_URL,
     ATTR_SHOW_PROGRESS,
     ATTR_TITLE,
@@ -121,6 +124,7 @@ from .const import (
     CONF_DEFAULT_ICON_POSITION,
     CONF_DEFAULT_ANIMATION,
     CONF_DEFAULT_STACK,
+    CONF_DEFAULT_VIDEO_DECODER,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_ICON_WIDTH,
@@ -202,6 +206,8 @@ SHOW_SCHEMA = vol.Schema(
         vol.Optional(ATTR_GRID_LABELS): cv.boolean,
         vol.Optional(ATTR_FULLSCREEN): cv.boolean,
         vol.Optional(ATTR_POSTER_URL): cv.string,
+        # app >= 0.32.0-beta.4 (PiPup #87): the poster keeps the media area's size
+        vol.Optional(ATTR_POSTER_MODE): vol.All(cv.string, vol.Lower, vol.In(POSTER_MODES)),
         vol.Optional(ATTR_MEDIA_WIDTH): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=3840)
         ),
@@ -210,6 +216,8 @@ SHOW_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_MUTED): cv.boolean,
         vol.Optional(ATTR_BUFFER_MS): vol.All(vol.Coerce(int), vol.Range(min=100, max=10000)),
+        # app >= 0.17.2 (1.32.0b4, ha-pipup #60): decoder for this video popup
+        vol.Optional(ATTR_SOFTWARE_DECODER): cv.boolean,
         vol.Optional(ATTR_MEDIA_FULL_BLEED): cv.boolean,
         vol.Optional(ATTR_BUTTONS_INLINE): cv.boolean,
         vol.Optional(ATTR_BUTTON_SIZE): vol.All(vol.Coerce(float), vol.Range(min=4, max=96)),
@@ -633,13 +641,32 @@ def build_device_payload(
     if (buffer_ms := data.get(ATTR_BUFFER_MS)) and "video" in (payload.get("media") or {}):
         payload["media"]["video"]["bufferMs"] = buffer_ms
 
+    # app >= 0.17.2 (1.32.0b4, ha-pipup #60): which decoder the video route uses. The call
+    # first, then the TV's Video decoder option; auto (or unset) sends nothing, so the app
+    # keeps its own rule. Only the video route (ExoPlayer) has a choice: web, WHEP and the
+    # grid play in a WebView. A MediaTek TV on Android 8 froze on stacked video popups
+    # while Live TV held the hardware decoder, and played them fine in software.
+    media = payload.get("media") or {}
+    if "video" in media:
+        decoder = data.get(ATTR_SOFTWARE_DECODER)
+        if decoder is None:
+            decoder = {"software": True, "hardware": False}.get(
+                opts.get(CONF_DEFAULT_VIDEO_DECODER)
+            )
+        if decoder is not None:
+            media["video"]["softwareDecoder"] = decoder
+
     # app >= 0.17.0: poster — a still shown over the stream area until the first frame
     # renders, so a live popup never opens as an empty box while the stream connects.
     # An explicit poster_url wins; a camera_entity popup gets its own snapshot for free.
-    media = payload.get("media") or {}
     kind = next((k for k in ("video", "web", "whep") if k in media), None)
     if kind and (poster := data.get(ATTR_POSTER_URL) or poster_uri):
         media[kind]["poster"] = poster
+    # app >= 0.32.0-beta.4 (PiPup #87): how the poster fills the media area, without the
+    # poster resizing it (a 4:3 snapshot over a 16:9 stream). Only sent when given: unset,
+    # the poster gives the area its aspect as before. Older apps ignore the field.
+    if kind and (poster_mode := data.get(ATTR_POSTER_MODE)):
+        media[kind]["posterMode"] = poster_mode
 
     return payload
 
@@ -992,8 +1019,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         needs: tuple[str, str] | None = None,
         wake: bool = False,
         after=None,
+        on_coordinator=None,
     ) -> dict[str, Any]:
         """Run a TV-control call on every targeted TV; `needs` = (app version, what).
+
+        `action(client)` makes the call; `on_coordinator(coordinator)` instead, for a
+        call that may go over ADB as well (send_key, 1.32.0b4).
 
         `wake`: wake a TV whose screen is off first (the app, then ADB; 1.32.0b3), so
         an app is not opened on a dark screen. `after(coordinator, answer)` may finish
@@ -1011,7 +1042,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             try:
                 if wake and (coordinator.data or {}).get("screenOn") is False:
                     await coordinator.async_screen_on()
-                answer = await action(coordinator.client)
+                if on_coordinator is not None:
+                    answer = await on_coordinator(coordinator)
+                else:
+                    answer = await action(coordinator.client)
                 if after is not None:
                     answer = await after(coordinator, answer)
                 answers[coordinator.config_entry.title] = answer if isinstance(answer, dict) else {}
@@ -1077,7 +1111,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_send_key(call: ServiceCall) -> None:
         key = call.data[ATTR_KEY]
-        await _control_on_all(call, lambda client: client.key(key))
+        # 1.32.0b4: the same route as the media player's buttons (session, or ADB)
+        await _control_on_all(call, None, on_coordinator=lambda c: c.async_send_key(key))
 
     async def handle_sync(call: ServiceCall) -> None:
         """Read /state now on the targeted TV(s) and re-send the push webhook."""

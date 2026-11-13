@@ -374,6 +374,39 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
+    async def media_art(self, package: str | None = None) -> tuple[bytes | None, str | None]:
+        """The artwork of the media session (app >= 0.32.0-beta.4): (bytes, content type).
+
+        (None, None) when the session has no artwork (404). 501 (no media session
+        access) and 400 (an app without /media/art) are raised as PiPupUnsupportedError.
+        """
+        try:
+            async with self._session.get(
+                f"{self._base}/media/art",
+                params={"package": package} if package else None,
+                headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.read(), resp.content_type or "image/jpeg"
+                if resp.status == 404:
+                    return None, None
+                text = await resp.text()
+                try:
+                    body = json.loads(text) if text else {}
+                except ValueError:
+                    body = {}
+                message = (body.get("message") if isinstance(body, dict) else None) or text
+                if resp.status == 400:
+                    raise PiPupUnsupportedError("app has no /media/art (needs >= 0.32.0-beta.4)")
+                if resp.status == 501:
+                    raise PiPupUnsupportedError(message)
+                raise PiPupError(f"media/art failed ({resp.status}): {message}")
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
     async def seek(
         self, ms: int | None = None, by: int | None = None, package: str | None = None
     ) -> dict[str, Any]:
@@ -390,7 +423,11 @@ class PiPupClient:
         return await self._control("/media/seek", params)
 
     async def key(self, key: str) -> dict[str, Any]:
-        """Send a media key, or home/back (app >= 0.29.0)."""
+        """Send a media key, or home/back (app >= 0.29.0).
+
+        App >= 0.32.0-beta.4 sends a media key to the playing app's media session when it
+        can (answer `via: session`), else as a media-button event (`via: media_key`).
+        """
         return await self._control("/key", {"key": key})
 
     async def volume(

@@ -40,8 +40,8 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     `sleep_method` say what the device can actually do: turning **on** always works, turning **off**
     needs a one-time adb grant on the TV (see [screen on/off](#screen-onoff))
   - **TV** media player (app ≥ 0.29.0) — a remote control without adb: the installed apps as
-    **sources** (select one to start it), play/pause/stop/next/previous as media keys to whatever app
-    is playing, volume up/down/mute, a volume slider where the box owns its volume, and on/off through
+    **sources** (select one to start it), play/pause/stop/next/previous to whatever app
+    is playing (to its media session with app ≥ 0.32.0-beta.4, see [TV control](#tv-control)), volume up/down/mute, a volume slider where the box owns its volume, and on/off through
     the screen routes. See [TV control](#tv-control)
   - **Permission problem** diagnostic binary sensor (app ≥ 0.7.0) — on when the app misses a
     permission it needs, with each grant as an attribute. Without the overlay app-op the TV accepts
@@ -65,7 +65,7 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     is what to attach to a "the fix button does nothing" report
 - Actions **`pipup.launch_app`** (an app by package, or a deep link) and **`pipup.send_key`** (media
   keys, home, back) — app ≥ 0.29.0
-- **What is playing** in any app on the media player, with a seek bar, plus **`pipup.seek`** and
+- **What is playing** in any app on the media player, with a seek bar and its artwork (app ≥ 0.32.0-beta.4), plus **`pipup.seek`** and
   **`pipup.click`** (press a button in an allowed app, e.g. Play in Plex) — app ≥ 0.32.0, one ADB grant
   each. See [What is playing, seek and click](#what-is-playing-seek-and-click-app--0320)
 - **Camera wall** in `pipup.show` with `grid` (app ≥ 0.29.0): up to nine WHEP streams in one popup, or
@@ -132,6 +132,17 @@ Requires the [PiPup fork APK](https://github.com/mhoogenbosch/PiPup/releases) on
     faded out on the stream's first frame (app ≥ 0.17.0) — so a live popup never opens as an empty box
     while RTSP connects or the WebView starts. **`camera_entity` popups get this automatically**
     (`mjpeg` and `stream` modes): a signed snapshot of the same camera is sent as poster
+  - `poster_mode` → how the poster fills the media area, **without the poster changing the area's size**
+    (app ≥ 0.32.0-beta.4, PiPup #87): `fit` (the whole image, bars where it does not fill), `fill` (cropped
+    to fill), `stretch`, or `center` (original size). Left out, the poster gives the area its shape, as
+    before; that is what you want when the snapshot has the stream's aspect. Use `fit` when a 4:3 snapshot
+    sits over a 16:9 stream. Older apps ignore it
+  - `software_decoder` → `true` decodes a `video_url` / `camera_mode: stream` popup in software, `false` in
+    the TV's hardware decoder (app ≥ 0.17.2; web, WHEP and the grid play in a WebView and are not affected).
+    Left out, the TV's **Video decoder** option applies (*Configure*; default *auto*: the app decides, which
+    means hardware except on Android < 8 and on Amlogic). Software helps a TV whose hardware decoder is busy
+    or freezes — a MediaTek TV on Android 8 froze on stacked video popups while Live TV held the hardware
+    decoder (ha-pipup #60) — and costs more CPU, so keep to substreams
   - `icon` → an image URL shown beside the title/message (app ≥ 0.13.0), notification-style, with
     `icon_position` (`left` default / `right`) and `icon_width` (pixels). Position and width also have
     **per-device defaults**; the icon URL itself is per call. Loaded like any other image, so a local
@@ -224,8 +235,8 @@ existing entry to the new IP instead of creating a second one.
 > id in the announcement. Since 1.9.1 a discovered address is verified against the device before an
 > existing entry is moved, and a mismatch aborts with `address_mismatch`.
 
-Per-TV popup defaults (position, duration, muted, sizes, colors, border styling) live under
-*Configure* on each entry; action fields override them per call. Note the difference for the two
+Per-TV popup defaults (position, duration, muted, sizes, colors, border styling, the video decoder)
+live under *Configure* on each entry; action fields override them per call. Note the difference for the two
 numeric border fields: **empty** means "no default", while **0** is a real value (no border /
 square corners).
 
@@ -283,6 +294,14 @@ last, and **play/pause** sends the toggle key because PiPup does not know which 
 box whose volume belongs to the TV set or amplifier over HDMI-CEC (`volume_fixed: true`) the slider is
 hidden; up/down and mute are passed on.
 
+**How play/pause reaches the app** (1.32.0b4, PiPup #83). With media session access (below) and app
+≥ 0.32.0-beta.4 the app sends play, pause, stop, next and previous **straight to the media session** of the
+app that plays (its transport controls). Without that, the app hands Android a media-button event, which
+some apps ignore: Plex did on a TCL. A TV without a session but with a tested ADB setup (*Advanced
+install*: install method ADB, media access or a click list) then gets the key **over ADB**, pressed in the
+app on screen as the remote does. `pipup.send_key` takes the same route for media keys; home and back
+always go through the app.
+
 ### What is playing, seek and click (app ≥ 0.32.0)
 
 Two optional grants, each given once over ADB (PiPup #83). Set them in the integration's options under
@@ -296,6 +315,8 @@ title, artist, album, position and duration, `app_id` (the package) and `app_nam
 bar**. The grant is a notification-listener grant, because Android hands out media sessions only to
 notification listeners; PiPup's listener reads no notifications. Android ignores the grant on **low-RAM
 devices** (some Fire TV sticks); the media player's `media_access` attribute then says `low_ram`.
+With app ≥ 0.32.0-beta.4 the media player also shows the session's **artwork** as its picture (cover, poster
+or the app's icon, whatever the app publishes; ha-pipup #61) and its transport buttons go to that session.
 
 ```sh
 adb shell cmd notification allow_listener nl.rogro82.pipup/nl.rogro82.pipup.MediaListenerService

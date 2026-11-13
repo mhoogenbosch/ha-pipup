@@ -51,6 +51,7 @@
           "default_button_size": "Default button text size (sp; 0 = classic look)",
           "default_animation": "Default popup animation",
           "default_stack": "Default stacking of popups at the same position",
+          "default_video_decoder": "Video decoder for video and camera streams (auto, hardware, software)",
           "default_media_width": "Default media width (px)",
           "default_media_height": "Default media height (px)",
           "default_title_size": "Default title size (0 = app default)",
@@ -69,7 +70,8 @@
         "data_description": {
           "name_suffix": "Appended to all entity names of this device (e.g. \"Veranda\" gives \"Popup Veranda\") so multiple TVs stay distinguishable in pickers.",
           "overlay_pages": "Every overlay's Page select offers these, plus Custom URL. Example: Agenda | http://192.168.1.10:8123/local/agenda.html",
-          "parent_device": "The TV this PiPup app runs on; the PiPup device is shown under it. Empty: found automatically from the Android TV integrations (remote first, then ADB) on the same IP address."
+          "parent_device": "The TV this PiPup app runs on; the PiPup device is shown under it. Empty: found automatically from the Android TV integrations (remote first, then ADB) on the same IP address.",
+          "default_video_decoder": "Auto lets the app decide (hardware; software on Android < 8 and on Amlogic). Software for a TV that freezes or stutters on video popups, e.g. while Live TV holds the hardware decoder. The Software decoder field of pipup.show overrides it per popup. App 0.17.2 or newer."
         },
         "sections": {
           "advanced_install": {
@@ -348,6 +350,14 @@
         "horizontal": "Horizontal"
       }
     },
+    "poster_mode": {
+      "options": {
+        "fit": "Fit (whole image)",
+        "fill": "Fill (crop)",
+        "stretch": "Stretch",
+        "center": "Center (original size)"
+      }
+    },
     "key": {
       "options": {
         "play_pause": "Play/pause",
@@ -427,6 +437,10 @@
         "buffer_ms": {
           "name": "Video buffer",
           "description": "Video URL and camera streams only: start playing once this many milliseconds are buffered, and stay that close to live. An RTSP stream then runs about 1 s behind the camera instead of 3–4 s (150–300 is a good start for talk-back). Meant for RTSP; app 0.31.0 or newer, older apps ignore it."
+        },
+        "software_decoder": {
+          "name": "Software decoder",
+          "description": "Video URL and camera streams (stream mode) only: on = decode in software, off = the TV's hardware decoder, for this popup. Leave it out to use the TV's Video decoder option. Software decoding helps a TV whose hardware decoder is busy (Live TV in the background) or freezes; it costs more CPU. App 0.17.2 or newer."
         },
         "web_url": {
           "name": "Web URL",
@@ -523,6 +537,10 @@
         "poster_url": {
           "name": "Poster image",
           "description": "Still image (URL) shown over a video/web stream until its first frame renders — e.g. a camera snapshot — so the popup never opens empty. Requires app 0.17.0+; a camera_entity popup gets its own snapshot automatically."
+        },
+        "poster_mode": {
+          "name": "Poster fit",
+          "description": "How the poster fills the media area, without changing the area's size: Fit (the whole image, bars where it does not fill), Fill (cropped to fill), Stretch, or Center (original size). Leave it out to let the poster give the area its shape, as before. Video, web and WHEP popups; app 0.32.0-beta.4 or newer, older apps ignore it."
         },
         "sound": {
           "name": "Sound",
