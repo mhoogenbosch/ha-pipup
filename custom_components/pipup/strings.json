@@ -86,7 +86,9 @@
               "quiet_start": "Quiet window from",
               "quiet_end": "Quiet window until",
               "media_access": "What is playing (media session access)",
-              "click_packages": "Apps PiPup may press buttons in"
+              "click_packages": "Apps PiPup may press buttons in",
+              "foreground_app": "The app in front (usage access)",
+              "screenshot": "A picture of the screen"
             },
             "data_description": {
               "install_method": "App self-update: as before; on Android < 12 the TV asks for a press of OK. Auto: the app's own update on Android 12+ (silent), an ADB install on older versions. ADB: always ADB. Choosing Auto or ADB tests the connection when you save.",
@@ -95,7 +97,9 @@
               "beta_updates": "Also offer and install the app's test releases (prereleases such as 0.32.0-beta.3), for trying a fix before it is released. Only with the install method ADB (or Auto where that means ADB): Home Assistant then downloads the APK itself. With automatic updates on, a TV also gets betas at night. Off: back to releases only; a TV on a beta moves on to the next release.",
               "quiet_start": "Local time. A window may cross midnight; the same start and end time = all day.",
               "media_access": "Lets PiPup read the active media session of any app (title, playing or paused, position) and seek it, for the media player. Granted over ADB when you save; it is a notification-listener grant, but PiPup reads no notifications. Android ignores it on low-RAM devices. App 0.32.0 or newer.",
-              "click_packages": "Package names separated by commas, e.g. com.plexapp.android. Filled in: switches on PiPup's separate control service (an accessibility service that looks at the screen only during a click call, only in these apps, and returns nothing from it) and sets this list over ADB when you save. Empty: switches the control service off. App 0.32.0 or newer."
+              "click_packages": "Package names separated by commas, e.g. com.plexapp.android. Filled in: switches on PiPup's separate control service (an accessibility service that looks at the screen only during a click call, only in these apps, and returns nothing from it) and sets this list over ADB when you save. Empty: switches the control service off. App 0.32.0 or newer.",
+              "foreground_app": "Lets PiPup report which app is on screen, also when nothing plays (the launcher, a menu): the media player's source, and its app when no media session is active. Granted over ADB when you save. PiPup reads package names and times only, nothing of what is on the screen. App 0.33.0 or newer.",
+              "screenshot": "Adds a camera with what is on the TV's screen, and shows the screen as the media player's picture while nothing with artwork plays. Saving makes a token, sends it to the app over ADB and switches on PiPup's control service (which takes the picture). The app answers only a request with that token, one picture per request; protected video (Netflix and such) comes out black. Android 11 or newer, app 0.33.0 or newer. Off: clears the token on the TV."
             }
           }
         }
@@ -115,7 +119,8 @@
       "beta_needs_adb": "Beta versions need the install method ADB (or Auto where that means ADB) on this TV: the app's own update only knows releases.",
       "invalid_click_packages": "Use package names separated by commas, e.g. com.plexapp.android,com.google.android.youtube.tv.",
       "media_click_needs_app": "Media session access and clicking need PiPup app 0.32.0 or newer on this TV.",
-      "adb_grant_failed": "ADB connected, but the TV did not accept the change. The log has the TV's answer."
+      "adb_grant_failed": "ADB connected, but the TV did not accept the change. The log has the TV's answer.",
+      "foreground_screen_needs_app": "The app in front and the picture of the screen need PiPup app 0.33.0 or newer on this TV."
     }
   },
   "entity": {
@@ -136,6 +141,11 @@
     "notify": {
       "notify": {
         "name": "Notification"
+      }
+    },
+    "camera": {
+      "screen": {
+        "name": "Screen"
       }
     },
     "sensor": {

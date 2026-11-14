@@ -47,6 +47,8 @@ from .const import (
     CONF_ADB_PORT,
     CONF_AUTO_UPDATE,
     CONF_CLICK_PACKAGES,
+    CONF_FOREGROUND_APP,
+    CONF_SCREENSHOT,
     CONF_INSTALL_METHOD,
     CONF_MEDIA_ACCESS,
     DEFAULT_ADB_PORT,
@@ -70,6 +72,9 @@ CONTROL_COMPONENT = f"{PACKAGE}/{PACKAGE}.PiPupControlService"
 MEDIA_LISTENER_COMPONENT = f"{PACKAGE}/{PACKAGE}.MediaListenerService"
 CLICK_RECEIVER = f"{PACKAGE}/.ControlConfigReceiver"
 CLICK_ACTION = f"{PACKAGE}.SET_CLICK_PACKAGES"
+# app >= 0.33.0 (PiPup #89): the same receiver takes the token that switches
+# GET /screen.jpg on; an empty token switches it off
+SCREEN_ACTION = f"{PACKAGE}.SET_SCREEN_TOKEN"
 # every PiPup accessibility service a reinstall may switch off
 ACCESSIBILITY_COMPONENTS = (ACCESSIBILITY_COMPONENT, CONTROL_COMPONENT)
 # seconds between switching the control service off and on again (see _restart_control_service)
@@ -236,6 +241,8 @@ def adb_ready(options: dict[str, Any], data: dict[str, Any]) -> bool:
         effective_method(options, data) == INSTALL_METHOD_ADB
         or bool(options.get(CONF_CLICK_PACKAGES))
         or bool(options.get(CONF_MEDIA_ACCESS))
+        or bool(options.get(CONF_FOREGROUND_APP))
+        or bool(options.get(CONF_SCREENSHOT))
     )
 
 
@@ -329,6 +336,7 @@ class PiPupAdb:
         self._host = host
         self._port = int(options.get(CONF_ADB_PORT) or DEFAULT_ADB_PORT)
         self._key = options.get(CONF_ADB_KEY)
+        self._foreground_app = bool(options.get(CONF_FOREGROUND_APP))
         self._device: AdbDeviceAsync | None = None
 
     async def connect(self, auth_timeout: float) -> None:
@@ -436,6 +444,9 @@ class PiPupAdb:
         await self.shell(f"appops set {PACKAGE} REQUEST_INSTALL_PACKAGES allow")
         # TCL only; elsewhere "Unknown operation string", which is fine
         await self.shell(f"cmd appops set {PACKAGE} android:auto_start allow")
+        if self._foreground_app:
+            # usage access (app >= 0.33.0), in case this Android resets it with the others
+            await self.set_usage_access(True)
         was_on = [c for c in ACCESSIBILITY_COMPONENTS if has_component(accessibility, c)]
         if was_on:
             current = await self.shell("settings get secure enabled_accessibility_services")
@@ -474,12 +485,60 @@ class PiPupAdb:
                 rest + [MEDIA_LISTENER_COMPONENT] if allow else rest,
             )
 
-    async def set_click_packages(self, packages: list[str]) -> None:
+    async def set_usage_access(self, allow: bool) -> None:
+        """Grant or withdraw usage access (app >= 0.33.0, PiPup #88).
+
+        With it the app reports which app is in front (`foreground` in /state): package
+        names and times, nothing of what is on the screen. `default` is what an app has
+        without the grant.
+        """
+        mode = "allow" if allow else "default"
+        await self.shell(f"appops set {PACKAGE} GET_USAGE_STATS {mode}")
+
+    async def set_screen_token(self, token: str, keep_service: bool = False) -> None:
+        """Switch GET /screen.jpg on with `token`, or off with "" (app >= 0.33.0, PiPup #89).
+
+        The token goes to the app over the shell-only broadcast that also takes the
+        click list. The picture is taken by the control service, so a token switches
+        that service on (off and on when it already was, for the capability an older
+        app version did not have). Without a token the service goes off as well, unless
+        `keep_service` says the click list still needs it.
+        """
+        out = await self.shell(
+            f"am broadcast -f 0x20 -n {CLICK_RECEIVER} -a {SCREEN_ACTION} "
+            f'--es token "{token}"'
+        )
+        if f'data="{"on" if token else "off"}"' not in out:
+            # no such action: an app older than 0.33.0; "invalid": it refused the token
+            raise AdbError("grant_failed", out)
+        await self._switch_control_service(bool(token) or keep_service, restart=bool(token))
+
+    async def _switch_control_service(self, on: bool, restart: bool) -> None:
+        """Switch PiPup's control service; `restart` = off and on when it already is on."""
+        current = await self.shell("settings get secure enabled_accessibility_services")
+        enabled = has_component(current, CONTROL_COMPONENT)
+        if on and enabled:
+            if restart:
+                await self._restart_control_service()
+        elif on:
+            await self._put_components(
+                "enabled_accessibility_services",
+                component_list(current) + [CONTROL_COMPONENT],
+            )
+            await self.shell("settings put secure accessibility_enabled 1")
+        elif enabled:
+            await self._put_components(
+                "enabled_accessibility_services",
+                [c for c in component_list(current) if full_component(c) != CONTROL_COMPONENT],
+            )
+
+    async def set_click_packages(self, packages: list[str], keep_service: bool = False) -> None:
         """Set the apps PiPup may press views in, and switch its control service.
 
         The list goes to the app over a shell-only broadcast (the receiver requires
         WRITE_SECURE_SETTINGS from the sender). A non-empty list switches the
-        separate control service on, an empty one switches it off; the user's other
+        separate control service on, an empty one switches it off (unless
+        `keep_service`: the screenshot uses the same service); the user's other
         accessibility services, PiPup's screen-off service included, stay as they are.
         """
         value = ",".join(packages)
@@ -490,22 +549,8 @@ class PiPupAdb:
         if "result=1" not in out:
             # no receiver: an app older than 0.32.0
             raise AdbError("grant_failed", out)
-        current = await self.shell("settings get secure enabled_accessibility_services")
-        enabled = has_component(current, CONTROL_COMPONENT)
-        if packages and enabled:
-            # already on: off and on again, so it gets the installed app's capabilities
-            await self._restart_control_service()
-        elif packages and not enabled:
-            await self._put_components(
-                "enabled_accessibility_services",
-                component_list(current) + [CONTROL_COMPONENT],
-            )
-            await self.shell("settings put secure accessibility_enabled 1")
-        elif not packages and enabled:
-            await self._put_components(
-                "enabled_accessibility_services",
-                [c for c in component_list(current) if full_component(c) != CONTROL_COMPONENT],
-            )
+        # already on: off and on again, so it gets the installed app's capabilities
+        await self._switch_control_service(bool(packages) or keep_service, restart=bool(packages))
 
     async def _restart_control_service(self) -> None:
         """Switch PiPup's control service off and on, leaving every other service as is.

@@ -10,11 +10,12 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_PUSH_WEBHOOK_ID
+from .const import CONF_PUSH_WEBHOOK_ID, CONF_SCREEN_TOKEN
 from .coordinator import PiPupCoordinator
 
-# The push webhook id is the only secret the app needs to post state into HA.
-TO_REDACT = {CONF_PUSH_WEBHOOK_ID}
+# The push webhook id is the secret the app needs to post state into HA; the screen
+# token is the one HA needs to get a picture of the screen (1.33.0).
+TO_REDACT = {CONF_PUSH_WEBHOOK_ID, CONF_SCREEN_TOKEN}
 
 
 async def async_get_config_entry_diagnostics(

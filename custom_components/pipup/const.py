@@ -56,6 +56,13 @@ CONF_CLICK_PACKAGES: Final = "click_packages"
 # ha-pipup 1.32.0b3 (PiPup #83): also offer and install the app's prereleases (beta.N);
 # only with the ADB install, where Home Assistant downloads the APK itself
 CONF_BETA_UPDATES: Final = "beta_updates"
+# The app in front and a picture of the screen (app >= 0.33.0, PiPup #88 and #89). Like
+# the two above, only ADB can switch them on. foreground_app = usage access (package
+# names only). screenshot = GET /screen.jpg; switching it on makes a token, which is sent
+# to the app over ADB and kept here, since the app answers only a request that carries it.
+CONF_FOREGROUND_APP: Final = "foreground_app"
+CONF_SCREENSHOT: Final = "screenshot"
+CONF_SCREEN_TOKEN: Final = "screen_token"
 DEFAULT_QUIET_START: Final = "03:00:00"
 DEFAULT_QUIET_END: Final = "05:00:00"
 # a repair only after this many failed nights in a row (or at once when the user
@@ -155,6 +162,7 @@ ATTR_SEEK_OFFSET: Final = "offset"
 # the app waits at most this long for a view to appear (POST /click, /launch)
 CLICK_MAX_WAIT: Final = 30  # 15 before app 0.32.0-beta.2
 MEDIA_CLICK_MIN_APP_VERSION: Final = "0.32.0"
+FOREGROUND_SCREEN_MIN_APP_VERSION: Final = "0.33.0"
 ATTR_MEDIA_WIDTH: Final = "media_width"
 ATTR_MEDIA_HEIGHT: Final = "media_height"
 ATTR_MUTED: Final = "muted"

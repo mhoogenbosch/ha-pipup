@@ -13,6 +13,11 @@ in front is still unknown; only the app that holds the media session is.
 1.32.0b4 (app >= 0.32.0-beta.4): the transport buttons reach the session itself, the
 session's artwork is the entity picture (PiPup #83, ha-pipup #61), and a TV without a
 session but with a tested ADB setup gets the media keys over ADB.
+
+1.33.0 (app >= 0.33.0, PiPup #88 and #89): with usage access the app reports which app
+is in front, also when nothing plays; that is the source, and the app id and name when
+no session is active. With the screenshot switched on, the picture of the screen is the
+entity picture while nothing with artwork plays.
 """
 from __future__ import annotations
 
@@ -34,7 +39,7 @@ from homeassistant.util import dt as dt_util
 from .api import PiPupError, PiPupUnsupportedError
 from .const import POWER_STATE_OFF
 from .coordinator import PiPupCoordinator
-from .entity import PiPupEntity
+from .entity import PiPupEntity, screen_token
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +51,10 @@ APPS_REFRESH_INTERVAL = timedelta(hours=6)
 # position: the app stamps positionUpdatedAt with every answer, and taking each new
 # stamp would write a new state on every poll and push while something plays.
 POSITION_TOLERANCE_MS = 1500
+
+# Without artwork the entity picture is the screen (1.33.0): a new picture at most this
+# often, and only when the state is written anyway (a poll or a push).
+SCREEN_PICTURE_SECONDS = 30
 
 # the app's media session states (GET /media, /state.media)
 MEDIA_STATES = {
@@ -104,6 +113,7 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
     def __init__(self, coordinator: PiPupCoordinator, entry) -> None:
         """Initialize the media player."""
         super().__init__(coordinator, entry, "media_player")
+        self._entry = entry
         self._apps: list[dict[str, Any]] = []
         self._apps_read_at = None
         # (package, state, position ms, valid at) of the last real position change
@@ -168,6 +178,18 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return media if media.get("access") is True and media.get("package") else None
 
     @property
+    def _foreground(self) -> dict[str, Any] | None:
+        """The app in front (app >= 0.33.0 with usage access), or None."""
+        value = self.coordinator.data.get("foreground")
+        return value if isinstance(value, dict) and value.get("package") else None
+
+    def _label(self, package: str | None) -> str | None:
+        """The source name of a package, when it is a known source."""
+        if package is None:
+            return None
+        return next((a["label"] for a in self._apps if a.get("package") == package), None)
+
+    @property
     def supported_features(self) -> MediaPlayerEntityFeature:
         """What this TV can do; volume set only where the volume is not fixed."""
         features = (
@@ -230,9 +252,15 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
 
     @property
     def source(self) -> str | None:
-        """The app PiPup itself launched last - not necessarily what is on screen."""
-        pkg = self._control.get("lastLaunched")
-        return next((a["label"] for a in self._apps if a.get("package") == pkg), None)
+        """The app in front; without usage access the app PiPup itself launched last.
+
+        The last launch is not necessarily what is on screen: someone may have picked
+        another app with the remote since.
+        """
+        front = self._foreground
+        if front is not None:
+            return self._label(front["package"]) or front.get("label") or front["package"]
+        return self._label(self._control.get("lastLaunched"))
 
     @property
     def media_title(self) -> str | None:
@@ -301,12 +329,36 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         The key changes with the picture, so HA's image proxy fetches it anew.
         """
         key = (self._session or {}).get("artKey")
-        return str(key) if key else None
+        if key:
+            return str(key)
+        if self._screen_picture:
+            # 1.33.0: the screen itself; the hash moves on so the picture is fetched anew
+            return f"screen-{int(dt_util.utcnow().timestamp()) // SCREEN_PICTURE_SECONDS}"
+        return None
+
+    @property
+    def _screen_picture(self) -> bool:
+        """Whether the screen can stand in for artwork: switched on, and the screen is on."""
+        entry = getattr(self, "_entry", None)  # entities built without __init__ (tests)
+        if entry is None or screen_token(entry) is None:
+            return False
+        return (
+            self.coordinator.online
+            and bool(self.coordinator.data.get("screenOn"))
+            and self._control.get("screen") is not False
+        )
 
     async def async_get_media_image(self) -> tuple[bytes | None, str | None]:
         """The artwork from the app (GET /media/art); HA serves it through its proxy."""
         if self.media_image_hash is None:
             return None, None
+        if not (self._session or {}).get("artKey"):
+            try:
+                picture = await self.coordinator.client.screen(screen_token(self._entry))
+            except PiPupError as err:
+                _LOGGER.debug("%s: no picture of the screen: %s", self.entity_id, err)
+                return None, None
+            return (picture, "image/jpeg") if picture else (None, None)
         try:
             return await self.coordinator.client.media_art(package=self.app_id)
         except PiPupError as err:
@@ -316,16 +368,22 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
 
     @property
     def app_id(self) -> str | None:
-        """The package that holds the media session."""
-        return (self._session or {}).get("package")
+        """The package that holds the media session; without one, the app in front."""
+        session = self._session
+        if session is not None:
+            return session.get("package")
+        return (self._foreground or {}).get("package")
 
     @property
     def app_name(self) -> str | None:
-        """Label of the app that holds the media session, when it is a known source."""
+        """Name of that app: its source name, else what the app in front calls itself."""
         pkg = self.app_id
         if pkg is None:
             return None
-        return next((a["label"] for a in self._apps if a.get("package") == pkg), None)
+        label = self._label(pkg)
+        if label is None and self._session is None:
+            label = (self._foreground or {}).get("label")
+        return label
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

@@ -9,6 +9,24 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v1.33.0b1] — 2026-11-14 (test release for PiPup #88 and #89: the app in front, a picture of the screen)
+Pre-release for testing *(app ≥ 0.33.0, test build 0.33.0-beta.1)*; HACS only offers it with *Show beta versions* on.
+Asked for by @Ltek (PiPup #83) and @DragonFlye (#61). Both are off until switched on under *Advanced install*.
+### Added
+- **The app in front** *(app ≥ 0.33.0)*: option *The app in front (usage access)*, granted over ADB when
+  you save. The media player's `source` is then the app on screen, also when nothing plays, and `app_id` /
+  `app_name` are that app when no media session is active. Without the option `source` stays the app PiPup
+  launched last.
+- **A picture of the screen** *(app ≥ 0.33.0, Android 11+)*: option *A picture of the screen*. Saving makes
+  a token, sends it to the app over ADB and switches on PiPup's control service. That adds a **Screen**
+  camera, and the media player shows the screen while nothing with artwork plays (renewed at most every
+  30 seconds). No picture while the screen is off; protected video comes out black. Switching it off clears
+  the token on the TV. The token is left out of diagnostics.
+### Changed
+- Emptying the click list no longer switches the control service off while the screenshot is on, and the
+  other way round: the two share that service.
+- An ADB install grants usage access again when the option is on.
+
 ## [v1.32.0b4] — 2026-11-13 (fourth test release for PiPup #83: play/pause to the session, artwork, video decoder)
 Pre-release for testing *(app ≥ 0.32.0, test build 0.32.0-beta.4)*; HACS only offers it with *Show beta versions* on.
 ### Added

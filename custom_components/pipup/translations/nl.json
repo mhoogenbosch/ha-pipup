@@ -86,7 +86,9 @@
               "quiet_start": "Rustig venster vanaf",
               "quiet_end": "Rustig venster tot",
               "media_access": "Wat er speelt (toegang tot mediasessie)",
-              "click_packages": "Apps waarin PiPup knoppen mag indrukken"
+              "click_packages": "Apps waarin PiPup knoppen mag indrukken",
+              "foreground_app": "De app op het scherm (gebruikstoegang)",
+              "screenshot": "Een afbeelding van het scherm"
             },
             "data_description": {
               "install_method": "Self-update van de app: zoals voorheen; op Android < 12 vraagt de tv om een druk op OK. Automatisch: de eigen update van de app op Android 12+ (stil), een ADB-install op oudere versies. ADB: altijd ADB. Bij kiezen van Automatisch of ADB wordt de verbinding getest zodra je opslaat.",
@@ -95,7 +97,9 @@
               "beta_updates": "Bied ook de testversies van de app aan en installeer ze (prereleases zoals 0.32.0-beta.3), om een fix te proberen vóór de release. Alleen met installatiemethode ADB (of Automatisch waar dat ADB betekent): Home Assistant downloadt de APK dan zelf. Met automatische updates aan krijgt een tv 's nachts ook bèta's. Uit: weer alleen releases; een tv op een bèta gaat door naar de volgende release.",
               "quiet_start": "Lokale tijd. Een venster mag over middernacht lopen; dezelfde begin- en eindtijd = de hele dag.",
               "media_access": "Laat PiPup de actieve mediasessie van elke app lezen (titel, spelen of pauze, positie) en erin zoeken, voor de mediaspeler. Wordt bij opslaan via ADB gegeven; het is een toegang voor meldingen-luisteraars, maar PiPup leest geen meldingen. Android negeert hem op toestellen met weinig geheugen. App 0.32.0 of nieuwer.",
-              "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 0.32.0 of nieuwer."
+              "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 0.32.0 of nieuwer.",
+              "foreground_app": "Laat PiPup melden welke app op het scherm staat, ook als er niets speelt (de launcher, een menu): de bron van de mediaspeler, en zijn app als er geen mediasessie actief is. Wordt bij opslaan via ADB gegeven. PiPup leest alleen pakketnamen en tijden, niets van wat er op het scherm staat. App 0.33.0 of nieuwer.",
+              "screenshot": "Voegt een camera toe met wat er op het tv-scherm staat, en toont het scherm als afbeelding van de mediaspeler zolang er niets met artwork speelt. Opslaan maakt een token, stuurt dat via ADB naar de app en zet de bedieningsdienst van PiPup aan (die de afbeelding maakt). De app antwoordt alleen op een verzoek met dat token, één afbeelding per verzoek; beveiligde video (Netflix en dergelijke) komt er zwart uit. Android 11 of nieuwer, app 0.33.0 of nieuwer. Uit: wist het token op de tv."
             }
           }
         }
@@ -115,7 +119,8 @@
       "beta_needs_adb": "Bèta-versies vereisen op deze tv installatiemethode ADB (of Automatisch waar dat ADB betekent): de eigen update van de app kent alleen releases.",
       "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
       "media_click_needs_app": "Toegang tot de mediasessie en klikken vereisen PiPup-app 0.32.0 of nieuwer op deze tv.",
-      "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv."
+      "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv.",
+      "foreground_screen_needs_app": "De app op het scherm en de afbeelding van het scherm vereisen PiPup-app 0.33.0 of nieuwer op deze tv."
     }
   },
   "entity": {
@@ -136,6 +141,11 @@
     "notify": {
       "notify": {
         "name": "Melding"
+      }
+    },
+    "camera": {
+      "screen": {
+        "name": "Scherm"
       }
     },
     "sensor": {
