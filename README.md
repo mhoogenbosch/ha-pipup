@@ -402,6 +402,41 @@ The app answers **403** for an app that is not on the list, **404** when the vie
 control is off, or for a tap: when this device cannot tap or may not yet (see above); the action shows that message. To check the set-up: the media player's attributes
 `media_access`, `click_service` and `click_packages`.
 
+### The app in front and a picture of the screen (app ≥ 0.33.0)
+
+Two more things only ADB can switch on, under *Configure* → **Advanced install**. Both are off by default.
+
+**The app in front (usage access).** The app then reports which app is on screen, also when nothing
+plays: the launcher, a menu, an app without a media session. On the media player:
+
+- `source` is the app in front. Without this option it is the app PiPup launched last, which is wrong as
+  soon as someone picks another app with the remote.
+- `app_id` and `app_name` are the app that holds the media session, and the app in front when no session
+  is active.
+
+That makes automations on "which app is open" possible without the Android Debug Bridge integration.
+The app reads package names and times only, nothing of what is on the screen. By hand:
+`adb shell appops set nl.rogro82.pipup GET_USAGE_STATS allow`, or `install.sh --apps`.
+
+**A picture of the screen.** Adds a **Screen** camera with what is on the TV, and makes the screen the
+media player's picture while nothing with artwork plays (the launcher, live TV, a menu). Needs
+**Android 11 or newer** on the TV.
+
+- Saving makes a token, sends it to the app over ADB and switches on PiPup's control service, which takes
+  the picture. The app answers only a request that carries the token; nothing on the network can switch
+  the screenshot on or read the token back. Home Assistant keeps the token in the config entry; it is
+  left out of diagnostics.
+- One picture per request, nothing is kept on the TV. The media player's picture is renewed at most every
+  30 seconds; the camera whenever something asks for it.
+- No picture while the screen is off. Protected video (Netflix, Prime Video, …) comes out black, as with
+  the Android Debug Bridge integration.
+- Switching it off clears the token on the TV. Switching it on again makes a new one.
+- With your own token from `install.sh --screen` Home Assistant has no picture: let Home Assistant set
+  the token, which replaces the other one.
+
+It shows what is on the screen to anyone who can use the camera in Home Assistant, and the token and the
+picture travel over plain HTTP between Home Assistant and the TV. Leave it off on a TV where that matters.
+
 ## Camera wall
 
 `grid` (app ≥ 0.29.0) puts up to nine WHEP streams in one popup. Each tile is a WHEP URL, or a
@@ -1051,6 +1086,10 @@ Notes:
 PiPup runs an **unauthenticated** HTTP server on each TV, so any device on the network can show
 popups (including arbitrary JavaScript via a `web` popup). Keep PiPup TVs on a **trusted network
 segment**. See the [app's Security section](https://github.com/mhoogenbosch/PiPup#security).
+
+The one path with a login is the picture of the screen (app ≥ 0.33.0): it is off until you switch it on
+under *Advanced install*, and then takes a token that only ADB can set. See
+[The app in front and a picture of the screen](#the-app-in-front-and-a-picture-of-the-screen-app--0330).
 
 Button presses arrive over a local-only webhook. To stop a device on the LAN from forging a
 `pipup_button` event (which could drive a security-sensitive automation such as a door lock), this

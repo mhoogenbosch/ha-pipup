@@ -407,6 +407,40 @@ class PiPupClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
 
+    async def screen(self, token: str, width: int | None = None) -> bytes | None:
+        """A picture of the screen as JPEG (app >= 0.33.0, PiPup #89).
+
+        None while the screen is off (409) or when asked too fast (429). 501 (not
+        switched on, Android < 11) and 400 (an app without /screen.jpg) are raised as
+        PiPupUnsupportedError; 401 (the app has another token) as PiPupError.
+        """
+        try:
+            async with self._session.get(
+                f"{self._base}/screen.jpg",
+                params={"width": str(width)} if width else None,
+                headers={**self._headers, "X-PiPup-Token": token},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.read()
+                if resp.status in (409, 429):
+                    return None
+                text = await resp.text()
+                try:
+                    body = json.loads(text) if text else {}
+                except ValueError:
+                    body = {}
+                message = (body.get("message") if isinstance(body, dict) else None) or text
+                if resp.status == 400 and "width" not in message:
+                    raise PiPupUnsupportedError("app has no /screen.jpg (needs >= 0.33.0)")
+                if resp.status == 501:
+                    raise PiPupUnsupportedError(message)
+                raise PiPupError(f"screen.jpg failed ({resp.status}): {message}")
+        except PiPupError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise PiPupError(f"Cannot reach PiPup at {self._base}: {err}") from err
+
     async def seek(
         self, ms: int | None = None, by: int | None = None, package: str | None = None
     ) -> dict[str, Any]:

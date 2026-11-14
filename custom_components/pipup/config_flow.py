@@ -9,6 +9,7 @@ from typing import Any
 
 import logging
 import re
+import secrets
 
 import voluptuous as vol
 
@@ -50,8 +51,12 @@ from .const import (
     CONF_AUTO_UPDATE,
     CONF_BETA_UPDATES,
     CONF_CLICK_PACKAGES,
+    CONF_FOREGROUND_APP,
     CONF_INSTALL_METHOD,
     CONF_MEDIA_ACCESS,
+    CONF_SCREEN_TOKEN,
+    CONF_SCREENSHOT,
+    FOREGROUND_SCREEN_MIN_APP_VERSION,
     MEDIA_CLICK_MIN_APP_VERSION,
     CONF_QUIET_END,
     CONF_QUIET_START,
@@ -353,6 +358,14 @@ _ADVANCED_INSTALL_DEFAULTS = {
     CONF_AUTO_UPDATE: False,
 }
 
+# the grants only ADB can give, with what a TV has before this form touched them
+_GRANT_DEFAULTS = {
+    CONF_MEDIA_ACCESS: False,
+    CONF_CLICK_PACKAGES: "",
+    CONF_FOREGROUND_APP: False,
+    CONF_SCREENSHOT: False,
+}
+
 _UPDATE_SOURCE_RE = re.compile(
     r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"
 )
@@ -416,17 +429,25 @@ class PiPupOptionsFlow(OptionsFlow):
         return None
 
     def _grants_changed(self, options: dict[str, Any]) -> bool:
-        """Whether media access or the click list differ from what is stored."""
+        """Whether an ADB-only grant differs from what is stored."""
         stored = self.config_entry.options
-        return options.get(CONF_MEDIA_ACCESS, False) != stored.get(
-            CONF_MEDIA_ACCESS, False
-        ) or options.get(CONF_CLICK_PACKAGES, "") != stored.get(CONF_CLICK_PACKAGES, "")
+        return any(
+            options.get(key, default) != stored.get(key, default)
+            for key, default in _GRANT_DEFAULTS.items()
+        )
 
-    def _grants_unsupported(self) -> str | None:
-        """Error key when the app on this TV is known to be older than 0.32.0."""
+    def _grants_unsupported(self, options: dict[str, Any]) -> str | None:
+        """Error key when the app on this TV is known to be too old for a grant."""
         from .services import _needs_newer_app  # local: services imports a lot
 
         version = self._device_data().get("version")
+        stored = self.config_entry.options
+        if (
+            options.get(CONF_FOREGROUND_APP) and not stored.get(CONF_FOREGROUND_APP)
+        ) or (options.get(CONF_SCREENSHOT) and not stored.get(CONF_SCREENSHOT)):
+            # switching one on; switching off stays possible on any app
+            if _needs_newer_app(FOREGROUND_SCREEN_MIN_APP_VERSION, version):
+                return "foreground_screen_needs_app"
         if _needs_newer_app(MEDIA_CLICK_MIN_APP_VERSION, version):
             return "media_click_needs_app"
         return None
@@ -449,13 +470,28 @@ class PiPupOptionsFlow(OptionsFlow):
                 if media != stored.get(CONF_MEDIA_ACCESS, False):
                     await adb.set_media_access(media)
                 click = options.get(CONF_CLICK_PACKAGES, "")
+                screen = bool(options.get(CONF_SCREENSHOT, False))
                 if click != stored.get(CONF_CLICK_PACKAGES, ""):
-                    await adb.set_click_packages(parse_click_packages(click)[0])
+                    packages = parse_click_packages(click)[0]
+                    if screen:
+                        # the screenshot uses the control service too: an emptied list
+                        # must not switch it off
+                        await adb.set_click_packages(packages, keep_service=True)
+                    else:
+                        await adb.set_click_packages(packages)
+                foreground = options.get(CONF_FOREGROUND_APP, False)
+                if foreground != stored.get(CONF_FOREGROUND_APP, False):
+                    await adb.set_usage_access(foreground)
+                if screen != bool(stored.get(CONF_SCREENSHOT, False)):
+                    await adb.set_screen_token(
+                        options.get(CONF_SCREEN_TOKEN, "") if screen else "",
+                        keep_service=bool(click),
+                    )
         except AdbError as err:
             if err.reason in _CONNECT_ERRORS:
                 return f"adb_{err.reason}"
             _LOGGER.warning(
-                "PiPup %s: applying media access / click list over ADB failed: %s",
+                "PiPup %s: applying the changed grants over ADB failed: %s",
                 self.config_entry.title, err,
             )
             return "adb_grant_failed"
@@ -586,6 +622,14 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_MEDIA_ACCESS] = bool(advanced.get(CONF_MEDIA_ACCESS, False))
             packages, invalid = parse_click_packages(advanced.get(CONF_CLICK_PACKAGES) or "")
             options[CONF_CLICK_PACKAGES] = ",".join(packages)
+            # app >= 0.33.0 (PiPup #88, #89)
+            options[CONF_FOREGROUND_APP] = bool(advanced.get(CONF_FOREGROUND_APP, False))
+            options[CONF_SCREENSHOT] = bool(advanced.get(CONF_SCREENSHOT, False))
+            if not options[CONF_SCREENSHOT]:
+                options.pop(CONF_SCREEN_TOKEN, None)
+            elif not options.get(CONF_SCREEN_TOKEN):
+                # a new token each time it is switched on; the app answers only to it
+                options[CONF_SCREEN_TOKEN] = secrets.token_urlsafe(24)
             # Test ADB only when the section changed: a sleeping Fire TV has no
             # network at all, and that must not block saving a popup default.
             changed = any(
@@ -602,7 +646,7 @@ class PiPupOptionsFlow(OptionsFlow):
                 errors["base"] = "beta_needs_adb"
             elif self._grants_changed(options):
                 # applying them connects too, so this also tests a changed ADB setup
-                error = self._grants_unsupported() or await self._apply_grants(
+                error = self._grants_unsupported(options) or await self._apply_grants(
                     options, ADB_TEST_AUTH_TIMEOUT
                 )
                 if error == "adb_not_authorized":
@@ -820,6 +864,14 @@ class PiPupOptionsFlow(OptionsFlow):
                                         "suggested_value": opts.get(CONF_CLICK_PACKAGES, "")
                                     },
                                 ): str,
+                                vol.Required(
+                                    CONF_FOREGROUND_APP,
+                                    default=opts.get(CONF_FOREGROUND_APP, False),
+                                ): bool,
+                                vol.Required(
+                                    CONF_SCREENSHOT,
+                                    default=opts.get(CONF_SCREENSHOT, False),
+                                ): bool,
                             }
                         ),
                         {"collapsed": True},
