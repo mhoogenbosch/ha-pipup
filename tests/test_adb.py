@@ -409,7 +409,7 @@ async def test_options_no_adb_test_when_unchanged(hass: HomeAssistant) -> None:
                 result["flow_id"], _section(install_method="adb")
             )
             assert result["type"] == "form"
-            assert result["errors"] == {"base": "adb_cannot_connect"}
+            assert result["errors"] == {"advanced_install": "adb_cannot_connect"}
         assert entry.options["install_method"] == "app"
     finally:
         for p in patchers:
@@ -684,7 +684,7 @@ async def test_options_error_keeps_entered_values(hass: HomeAssistant) -> None:
                 result["flow_id"],
                 {"default_duration": 42, **_section(install_method="adb", adb_port=5556)},
             )
-        assert result["errors"] == {"base": "adb_cannot_connect"}
+        assert result["errors"] == {"advanced_install": "adb_cannot_connect"}
         schema = {str(k): k for k in result["data_schema"].schema}
         assert schema["default_duration"].default() == 42
         section_schema = result["data_schema"].schema[schema["advanced_install"]].schema.schema

@@ -636,14 +636,17 @@ class PiPupOptionsFlow(OptionsFlow):
                 options[key] != self.config_entry.options.get(key, default)
                 for key, default in _ADVANCED_INSTALL_DEFAULTS.items()
             )
+            # Errors of this section go on the section, not on "base": "base" is shown at
+            # the top of a long form, out of sight of someone who just changed a switch at
+            # the bottom ("the settings do not stick", PiPup #91).
             if invalid:
-                errors["base"] = "invalid_click_packages"
+                errors[CONF_ADVANCED_INSTALL] = "invalid_click_packages"
             elif self._auto_update_needs_adb(options):
                 # the update would wait for a press on the remote, at night
-                errors["base"] = "auto_update_needs_adb"
+                errors[CONF_ADVANCED_INSTALL] = "auto_update_needs_adb"
             elif options[CONF_BETA_UPDATES] and not self._needs_adb(options):
                 # the app's own update only knows releases; betas need HA's ADB install
-                errors["base"] = "beta_needs_adb"
+                errors[CONF_ADVANCED_INSTALL] = "beta_needs_adb"
             elif self._grants_changed(options):
                 # applying them connects too, so this also tests a changed ADB setup
                 error = self._grants_unsupported(options) or await self._apply_grants(
@@ -654,7 +657,7 @@ class PiPupOptionsFlow(OptionsFlow):
                     self._pending_grants = True
                     return await self.async_step_adb_authorize()
                 if error is not None:
-                    errors["base"] = error
+                    errors[CONF_ADVANCED_INSTALL] = error
             elif changed and self._needs_adb(options):
                 error = await self._test_adb(options, ADB_TEST_AUTH_TIMEOUT)
                 if error == "adb_not_authorized":
@@ -662,7 +665,7 @@ class PiPupOptionsFlow(OptionsFlow):
                     self._pending_grants = False
                     return await self.async_step_adb_authorize()
                 if error is not None:
-                    errors["base"] = error
+                    errors[CONF_ADVANCED_INSTALL] = error
             if not errors:
                 return self.async_create_entry(title="", data=options)
             entered = options

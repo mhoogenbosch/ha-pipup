@@ -8,6 +8,11 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
 ## [Unreleased]
+### Fixed
+- **An error in *Advanced install* is now shown at that section**, not at the top of the form. The form
+  is long, so after changing a switch at the bottom the reason it was not saved was out of sight, and it
+  looked as if the settings did not stick (PiPup #91, @Ltek). The two "needs a newer app" messages now
+  also say that nothing was saved and to update the app first.
 
 ## [v1.33.0b1] — 2026-11-14 (test release for PiPup #88 and #89: the app in front, a picture of the screen)
 Pre-release for testing *(app ≥ 0.33.0, test build 0.33.0-beta.1)*; HACS only offers it with *Show beta versions* on.

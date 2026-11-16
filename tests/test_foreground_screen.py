@@ -394,7 +394,7 @@ async def test_options_need_the_new_app_to_switch_on(hass: HomeAssistant) -> Non
                 result = await hass.config_entries.options.async_configure(
                     result["flow_id"], _section(**values)
                 )
-                assert result["errors"] == {"base": "foreground_screen_needs_app"}
+                assert result["errors"] == {"advanced_install": "foreground_screen_needs_app"}
             apply.assert_not_awaited()
             assert "screen_token" not in entry.options
     finally:

@@ -344,7 +344,7 @@ async def test_options_refuse_auto_update_needing_remote(hass: HomeAssistant) ->
                                   "adb_key": "own", "auto_update": True,
                                   "quiet_start": "03:00:00", "quiet_end": "05:00:00"}},
         )
-        assert result["errors"] == {"base": "auto_update_needs_adb"}
+        assert result["errors"] == {"advanced_install": "auto_update_needs_adb"}
         assert "auto_update" not in entry.options
     finally:
         await _teardown(hass, entry, patchers)
@@ -531,7 +531,7 @@ async def test_old_app_without_silent_flag(hass: HomeAssistant, freezer) -> None
                                   "adb_key": "own", "auto_update": True,
                                   "quiet_start": "03:00:00", "quiet_end": "05:00:00"}},
         )
-        assert result["errors"] == {"base": "auto_update_needs_adb"}
+        assert result["errors"] == {"advanced_install": "auto_update_needs_adb"}
     finally:
         await _teardown(hass, entry, patchers)
 

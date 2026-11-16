@@ -118,9 +118,9 @@
       "auto_update_needs_adb": "On this TV the app's own update needs a press on the remote, so automatic updates need the install method Auto or ADB.",
       "beta_needs_adb": "Beta versions need the install method ADB (or Auto where that means ADB) on this TV: the app's own update only knows releases.",
       "invalid_click_packages": "Use package names separated by commas, e.g. com.plexapp.android,com.google.android.youtube.tv.",
-      "media_click_needs_app": "Media session access and clicking need PiPup app 0.32.0 or newer on this TV.",
+      "media_click_needs_app": "Not saved: media session access and clicking need PiPup app 0.32.0 or newer on this TV. Update the app first, then switch these on.",
       "adb_grant_failed": "ADB connected, but the TV did not accept the change. The log has the TV's answer.",
-      "foreground_screen_needs_app": "The app in front and the picture of the screen need PiPup app 0.33.0 or newer on this TV."
+      "foreground_screen_needs_app": "Not saved: the app in front and the picture of the screen need PiPup app 0.33.0 or newer on this TV. Update the app first (for a test version: switch on Beta versions of the app, save, and press Install on the update entity), then switch these on."
     }
   },
   "entity": {

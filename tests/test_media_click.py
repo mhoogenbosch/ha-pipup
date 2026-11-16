@@ -584,7 +584,7 @@ async def test_options_grants_errors(hass: HomeAssistant) -> None:
             result = await hass.config_entries.options.async_configure(
                 result["flow_id"], _section(click_packages="plex")
             )
-            assert result["errors"] == {"base": "invalid_click_packages"}
+            assert result["errors"] == {"advanced_install": "invalid_click_packages"}
             apply.assert_not_awaited()
 
             # the TV still has to allow debugging: the accept step applies them
@@ -604,7 +604,7 @@ async def test_options_grants_errors(hass: HomeAssistant) -> None:
             result = await hass.config_entries.options.async_configure(
                 result["flow_id"], _section(media_access=False)
             )
-            assert result["errors"] == {"base": "adb_grant_failed"}
+            assert result["errors"] == {"advanced_install": "adb_grant_failed"}
             assert entry.options["media_access"] is True
     finally:
         for p in patchers:
@@ -620,7 +620,7 @@ async def test_options_grants_need_new_app(hass: HomeAssistant) -> None:
             result = await hass.config_entries.options.async_configure(
                 result["flow_id"], _section(media_access=True)
             )
-            assert result["errors"] == {"base": "media_click_needs_app"}
+            assert result["errors"] == {"advanced_install": "media_click_needs_app"}
             apply.assert_not_awaited()
     finally:
         for p in patchers:
