@@ -7,7 +7,50 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
-## [Unreleased]
+## [Unreleased — v2.0.0]
+Everything from the 1.32.0 and 1.33.0 test releases (PiPup #83, #88, #89), in one release, *with app 1.0.0*.
+There is no 1.32.0 or 1.33.0 release. With these PiPup covers almost everything the Android TV (ADB)
+integration offers, so both get a new major number. **Nothing breaks:** everything new is off until you
+switch it on under *Advanced install*, and a TV on app 0.31.0 works as before. Asked for and tested by
+@Ltek and @DragonFlye.
+### Added
+- **What is playing, in any app** *(app ≥ 1.0.0, media session access)*: the media player shows the app that
+  holds the media session, **playing / paused / buffering / idle**, title, artist, album, position and
+  duration, its **artwork** as the entity picture, and a **seek bar**. Action **`pipup.seek`** jumps to a
+  `position` or by an `offset`.
+- **Pressing a button in an app** *(app ≥ 1.0.0, click list)*: action **`pipup.click`**, and `click` / `wait`
+  on **`pipup.launch_app`**, so one call opens a title and presses Play. `method`: `click` (default), `tap`
+  (devices with touch input) or `ok` (focus and OK, as the remote does; below Android 13 OK goes over ADB).
+  With `response_variable` both return each TV's answer, including `changed`.
+- **The app in front** *(app ≥ 1.0.0, usage access)*: the media player's `source` is the app on screen, also
+  on the launcher or in a menu, and `app_id` / `app_name` are that app when no session is active.
+- **A picture of the screen** *(app ≥ 1.0.0, Android 11+)*: a **Screen** camera, and the screen as the media
+  player's picture while nothing with artwork plays (renewed at most every 30 seconds). Saving makes a
+  token and sends it over ADB; the app answers only to that token. The token is left out of diagnostics.
+- **Advanced install** got four switches, each applied over ADB when you save: *What is playing (media
+  session access)*, *Apps PiPup may press buttons in*, *The app in front (usage access)* and *A picture of
+  the screen*. Only what you change is sent. An error is shown at the section, and saving refuses an option
+  the app on the TV is too old for.
+- **Beta versions of the app** (*Advanced install*): the update entity also offers the app's test releases
+  and installs them over ADB.
+- **`poster_mode`** on `pipup.show` *(app ≥ 1.0.0, PiPup #87 by @rshadow)*: `fit`, `fill`, `stretch` or
+  `center` places the poster without it resizing the media area.
+- **`software_decoder`** on `pipup.show` and a per-TV **Video decoder** option *(app ≥ 0.17.2)*, for TVs
+  that freeze on stacked video popups while live TV holds the hardware decoder (#60, @bboykaos).
+- Media player attributes `media_access`, `click_service` and `click_packages`, to check the set-up.
+### Changed
+- **Play, pause, stop, next and previous reach the playing app**: with media session access they go into
+  the app's session (Plex ignored the media key). A TV without a session but with a tested ADB setup gets
+  the key over ADB.
+- **Waking is checked**: `media_player.turn_on`, the screen switch and `pipup.launch_app` send
+  `KEYCODE_WAKEUP` over ADB when the app could not turn the screen on (on a TV with a tested ADB setup).
+- An ADB install brings back the control service, the media listener and usage access when the reinstall
+  switched them off, and restarts the control service so it gets the new version's capabilities.
+### Fixed
+- A `null` entry in the TV's accessibility list is dropped when ha-pipup next writes the list.
+### Upgrading
+- From 1.31.0: install 2.0.0 and restart Home Assistant, then update the app to 1.0.0 with the update entity.
+  Switch the new parts on afterwards under *Advanced install*: they need app 1.0.0 on the TV first.
 
 ## [v2.0.0b1] — 2026-11-15 (test release: last beta before 2.0.0)
 Pre-release for testing *(app 1.0.0-beta.1)*; HACS only offers it with *Show beta versions* on. The next
