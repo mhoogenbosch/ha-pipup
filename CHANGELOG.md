@@ -8,11 +8,18 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
 ## [Unreleased]
+
+## [v2.0.0b1] — 2026-11-15 (test release: last beta before 2.0.0)
+Pre-release for testing *(app 1.0.0-beta.1)*; HACS only offers it with *Show beta versions* on. The next
+release is **2.0.0**, with app **1.0.0**: everything from the 1.32.0 and 1.33.0 betas in one release.
+PiPup now covers almost everything the Android TV (ADB) integration did, so both get a new major number.
+Nothing breaks: there is no 1.32.0/1.33.0 (app 0.32.0/0.33.0) release, and where this changelog or the
+README says "app ≥ 0.32.0" or "≥ 0.33.0", app 1.0.0 has it.
 ### Fixed
 - **An error in *Advanced install* is now shown at that section**, not at the top of the form. The form
   is long, so after changing a switch at the bottom the reason it was not saved was out of sight, and it
   looked as if the settings did not stick (PiPup #91, @Ltek). The two "needs a newer app" messages now
-  also say that nothing was saved and to update the app first.
+  also say that nothing was saved and to update the app first, and name app 1.0.0.
 
 ## [v1.33.0b1] — 2026-11-14 (test release for PiPup #88 and #89: the app in front, a picture of the screen)
 Pre-release for testing *(app ≥ 0.33.0, test build 0.33.0-beta.1)*; HACS only offers it with *Show beta versions* on.
@@ -607,6 +614,8 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v2.0.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0b1
+[v1.33.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.33.0b1
 [v1.32.0b4]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b4
 [v1.32.0b3]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b3
 [v1.32.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b2

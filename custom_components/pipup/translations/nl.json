@@ -118,9 +118,9 @@
       "auto_update_needs_adb": "Op deze tv vraagt de eigen update van de app om een druk op de afstandsbediening, dus automatische updates vereisen installatiemethode Automatisch of ADB.",
       "beta_needs_adb": "Bèta-versies vereisen op deze tv installatiemethode ADB (of Automatisch waar dat ADB betekent): de eigen update van de app kent alleen releases.",
       "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
-      "media_click_needs_app": "Niet opgeslagen: toegang tot de mediasessie en klikken vereisen PiPup-app 0.32.0 of nieuwer op deze tv. Werk eerst de app bij en zet dit daarna aan.",
+      "media_click_needs_app": "Niet opgeslagen: toegang tot de mediasessie en klikken vereisen PiPup-app 1.0.0 of nieuwer op deze tv. Werk eerst de app bij en zet dit daarna aan.",
       "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv.",
-      "foreground_screen_needs_app": "Niet opgeslagen: de app op het scherm en de afbeelding van het scherm vereisen PiPup-app 0.33.0 of nieuwer op deze tv. Werk eerst de app bij (voor een testversie: zet Bèta-versies van de app aan, sla op en druk op Installeren bij de update-entiteit) en zet dit daarna aan."
+      "foreground_screen_needs_app": "Niet opgeslagen: de app op het scherm en de afbeelding van het scherm vereisen PiPup-app 1.0.0 of nieuwer op deze tv. Werk eerst de app bij (voor een testversie: zet Bèta-versies van de app aan, sla op en druk op Installeren bij de update-entiteit) en zet dit daarna aan."
     }
   },
   "entity": {
