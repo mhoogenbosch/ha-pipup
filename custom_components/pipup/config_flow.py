@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import logging
 import re
+import secrets
 
 import voluptuous as vol
 
@@ -47,7 +49,15 @@ from .const import (
     CONF_ADB_PORT,
     CONF_ADVANCED_INSTALL,
     CONF_AUTO_UPDATE,
+    CONF_BETA_UPDATES,
+    CONF_CLICK_PACKAGES,
+    CONF_FOREGROUND_APP,
     CONF_INSTALL_METHOD,
+    CONF_MEDIA_ACCESS,
+    CONF_SCREEN_TOKEN,
+    CONF_SCREENSHOT,
+    FOREGROUND_SCREEN_MIN_APP_VERSION,
+    MEDIA_CLICK_MIN_APP_VERSION,
     CONF_QUIET_END,
     CONF_QUIET_START,
     DEFAULT_QUIET_END,
@@ -59,6 +69,7 @@ from .const import (
     INSTALL_METHODS,
     ANIMATIONS,
     STACKS,
+    VIDEO_DECODERS,
     CONF_DEFAULT_BACKGROUND_COLOR,
     CONF_DEFAULT_BORDER_COLOR,
     CONF_DEFAULT_BORDER_WIDTH,
@@ -72,6 +83,7 @@ from .const import (
     CONF_DEFAULT_MESSAGE_SIZE,
     CONF_DEFAULT_ANIMATION,
     CONF_DEFAULT_STACK,
+    CONF_DEFAULT_VIDEO_DECODER,
     CONF_DEFAULT_BUTTON_SIZE,
     CONF_DEFAULT_DISMISS_SCREENSAVER,
     CONF_DEFAULT_MUTED,
@@ -94,6 +106,8 @@ from .const import (
     POSITIONS,
     SUBENTRY_OVERLAY,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -344,9 +358,38 @@ _ADVANCED_INSTALL_DEFAULTS = {
     CONF_AUTO_UPDATE: False,
 }
 
+# the grants only ADB can give, with what a TV has before this form touched them
+_GRANT_DEFAULTS = {
+    CONF_MEDIA_ACCESS: False,
+    CONF_CLICK_PACKAGES: "",
+    CONF_FOREGROUND_APP: False,
+    CONF_SCREENSHOT: False,
+}
+
 _UPDATE_SOURCE_RE = re.compile(
     r"^(off|github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|https?://\S+)$"
 )
+# an Android package name: at least two segments
+_PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$")
+# ADB errors that are about the connection; anything after it is "the TV said no"
+_CONNECT_ERRORS = {"cannot_connect", "not_authorized", "no_androidtv_key", "key_unreadable"}
+
+
+def parse_click_packages(value: str) -> tuple[list[str], list[str]]:
+    """The click list as entered: (valid packages in order, invalid entries).
+
+    Commas, spaces and new lines all separate; duplicates are dropped.
+    """
+    valid: list[str] = []
+    invalid: list[str] = []
+    for part in re.split(r"[\s,]+", value or ""):
+        if not part:
+            continue
+        if not _PACKAGE_RE.match(part):
+            invalid.append(part)
+        elif part not in valid:
+            valid.append(part)
+    return valid, invalid
 
 
 class PiPupOptionsFlow(OptionsFlow):
@@ -354,6 +397,8 @@ class PiPupOptionsFlow(OptionsFlow):
 
     # options waiting for the ADB prompt to be accepted on the TV
     _pending: dict[str, Any]
+    # whether those options also carry media access / click list changes to apply
+    _pending_grants: bool = False
 
     def _device_data(self) -> dict[str, Any]:
         coordinator = getattr(self.config_entry, "runtime_data", None)
@@ -383,13 +428,83 @@ class PiPupOptionsFlow(OptionsFlow):
             return f"adb_{err.reason}"
         return None
 
+    def _grants_changed(self, options: dict[str, Any]) -> bool:
+        """Whether an ADB-only grant differs from what is stored."""
+        stored = self.config_entry.options
+        return any(
+            options.get(key, default) != stored.get(key, default)
+            for key, default in _GRANT_DEFAULTS.items()
+        )
+
+    def _grants_unsupported(self, options: dict[str, Any]) -> str | None:
+        """Error key when the app on this TV is known to be too old for a grant."""
+        from .services import _needs_newer_app  # local: services imports a lot
+
+        version = self._device_data().get("version")
+        stored = self.config_entry.options
+        if (
+            options.get(CONF_FOREGROUND_APP) and not stored.get(CONF_FOREGROUND_APP)
+        ) or (options.get(CONF_SCREENSHOT) and not stored.get(CONF_SCREENSHOT)):
+            # switching one on; switching off stays possible on any app
+            if _needs_newer_app(FOREGROUND_SCREEN_MIN_APP_VERSION, version):
+                return "foreground_screen_needs_app"
+        if _needs_newer_app(MEDIA_CLICK_MIN_APP_VERSION, version):
+            return "media_click_needs_app"
+        return None
+
+    async def _apply_grants(
+        self, options: dict[str, Any], auth_timeout: float
+    ) -> str | None:
+        """Apply the changed media access / click list over ADB; None when done.
+
+        Only what changed is sent: a grant the user gave with install.sh stays as it
+        is until this form changes it.
+        """
+        stored = self.config_entry.options
+        try:
+            async with PiPupAdb(
+                self.hass, self.config_entry.data[CONF_HOST], options
+            ) as adb:
+                await adb.connect(auth_timeout)
+                media = options.get(CONF_MEDIA_ACCESS, False)
+                if media != stored.get(CONF_MEDIA_ACCESS, False):
+                    await adb.set_media_access(media)
+                click = options.get(CONF_CLICK_PACKAGES, "")
+                screen = bool(options.get(CONF_SCREENSHOT, False))
+                if click != stored.get(CONF_CLICK_PACKAGES, ""):
+                    packages = parse_click_packages(click)[0]
+                    if screen:
+                        # the screenshot uses the control service too: an emptied list
+                        # must not switch it off
+                        await adb.set_click_packages(packages, keep_service=True)
+                    else:
+                        await adb.set_click_packages(packages)
+                foreground = options.get(CONF_FOREGROUND_APP, False)
+                if foreground != stored.get(CONF_FOREGROUND_APP, False):
+                    await adb.set_usage_access(foreground)
+                if screen != bool(stored.get(CONF_SCREENSHOT, False)):
+                    await adb.set_screen_token(
+                        options.get(CONF_SCREEN_TOKEN, "") if screen else "",
+                        keep_service=bool(click),
+                    )
+        except AdbError as err:
+            if err.reason in _CONNECT_ERRORS:
+                return f"adb_{err.reason}"
+            _LOGGER.warning(
+                "PiPup %s: applying the changed grants over ADB failed: %s",
+                self.config_entry.title, err,
+            )
+            return "adb_grant_failed"
+        return None
+
     async def async_step_adb_authorize(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Ask for "Allow debugging from this computer?" to be accepted on the TV."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            error = await self._test_adb(self._pending, ADB_AUTHORIZE_AUTH_TIMEOUT)
+            check = self._apply_grants if self._pending_grants else self._test_adb
+            error = await check(self._pending, ADB_AUTHORIZE_AUTH_TIMEOUT)
             if error is None:
                 return self.async_create_entry(title="", data=self._pending)
             errors["base"] = error
@@ -445,6 +560,10 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_DEFAULT_BUTTON_SIZE] = user_input.get(CONF_DEFAULT_BUTTON_SIZE, 0)
             options[CONF_DEFAULT_ANIMATION] = user_input.get(CONF_DEFAULT_ANIMATION, "none")
             options[CONF_DEFAULT_STACK] = user_input.get(CONF_DEFAULT_STACK, "none")
+            # 1.32.0b4 (ha-pipup #60): auto = the app decides
+            options[CONF_DEFAULT_VIDEO_DECODER] = user_input.get(
+                CONF_DEFAULT_VIDEO_DECODER, "auto"
+            )
             sound = (user_input.get(CONF_DEFAULT_SOUND) or "").strip()
             if sound:
                 options[CONF_DEFAULT_SOUND] = sound
@@ -496,24 +615,57 @@ class PiPupOptionsFlow(OptionsFlow):
             options[CONF_ADB_PORT] = int(advanced.get(CONF_ADB_PORT, DEFAULT_ADB_PORT))
             options[CONF_ADB_KEY] = advanced.get(CONF_ADB_KEY, ADB_KEY_OWN)
             options[CONF_AUTO_UPDATE] = bool(advanced.get(CONF_AUTO_UPDATE, False))
+            options[CONF_BETA_UPDATES] = bool(advanced.get(CONF_BETA_UPDATES, False))
             options[CONF_QUIET_START] = advanced.get(CONF_QUIET_START, DEFAULT_QUIET_START)
             options[CONF_QUIET_END] = advanced.get(CONF_QUIET_END, DEFAULT_QUIET_END)
+            # app >= 0.32.0 (PiPup #83): grants only ADB can give
+            options[CONF_MEDIA_ACCESS] = bool(advanced.get(CONF_MEDIA_ACCESS, False))
+            packages, invalid = parse_click_packages(advanced.get(CONF_CLICK_PACKAGES) or "")
+            options[CONF_CLICK_PACKAGES] = ",".join(packages)
+            # app >= 0.33.0 (PiPup #88, #89)
+            options[CONF_FOREGROUND_APP] = bool(advanced.get(CONF_FOREGROUND_APP, False))
+            options[CONF_SCREENSHOT] = bool(advanced.get(CONF_SCREENSHOT, False))
+            if not options[CONF_SCREENSHOT]:
+                options.pop(CONF_SCREEN_TOKEN, None)
+            elif not options.get(CONF_SCREEN_TOKEN):
+                # a new token each time it is switched on; the app answers only to it
+                options[CONF_SCREEN_TOKEN] = secrets.token_urlsafe(24)
             # Test ADB only when the section changed: a sleeping Fire TV has no
             # network at all, and that must not block saving a popup default.
             changed = any(
                 options[key] != self.config_entry.options.get(key, default)
                 for key, default in _ADVANCED_INSTALL_DEFAULTS.items()
             )
-            if self._auto_update_needs_adb(options):
+            # Errors of this section go on the section, not on "base": "base" is shown at
+            # the top of a long form, out of sight of someone who just changed a switch at
+            # the bottom ("the settings do not stick", PiPup #91).
+            if invalid:
+                errors[CONF_ADVANCED_INSTALL] = "invalid_click_packages"
+            elif self._auto_update_needs_adb(options):
                 # the update would wait for a press on the remote, at night
-                errors["base"] = "auto_update_needs_adb"
+                errors[CONF_ADVANCED_INSTALL] = "auto_update_needs_adb"
+            elif options[CONF_BETA_UPDATES] and not self._needs_adb(options):
+                # the app's own update only knows releases; betas need HA's ADB install
+                errors[CONF_ADVANCED_INSTALL] = "beta_needs_adb"
+            elif self._grants_changed(options):
+                # applying them connects too, so this also tests a changed ADB setup
+                error = self._grants_unsupported(options) or await self._apply_grants(
+                    options, ADB_TEST_AUTH_TIMEOUT
+                )
+                if error == "adb_not_authorized":
+                    self._pending = options
+                    self._pending_grants = True
+                    return await self.async_step_adb_authorize()
+                if error is not None:
+                    errors[CONF_ADVANCED_INSTALL] = error
             elif changed and self._needs_adb(options):
                 error = await self._test_adb(options, ADB_TEST_AUTH_TIMEOUT)
                 if error == "adb_not_authorized":
                     self._pending = options
+                    self._pending_grants = False
                     return await self.async_step_adb_authorize()
                 if error is not None:
-                    errors["base"] = error
+                    errors[CONF_ADVANCED_INSTALL] = error
             if not errors:
                 return self.async_create_entry(title="", data=options)
             entered = options
@@ -588,6 +740,10 @@ class PiPupOptionsFlow(OptionsFlow):
                         CONF_DEFAULT_STACK,
                         default=opts.get(CONF_DEFAULT_STACK, "none"),
                     ): vol.In(STACKS),
+                    vol.Optional(
+                        CONF_DEFAULT_VIDEO_DECODER,
+                        default=opts.get(CONF_DEFAULT_VIDEO_DECODER, "auto"),
+                    ): vol.In(VIDEO_DECODERS),
                     vol.Optional(
                         CONF_DEFAULT_MEDIA_WIDTH,
                         default=opts.get(CONF_DEFAULT_MEDIA_WIDTH, 640),
@@ -690,6 +846,10 @@ class PiPupOptionsFlow(OptionsFlow):
                                     default=opts.get(CONF_AUTO_UPDATE, False),
                                 ): bool,
                                 vol.Required(
+                                    CONF_BETA_UPDATES,
+                                    default=opts.get(CONF_BETA_UPDATES, False),
+                                ): bool,
+                                vol.Required(
                                     CONF_QUIET_START,
                                     default=opts.get(CONF_QUIET_START, DEFAULT_QUIET_START),
                                 ): TimeSelector(),
@@ -697,6 +857,24 @@ class PiPupOptionsFlow(OptionsFlow):
                                     CONF_QUIET_END,
                                     default=opts.get(CONF_QUIET_END, DEFAULT_QUIET_END),
                                 ): TimeSelector(),
+                                vol.Required(
+                                    CONF_MEDIA_ACCESS,
+                                    default=opts.get(CONF_MEDIA_ACCESS, False),
+                                ): bool,
+                                vol.Optional(
+                                    CONF_CLICK_PACKAGES,
+                                    description={
+                                        "suggested_value": opts.get(CONF_CLICK_PACKAGES, "")
+                                    },
+                                ): str,
+                                vol.Required(
+                                    CONF_FOREGROUND_APP,
+                                    default=opts.get(CONF_FOREGROUND_APP, False),
+                                ): bool,
+                                vol.Required(
+                                    CONF_SCREENSHOT,
+                                    default=opts.get(CONF_SCREENSHOT, False),
+                                ): bool,
                             }
                         ),
                         {"collapsed": True},

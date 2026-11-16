@@ -181,6 +181,15 @@ show:
       example: "http://192.168.1.10:5000/api/doorbell/latest.jpg"
       selector:
         text:
+    poster_mode:
+      selector:
+        select:
+          options:
+            - fit
+            - fill
+            - stretch
+            - center
+          translation_key: poster_mode
     icon:
       example: "http://homeassistant.local:8123/local/icons/deurbel.png"
       selector:
@@ -232,6 +241,9 @@ show:
           step: 50
           unit_of_measurement: ms
           mode: box
+    software_decoder:
+      selector:
+        boolean:
     web_url:
       selector:
         text:
@@ -353,6 +365,25 @@ launch_app:
       default: true
       selector:
         boolean:
+    click:
+      example: action-button-watch
+      selector:
+        text:
+    wait:
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+          mode: box
+    method:
+      selector:
+        select:
+          translation_key: method
+          options:
+            - click
+            - tap
+            - ok
 
 send_key:
   target:
@@ -376,3 +407,63 @@ send_key:
             - fast_forward
             - home
             - back
+
+click:
+  target:
+    entity:
+      integration: pipup
+      domain: media_player
+  fields:
+    package:
+      required: true
+      example: com.plexapp.android
+      selector:
+        text:
+    id:
+      required: true
+      example: action-button-watch
+      selector:
+        text:
+    wait:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+          mode: box
+    method:
+      selector:
+        select:
+          translation_key: method
+          options:
+            - click
+            - tap
+            - ok
+
+seek:
+  target:
+    entity:
+      integration: pipup
+      domain: media_player
+  fields:
+    position:
+      example: 2472
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: s
+          mode: box
+    offset:
+      example: -10
+      selector:
+        number:
+          min: -86400
+          max: 86400
+          unit_of_measurement: s
+          mode: box
+    package:
+      example: com.plexapp.android
+      selector:
+        text:

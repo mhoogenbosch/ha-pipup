@@ -42,6 +42,7 @@ from .const import (
     CONF_AUTO_UPDATE,
     CONF_QUIET_END,
     CONF_QUIET_START,
+    CONF_BETA_UPDATES,
     CONF_UPDATE_SOURCE,
     DEFAULT_QUIET_END,
     DEFAULT_QUIET_START,
@@ -57,16 +58,18 @@ from .entity import PiPupEntity
 _LOGGER = logging.getLogger(__name__)
 
 # GitHub releases of the PiPup fork; polled sparingly (anonymous rate limit).
-def _source_urls(source: str) -> tuple[str, str]:
+def _source_urls(source: str, beta: bool = False) -> tuple[str, str]:
     """(releases URL, release page) for an update source.
 
-    ``github:<owner>/<repo>`` reads that repo's latest release; an http(s) folder URL
-    reads ``<folder>/releases.json`` (GitHub's releases list, e.g. a LAN mirror).
+    ``github:<owner>/<repo>`` reads that repo's latest release, or with `beta` its
+    newest releases including prereleases (1.32.0b3); an http(s) folder URL reads
+    ``<folder>/releases.json`` (GitHub's releases list, e.g. a LAN mirror).
     """
     if source.startswith("github:"):
         repo = source[len("github:"):]
         return (
-            f"https://api.github.com/repos/{repo}/releases/latest",
+            f"https://api.github.com/repos/{repo}/releases"
+            + ("?per_page=20" if beta else "/latest"),
             f"https://github.com/{repo}/releases",
         )
     folder = source.rstrip("/")
@@ -111,24 +114,66 @@ _USER_FIXABLE = {
 }
 
 
+def _cache_key(source: str, beta: bool) -> str:
+    """Releases only and releases-with-betas are cached apart: TVs differ."""
+    return f"{source}#beta" if beta else source
+
+
+def _release_version(release: dict) -> AwesomeVersion | None:
+    try:
+        return AwesomeVersion((release.get("tag_name") or "").lstrip("v"))
+    except AwesomeVersionException:
+        return None
+
+
+def _pick_release(releases: list, beta: bool) -> dict:
+    """The newest usable release from a releases list.
+
+    Releases only: the first that is neither draft nor prerelease (the same pick as
+    the app). With `beta`: prereleases count too, and the highest version wins, so a
+    hotfix tagged after a beta does not hide the beta (0.32.0-beta.3 < 0.32.0).
+    """
+    usable = [
+        r for r in releases
+        if isinstance(r, dict) and not r.get("draft") and (beta or not r.get("prerelease"))
+    ]
+    if not usable:
+        return {}
+    if not beta:
+        return usable[0]
+    versioned = [(v, r) for r in usable if (v := _release_version(r)) is not None]
+    if not versioned:
+        return usable[0]
+    best = versioned[0]
+    for candidate in versioned[1:]:
+        try:
+            if candidate[0] > best[0]:
+                best = candidate
+        except AwesomeVersionException:
+            continue
+    return best[1]
+
+
 async def _latest_release_tag(
-    hass: HomeAssistant, source: str, force: bool = False
+    hass: HomeAssistant, source: str, force: bool = False, beta: bool = False
 ) -> str | None:
     """Return the latest release tag (without leading v) of a source, cached per TTL.
 
     `force` bypasses the cache — used when a device reports a version the cache
     does not know yet, which can only mean the cached value is out of date.
+    `beta` (1.32.0b3) counts prereleases too.
     """
+    key = _cache_key(source, beta)
     domain_data = hass.data.setdefault(DOMAIN, {})
     caches = domain_data.setdefault(_CACHE_KEY, {})
-    lock = domain_data.setdefault(_LOCK_KEY, {}).setdefault(source, asyncio.Lock())
+    lock = domain_data.setdefault(_LOCK_KEY, {}).setdefault(key, asyncio.Lock())
     async with lock:
         # checked under the lock: whoever held it may just have filled the cache
-        cache = caches.get(source)
+        cache = caches.get(key)
         now = dt_util.utcnow()
         if cache and not force and cache["expires"] > now:
             return cache["tag"]
-        return await _fetch_release_tag(hass, source, caches, cache, now)
+        return await _fetch_release_tag(hass, source, caches, cache, now, beta)
 
 
 async def _fetch_release_tag(
@@ -137,43 +182,45 @@ async def _fetch_release_tag(
     caches: dict,
     cache: dict | None,
     now,
+    beta: bool = False,
 ) -> str | None:
     """Fetch the tag from the source and cache it; keep the known tag on failure."""
+    key = _cache_key(source, beta)
     known = cache["tag"] if cache else None
     session = async_get_clientsession(hass)
     try:
         async with session.get(
-            _source_urls(source)[0], timeout=aiohttp.ClientTimeout(total=15)
+            _source_urls(source, beta)[0], timeout=aiohttp.ClientTimeout(total=15)
         ) as resp:
             if resp.status != 200:
                 _LOGGER.debug("GitHub releases returned %s", resp.status)
-                caches[source] = {"tag": known, "expires": now + _FAILURE_TTL}
+                caches[key] = {"tag": known, "expires": now + _FAILURE_TTL}
                 return known
             data = await resp.json()
     except (aiohttp.ClientError, TimeoutError) as err:
         _LOGGER.debug("Could not fetch latest PiPup release: %s", err)
-        caches[source] = {"tag": known, "expires": now + _FAILURE_TTL}
+        caches[key] = {"tag": known, "expires": now + _FAILURE_TTL}
         return known
 
     if isinstance(data, list):
-        # a folder's releases.json is the list: same pick as the app (first release
-        # that is neither draft nor prerelease)
-        data = next(
-            (r for r in data if not r.get("draft") and not r.get("prerelease")), {}
-        )
+        # a folder's releases.json, or GitHub's list for betas
+        data = _pick_release(data, beta)
     tag = (data.get("tag_name") or "").lstrip("v") or None
     # the whole release too: the ADB install needs its APK asset and digest
-    caches[source] = {"tag": tag, "release": data, "expires": now + _CACHE_TTL}
+    caches[key] = {"tag": tag, "release": data, "expires": now + _CACHE_TTL}
     return tag
 
 
-async def _latest_release(hass: HomeAssistant, source: str) -> dict | None:
+async def _latest_release(
+    hass: HomeAssistant, source: str, beta: bool = False
+) -> dict | None:
     """The cached release behind the latest tag, fetched when not cached."""
-    await _latest_release_tag(hass, source)
-    cache = hass.data[DOMAIN][_CACHE_KEY].get(source) or {}
+    key = _cache_key(source, beta)
+    await _latest_release_tag(hass, source, beta=beta)
+    cache = hass.data[DOMAIN][_CACHE_KEY].get(key) or {}
     if not cache.get("release"):
-        await _latest_release_tag(hass, source, force=True)
-        cache = hass.data[DOMAIN][_CACHE_KEY].get(source) or {}
+        await _latest_release_tag(hass, source, force=True, beta=beta)
+        cache = hass.data[DOMAIN][_CACHE_KEY].get(key) or {}
     return cache.get("release")
 
 
@@ -266,6 +313,18 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         latest_version froze at whatever it was when Home Assistant started.
         """
         return True
+
+    @property
+    def _beta(self) -> bool:
+        """Offer prereleases too (1.32.0b3): the option, and only with the ADB install.
+
+        The app's own update only knows releases, so on a TV that updates itself a beta
+        shown here could not be installed. Read live: no reload after the option.
+        """
+        options = self.coordinator.config_entry.options
+        return bool(options.get(CONF_BETA_UPDATES)) and (
+            effective_method(options, self.coordinator.data or {}) == INSTALL_METHOD_ADB
+        )
 
     @property
     def installed_version(self) -> str | None:
@@ -472,7 +531,7 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         self.coordinator.set_update_polling(True)
         self.async_write_ha_state()
         try:
-            release = await _latest_release(self.hass, self._source)
+            release = await _latest_release(self.hass, self._source, beta=self._beta)
             if not release:
                 raise AdbError("release_unavailable")
             apk = release_apk(release)
@@ -673,7 +732,7 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
         stale (a release tagged inside the 6h TTL, or the app self-updated
         first) — refetch immediately so "latest" never lags behind "installed".
         """
-        self._latest = await _latest_release_tag(self.hass, self._source)
+        self._latest = await _latest_release_tag(self.hass, self._source, beta=self._beta)
         installed = self.installed_version
         if installed and self._latest and installed != self._latest:
             try:
@@ -682,4 +741,6 @@ class PiPupUpdateEntity(PiPupEntity, UpdateEntity):
                 # an unparseable version on either side: nothing to compare, keep the tag
                 newer = False
             if newer:
-                self._latest = await _latest_release_tag(self.hass, self._source, force=True)
+                self._latest = await _latest_release_tag(
+                    self.hass, self._source, force=True, beta=self._beta
+                )

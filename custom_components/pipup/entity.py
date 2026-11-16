@@ -9,7 +9,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SIGNAL_OVERLAY_UPDATED
+from .const import CONF_SCREEN_TOKEN, CONF_SCREENSHOT, DOMAIN, SIGNAL_OVERLAY_UPDATED
 from .coordinator import PiPupCoordinator
 
 
@@ -73,3 +73,10 @@ class PiPupOverlayEntity(CoordinatorEntity[PiPupCoordinator]):
 
     async def _set(self, **values) -> None:
         await self.manager.async_set(self.sub_id, **values)
+
+
+def screen_token(entry) -> str | None:
+    """The token for GET /screen.jpg (1.33.0), or None when the screenshot is switched off."""
+    if not entry.options.get(CONF_SCREENSHOT):
+        return None
+    return entry.options.get(CONF_SCREEN_TOKEN) or None
