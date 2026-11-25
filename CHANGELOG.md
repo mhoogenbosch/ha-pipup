@@ -9,6 +9,31 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v2.1.0b1] — 2026-11-25 (test release for PiPup #95: the remote's other buttons, wake, sleep over ADB)
+Pre-release for testing *(app 1.1.0-beta.1)*; HACS only offers it with *Show beta versions* on. Asked for by
+@Ltek (PiPup #95), to control a TV with PiPup alone.
+### Added
+- **`pipup.send_key` takes the remote's other buttons**: `up`, `down`, `left`, `right`, `ok` (also `center`,
+  `select`), `menu`, `power`, `sleep`, `wakeup`, `volume_up`, `volume_down`, `mute`, `channel_up`,
+  `channel_down`, `info`, `guide`, `settings`, `close_dialogs`, and any Android key name (`KEYCODE_*`,
+  exactly capitals, digits and underscores). A key the app lists in `/state.control.keys` goes through the
+  app (D-pad/OK on Android 13+ with app ≥ 1.1.0, home/back with its accessibility service); volume goes
+  through the app's volume control; everything else goes over ADB on a TV with a tested ADB setup, and
+  otherwise the action fails with a hint. Home and back now also go over ADB when the app cannot.
+- **`wakeup`**: the screen on and the screensaver ended, without pressing anything, and nothing at all when
+  the screen is on already *(app ≥ 1.1.0; an older app gets the wake request only when the screen is off
+  or a screensaver runs)*. When the screen stays off: `KEYCODE_WAKEUP` over ADB.
+- **`close_dialogs`**: closes the system dialogs (Google TV's "launcher isn't responding" after standby).
+  Through the app up to Android 11 *(app ≥ 1.1.0)*; from Android 12 Android refuses it to apps, so over ADB
+  (`am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`).
+- **Turn off with the sleep key over ADB** (*Advanced install*): the media player's off and the Screen
+  switch send `KEYCODE_SLEEP` over ADB, as the remote's power button does, instead of the app's
+  device-admin lock, which on a TCL is a deep sleep only the physical remote wakes from. Saving refuses it
+  without a tested ADB setup. With it on, the media player offers off also where the app cannot.
+- **More about what is playing** *(app ≥ 1.1.0)*: media player attributes `media_subtitle`,
+  `media_description`, `media_album_artist`, `media_disc_number` and `media_track_number`, when the
+  session reports them. Not yet mapped to series, season and episode.
+
 ## [v2.0.0] — 2026-11-25 (what is playing, seek, click, the app in front, a picture of the screen; with app 1.0.0)
 Everything from the 1.32.0 and 1.33.0 test releases (PiPup #83, #88, #89), in one release, *with app 1.0.0*.
 There is no 1.32.0 or 1.33.0 release. With these PiPup covers almost everything the Android TV (ADB)
@@ -659,6 +684,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v2.1.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.1.0b1
 [v2.0.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0
 [v2.0.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0b1
 [v1.33.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.33.0b1

@@ -63,6 +63,10 @@ CONF_BETA_UPDATES: Final = "beta_updates"
 CONF_FOREGROUND_APP: Final = "foreground_app"
 CONF_SCREENSHOT: Final = "screenshot"
 CONF_SCREEN_TOKEN: Final = "screen_token"
+# 2.1.0b1 (PiPup #95): turn the TV off with KEYCODE_SLEEP over ADB, as the remote's power
+# button does, instead of the app's /power off (device admin lockNow). On a TCL lockNow is
+# a deep sleep that only the physical remote wakes from. Needs a tested ADB setup.
+CONF_SLEEP_OVER_ADB: Final = "sleep_over_adb"
 DEFAULT_QUIET_START: Final = "03:00:00"
 DEFAULT_QUIET_END: Final = "05:00:00"
 # a repair only after this many failed nights in a row (or at once when the user
@@ -144,7 +148,15 @@ ATTR_KEY: Final = "key"
 KEYS: Final = [
     "play_pause", "play", "pause", "stop", "next", "previous",
     "rewind", "fast_forward", "home", "back",
+    # 2.1.0b1 (PiPup #95): the remote's other buttons. The app presses D-pad/OK itself on
+    # Android 13+ and closes system dialogs up to Android 11; the rest goes over ADB
+    # (a TV with a tested ADB setup). Volume goes through the app's /volume.
+    "up", "down", "left", "right", "ok", "menu", "power", "sleep", "wakeup",
+    "volume_up", "volume_down", "mute", "channel_up", "channel_down", "info", "guide",
+    "settings", "close_dialogs",
 ]
+# other names for a key in KEYS (what people call OK)
+KEY_ALIASES: Final = {"center": "ok", "select": "ok", "enter": "ok"}
 CONTROL_MIN_APP_VERSION: Final = "0.29.0"
 # app >= 0.32.0 (PiPup #83): read/seek the media session, press a view in an app
 ATTR_CLICK: Final = "click"

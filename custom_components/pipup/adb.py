@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
@@ -262,20 +263,70 @@ ADB_MEDIA_KEYS: dict[str, str] = {
     "rewind": "KEYCODE_MEDIA_REWIND",
     "fast_forward": "KEYCODE_MEDIA_FAST_FORWARD",
 }
-_ADB_KEYS = (KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP, *ADB_MEDIA_KEYS.values())
+KEYCODE_SLEEP = "KEYCODE_SLEEP"
+# 2.1.0b1 (PiPup #95): pipup.send_key names for the remote's other buttons, and the
+# keycode ADB presses for each. An app cannot inject these keys (that needs a system
+# permission); the app does D-pad/OK itself on Android 13+ (accessibility), otherwise
+# ADB presses them as the remote does.
+ADB_NAMED_KEYS: dict[str, str] = {
+    "up": "KEYCODE_DPAD_UP",
+    "down": "KEYCODE_DPAD_DOWN",
+    "left": "KEYCODE_DPAD_LEFT",
+    "right": "KEYCODE_DPAD_RIGHT",
+    "ok": KEYCODE_DPAD_CENTER,
+    "menu": "KEYCODE_MENU",
+    "power": "KEYCODE_POWER",
+    "sleep": KEYCODE_SLEEP,
+    "wakeup": KEYCODE_WAKEUP,
+    "volume_up": "KEYCODE_VOLUME_UP",
+    "volume_down": "KEYCODE_VOLUME_DOWN",
+    "mute": "KEYCODE_VOLUME_MUTE",
+    "channel_up": "KEYCODE_CHANNEL_UP",
+    "channel_down": "KEYCODE_CHANNEL_DOWN",
+    "info": "KEYCODE_INFO",
+    "guide": "KEYCODE_GUIDE",
+    "settings": "KEYCODE_SETTINGS",
+    "home": "KEYCODE_HOME",
+    "back": "KEYCODE_BACK",
+    **ADB_MEDIA_KEYS,
+}
+_ADB_KEYS = frozenset((KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP, *ADB_NAMED_KEYS.values()))
+# Any other Android keycode by its name (KEYCODE_TV_INPUT, ...). The name goes into a
+# shell command, so only exactly this shape: capitals, digits and underscores.
+ADB_KEYCODE_RE = re.compile(r"KEYCODE_[A-Z0-9_]{1,40}")
+# 2.1.0b1 (PiPup #95): close the system dialogs (Google TV's "launcher isn't responding"
+# after standby). The app may not since Android 12; the shell may. A fixed command.
+ADB_CLOSE_DIALOGS = "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS"
 # the key is authorised already (adb_ready): no long wait for a prompt
 KEY_AUTH_TIMEOUT = 5.0
+
+
+def valid_adb_keycode(key: str) -> bool:
+    """Whether `key` may go into `input keyevent`: a known key or a strict KEYCODE_ name."""
+    return key in _ADB_KEYS or ADB_KEYCODE_RE.fullmatch(key) is not None
 
 
 async def async_adb_key(
     hass: HomeAssistant, host: str, options: dict[str, Any], key: str
 ) -> None:
     """Send one key to the TV over ADB (`input keyevent`); raises AdbError."""
-    if key not in _ADB_KEYS:
+    if not valid_adb_keycode(key):
         raise ValueError(f"not a key ha-pipup sends: {key}")
     async with PiPupAdb(hass, host, options) as adb:
         await adb.connect(KEY_AUTH_TIMEOUT)
         await adb.shell(f"input keyevent {key}")
+
+
+async def async_adb_close_dialogs(
+    hass: HomeAssistant, host: str, options: dict[str, Any]
+) -> str:
+    """Close the system dialogs over ADB (2.1.0b1, PiPup #95); raises AdbError.
+
+    Returns what `am broadcast` printed, so the caller can tell the user.
+    """
+    async with PiPupAdb(hass, host, options) as adb:
+        await adb.connect(KEY_AUTH_TIMEOUT)
+        return (await adb.shell(ADB_CLOSE_DIALOGS)) or ""
 
 
 def _load_signer(path: str) -> PythonRSASigner:

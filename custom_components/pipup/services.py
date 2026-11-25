@@ -23,7 +23,7 @@ from homeassistant.helpers.network import get_url
 from homeassistant.helpers.service import async_extract_config_entry_ids
 from homeassistant.util import dt as dt_util
 
-from .adb import AdbError, KEYCODE_DPAD_CENTER, adb_ready, async_adb_key
+from .adb import ADB_KEYCODE_RE, AdbError, KEYCODE_DPAD_CENTER, adb_ready, async_adb_key
 from .api import PiPupError, PiPupUnsupportedError
 from .const import (
     ANIMATIONS,
@@ -110,6 +110,7 @@ from .const import (
     SERVICE_SEEK,
     GRID_MAX_TILES,
     KEYS,
+    KEY_ALIASES,
     SERVICE_LAUNCH_APP,
     SERVICE_SEND_KEY,
     BUTTON_TOKEN_TTL,
@@ -326,8 +327,24 @@ SEEK_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+def _key_name(value: Any) -> str:
+    """A pipup.send_key key: a listed name (or an alias of one), or a KEYCODE_* name.
+
+    2.1.0b1 (PiPup #95). A KEYCODE_ name may end up in `input keyevent` over ADB, so it
+    must be exactly capitals, digits and underscores; anything else is refused here.
+    """
+    name = cv.string(value).strip()
+    lower = name.lower()
+    if lower in KEYS or lower in KEY_ALIASES:
+        return lower
+    upper = name.upper()
+    if ADB_KEYCODE_RE.fullmatch(upper):
+        return upper
+    raise vol.Invalid(f"unknown key {name!r}: use a listed key or a KEYCODE_* name")
+
+
 SEND_KEY_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_KEY): vol.In(KEYS)},
+    {vol.Required(ATTR_KEY): _key_name},
     extra=vol.ALLOW_EXTRA,
 )
 

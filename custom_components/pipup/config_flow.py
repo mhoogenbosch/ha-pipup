@@ -39,7 +39,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util import slugify
 
-from .adb import AdbError, PiPupAdb, effective_method, requires_remote
+from .adb import AdbError, PiPupAdb, adb_ready, effective_method, requires_remote
 from .api import PiPupClient, PiPupError, PiPupUnsupportedError
 from .parent import PARENT_DOMAINS
 from .const import (
@@ -56,6 +56,7 @@ from .const import (
     CONF_MEDIA_ACCESS,
     CONF_SCREEN_TOKEN,
     CONF_SCREENSHOT,
+    CONF_SLEEP_OVER_ADB,
     FOREGROUND_SCREEN_MIN_APP_VERSION,
     MEDIA_CLICK_MIN_APP_VERSION,
     CONF_QUIET_END,
@@ -625,6 +626,8 @@ class PiPupOptionsFlow(OptionsFlow):
             # app >= 0.33.0 (PiPup #88, #89)
             options[CONF_FOREGROUND_APP] = bool(advanced.get(CONF_FOREGROUND_APP, False))
             options[CONF_SCREENSHOT] = bool(advanced.get(CONF_SCREENSHOT, False))
+            # 2.1.0b1 (PiPup #95): turn off with KEYCODE_SLEEP over ADB
+            options[CONF_SLEEP_OVER_ADB] = bool(advanced.get(CONF_SLEEP_OVER_ADB, False))
             if not options[CONF_SCREENSHOT]:
                 options.pop(CONF_SCREEN_TOKEN, None)
             elif not options.get(CONF_SCREEN_TOKEN):
@@ -647,6 +650,10 @@ class PiPupOptionsFlow(OptionsFlow):
             elif options[CONF_BETA_UPDATES] and not self._needs_adb(options):
                 # the app's own update only knows releases; betas need HA's ADB install
                 errors[CONF_ADVANCED_INSTALL] = "beta_needs_adb"
+            elif options[CONF_SLEEP_OVER_ADB] and not adb_ready(options, self._device_data()):
+                # the sleep key only goes over a tested ADB setup (no "Allow debugging?"
+                # prompt on a TV that someone turns off)
+                errors[CONF_ADVANCED_INSTALL] = "sleep_needs_adb"
             elif self._grants_changed(options):
                 # applying them connects too, so this also tests a changed ADB setup
                 error = self._grants_unsupported(options) or await self._apply_grants(
@@ -874,6 +881,10 @@ class PiPupOptionsFlow(OptionsFlow):
                                 vol.Required(
                                     CONF_SCREENSHOT,
                                     default=opts.get(CONF_SCREENSHOT, False),
+                                ): bool,
+                                vol.Required(
+                                    CONF_SLEEP_OVER_ADB,
+                                    default=opts.get(CONF_SLEEP_OVER_ADB, False),
                                 ): bool,
                             }
                         ),

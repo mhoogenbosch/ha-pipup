@@ -71,8 +71,10 @@ async def test_no_session_without_adb_goes_to_the_app() -> None:
     key.assert_not_awaited()
 
 
-async def test_home_and_back_always_go_to_the_app() -> None:
-    coordinator = _coordinator({**TV, "media": NO_SESSION}, ADB)
+async def test_home_and_back_go_to_the_app_when_it_can() -> None:
+    """With the accessibility service the app sends them (2.1.0b1: else ADB, PiPup #95)."""
+    tv = {**TV, "control": {**TV["control"], "keys": ["play_pause", "home", "back"]}}
+    coordinator = _coordinator({**tv, "media": NO_SESSION}, ADB)
     key = AsyncMock()
     with patch("custom_components.pipup.coordinator.async_adb_key", key):
         await coordinator.async_send_key("home")
