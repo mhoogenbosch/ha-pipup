@@ -7,7 +7,9 @@ Every version below has a [GitHub release](https://github.com/mhoogenbosch/ha-pi
 full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matching version of the
 [PiPup app](https://github.com/mhoogenbosch/PiPup) on the TV.
 
-## [Unreleased — v2.0.0]
+## [Unreleased]
+
+## [v2.0.0] — 2026-11-25 (what is playing, seek, click, the app in front, a picture of the screen; with app 1.0.0)
 Everything from the 1.32.0 and 1.33.0 test releases (PiPup #83, #88, #89), in one release, *with app 1.0.0*.
 There is no 1.32.0 or 1.33.0 release. With these PiPup covers almost everything the Android TV (ADB)
 integration offers, so both get a new major number. **Nothing breaks:** everything new is off until you
@@ -657,6 +659,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v2.0.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0
 [v2.0.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0b1
 [v1.33.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.33.0b1
 [v1.32.0b4]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v1.32.0b4
