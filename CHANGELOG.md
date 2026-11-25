@@ -23,7 +23,8 @@ Pre-release for testing *(app 1.1.0-beta.1)*; HACS only offers it with *Show bet
 - **`wakeup`**: the screen on and the screensaver ended, without pressing anything, and nothing at all when
   the screen is on already *(app ≥ 1.1.0; an older app gets the wake request only when the screen is off
   or a screensaver runs)*. When the screen stays off: `KEYCODE_WAKEUP` over ADB.
-- **`close_dialogs`**: closes the system dialogs (Google TV's "launcher isn't responding" after standby).
+- **`close_dialogs`**: sends Android's "close system dialogs", such as the notification panel. Asked for against
+  Google TV's "launcher isn't responding" after standby; whether it closes that dialog is not tested yet.
   Through the app up to Android 11 *(app ≥ 1.1.0)*; from Android 12 Android refuses it to apps, so over ADB
   (`am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`).
 - **Turn off with the sleep key over ADB** (*Advanced install*): the media player's off and the Screen

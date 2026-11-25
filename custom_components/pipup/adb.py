@@ -294,8 +294,9 @@ _ADB_KEYS = frozenset((KEYCODE_DPAD_CENTER, KEYCODE_WAKEUP, *ADB_NAMED_KEYS.valu
 # Any other Android keycode by its name (KEYCODE_TV_INPUT, ...). The name goes into a
 # shell command, so only exactly this shape: capitals, digits and underscores.
 ADB_KEYCODE_RE = re.compile(r"KEYCODE_[A-Z0-9_]{1,40}")
-# 2.1.0b1 (PiPup #95): close the system dialogs (Google TV's "launcher isn't responding"
-# after standby). The app may not since Android 12; the shell may. A fixed command.
+# 2.1.0b1 (PiPup #95): close the system dialogs. Asked for against Google TV's "launcher
+# isn't responding" after standby; whether it closes that one is not tested yet. The app
+# may not since Android 12; the shell may (accepted on Fire OS 7). A fixed command.
 ADB_CLOSE_DIALOGS = "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS"
 # the key is authorised already (adb_ready): no long wait for a prompt
 KEY_AUTH_TIMEOUT = 5.0
