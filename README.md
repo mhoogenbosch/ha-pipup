@@ -325,13 +325,18 @@ keys itself (that needs a system permission), so:
 | `up` `down` `left` `right` `ok` | the app, on Android 13 or newer with its accessibility service (app ≥ 1.1.0); else over ADB |
 | `home` `back` | the app with its accessibility service; else over ADB |
 | `volume_up` `volume_down` `mute` | the app's volume control (no ADB needed) |
-| `wakeup` | the app (app ≥ 1.1.0): the screen on and the screensaver ended, **nothing else pressed**, and nothing at all when the screen is on already. When the screen stays off: `KEYCODE_WAKEUP` over ADB |
+| `wakeup` | the app (app ≥ 1.1.0): the screen on and the screensaver ended, **nothing else pressed**, and nothing at all when the screen is on already. When the screen stays off: `KEYCODE_WAKEUP` over ADB, and once more after 2 s if it is still dark (2.1.0b2) |
 | `close_dialogs` | the app up to Android 11; from Android 12 only over ADB (`am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`), since Android refuses it to apps |
 | everything else, `KEYCODE_*` | over ADB |
 
 "Over ADB" needs a tested ADB setup on that TV: install method ADB under *Advanced install*, or one of
 its ADB switches. Without it the action fails with a hint, rather than making the TV ask *Allow
 debugging?* in front of whoever is watching.
+
+Since 2.1.0b2 the keys share one ADB connection per TV, kept open for 30 seconds after the last key, so
+a series of D-pad presses does not set up a new connection (1–5 s) for every key. A connection the TV
+dropped in the meantime (standby) is replaced at the next key, within the same call. Installing still
+uses a connection of its own.
 
 ```yaml
 - action: pipup.send_key

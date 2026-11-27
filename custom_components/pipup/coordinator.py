@@ -57,6 +57,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# 2.1.0b2 (PiPup #95): after KEYCODE_WAKEUP over ADB, how long the screen gets before
+# the app is asked whether it is on, and the key is sent once more if it is not
+ADB_WAKE_RETRY_DELAY = 2.0
+
 # The app answers /notify and /cancel before the popup view is actually created or
 # torn down: measured on a Nokia 8010, /state read ~20 ms after the reply still had no
 # popup, ~75 ms later it did. Refreshing inside that window shows the old state until
@@ -421,13 +425,43 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             return answer
         try:
-            await async_adb_key(self.hass, self.client.host, options, KEYCODE_WAKEUP)
+            attempts = await self._async_adb_wake()
         except AdbError as err:
             raise PiPupError(
                 f"the screen stayed off, and waking it over ADB failed: {err}"
             ) from err
         _LOGGER.debug("PiPup %s: screen woken over ADB", title)
-        return {**answer, "woken_over_adb": True}
+        return {**answer, "woken_over_adb": True, "adb_wake_attempts": attempts}
+
+    async def _async_adb_wake(self) -> int:
+        """KEYCODE_WAKEUP over ADB, and once more after a short wait if still dark.
+
+        2.1.0b2 (PiPup #95): once @Ltek's TCL did not wake within 30 s, and the next
+        try worked. After the first key the app's /state says whether the screen is
+        on; an unknown answer (the app not reachable yet) also gets the second key,
+        which does nothing to a screen that is on. Returns the keys sent; raises
+        AdbError.
+        """
+        host, options = self.client.host, self.config_entry.options
+        await async_adb_key(self.hass, host, options, KEYCODE_WAKEUP)
+        await asyncio.sleep(ADB_WAKE_RETRY_DELAY)
+        if await self._async_screen_on_now() is True:
+            return 1
+        _LOGGER.debug(
+            "PiPup %s: still dark after KEYCODE_WAKEUP; sending it once more",
+            self.config_entry.title,
+        )
+        await async_adb_key(self.hass, host, options, KEYCODE_WAKEUP)
+        return 2
+
+    async def _async_screen_on_now(self) -> bool | None:
+        """The app's screenOn right now; None when it cannot tell."""
+        try:
+            state = await self.client.state()
+        except PiPupError:
+            return None
+        value = state.get("screenOn") if isinstance(state, dict) else None
+        return value if isinstance(value, bool) else None
 
     async def async_send_key(self, key: str) -> dict[str, Any]:
         """Send a key to the TV: through the app where it can, else over ADB.
@@ -547,8 +581,12 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.config_entry.title,
             )
             return answer
-        await self._async_adb_key("wakeup", KEYCODE_WAKEUP)
-        return {**answer, "woken_over_adb": True}
+        try:
+            attempts = await self._async_adb_wake()
+        except AdbError as err:
+            raise PiPupError(f"wakeup over ADB failed: {err}") from err
+        _LOGGER.debug("PiPup %s: woken over ADB", self.config_entry.title)
+        return {**answer, "woken_over_adb": True, "adb_wake_attempts": attempts}
 
     async def async_screen_off(self) -> dict[str, Any]:
         """Turn the screen off: the app's /power off, or KEYCODE_SLEEP over ADB.

@@ -300,6 +300,14 @@ ADB_KEYCODE_RE = re.compile(r"KEYCODE_[A-Z0-9_]{1,40}")
 ADB_CLOSE_DIALOGS = "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS"
 # the key is authorised already (adb_ready): no long wait for a prompt
 KEY_AUTH_TIMEOUT = 5.0
+# 2.1.0b2 (PiPup #95): the key path keeps its ADB connection open between keys and
+# closes it after this long without one. Opening a connection (TCP plus the RSA
+# handshake) took 1-5 s per key on @Ltek's TCL; a D-pad press should not.
+KEY_IDLE_CLOSE = 30.0
+# `input keyevent` answers within a second or two; a connection that a sleeping TV
+# dropped without a word must not hold a key for SHELL_TIMEOUT (two minutes)
+KEY_SHELL_TIMEOUT = 10.0
+_KEY_CONNECTIONS_KEY = "adb_key_connections"
 
 
 def valid_adb_keycode(key: str) -> bool:
@@ -313,9 +321,7 @@ async def async_adb_key(
     """Send one key to the TV over ADB (`input keyevent`); raises AdbError."""
     if not valid_adb_keycode(key):
         raise ValueError(f"not a key ha-pipup sends: {key}")
-    async with PiPupAdb(hass, host, options) as adb:
-        await adb.connect(KEY_AUTH_TIMEOUT)
-        await adb.shell(f"input keyevent {key}")
+    await _async_key_shell(hass, host, options, f"input keyevent {key}")
 
 
 async def async_adb_close_dialogs(
@@ -325,9 +331,118 @@ async def async_adb_close_dialogs(
 
     Returns what `am broadcast` printed, so the caller can tell the user.
     """
-    async with PiPupAdb(hass, host, options) as adb:
-        await adb.connect(KEY_AUTH_TIMEOUT)
-        return (await adb.shell(ADB_CLOSE_DIALOGS)) or ""
+    return (await _async_key_shell(hass, host, options, ADB_CLOSE_DIALOGS)) or ""
+
+
+class _KeyConnection:
+    """The reusable ADB session of one TV's key path (2.1.0b2, PiPup #95).
+
+    Only short commands use it: keys, close_dialogs. Installing and the other long
+    actions keep opening their own session. adb-shell is not safe for concurrent use,
+    so every command holds `lock`.
+    """
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.adb: PiPupAdb | None = None
+        # (port, key): a changed ADB option means a new connection
+        self.signature: tuple[int, Any] | None = None
+        self.idle: asyncio.TimerHandle | None = None
+
+    def cancel_idle(self) -> None:
+        if self.idle is not None:
+            self.idle.cancel()
+            self.idle = None
+
+    async def close(self) -> None:
+        """Close the session; never raises (it is gone either way)."""
+        self.cancel_idle()
+        adb, self.adb, self.signature = self.adb, None, None
+        if adb is None:
+            return
+        try:
+            await adb.close()
+        except Exception as err:  # noqa: BLE001 - a dead socket may fail to close
+            _LOGGER.debug("ADB: closing a key connection failed: %s", err)
+
+
+def _key_signature(options: dict[str, Any]) -> tuple[int, Any]:
+    return (int(options.get(CONF_ADB_PORT) or DEFAULT_ADB_PORT), options.get(CONF_ADB_KEY))
+
+
+def _key_connection(hass: HomeAssistant, host: str) -> _KeyConnection:
+    pool = hass.data.setdefault(DOMAIN, {}).setdefault(_KEY_CONNECTIONS_KEY, {})
+    connection = pool.get(host)
+    if connection is None:
+        connection = pool[host] = _KeyConnection()
+    return connection
+
+
+async def _async_key_shell(
+    hass: HomeAssistant, host: str, options: dict[str, Any], command: str
+) -> str:
+    """Run a short command over the TV's kept-open key connection; raises AdbError.
+
+    2.1.0b2 (PiPup #95): connect only when there is no open connection (or the ADB
+    options changed). A kept connection the TV closed in the meantime (standby, a
+    restart of adbd) fails on its first command; then one new connection is tried
+    within the same call. After the command the connection stays open for
+    KEY_IDLE_CLOSE seconds.
+    """
+    connection = _key_connection(hass, host)
+    signature = _key_signature(options)
+    async with connection.lock:
+        connection.cancel_idle()
+        try:
+            if connection.adb is not None and connection.signature != signature:
+                await connection.close()
+            reused = connection.adb is not None
+            for attempt in (1, 2):
+                if connection.adb is None:
+                    adb = PiPupAdb(hass, host, options)
+                    await adb.connect(KEY_AUTH_TIMEOUT)
+                    connection.adb, connection.signature = adb, signature
+                try:
+                    return await connection.adb.shell(command, timeout=KEY_SHELL_TIMEOUT)
+                except AdbError as err:
+                    await connection.close()
+                    if not (reused and attempt == 1):
+                        raise
+                    _LOGGER.debug(
+                        "ADB %s: the kept connection was gone (%s); connecting again", host, err
+                    )
+            raise AssertionError("unreachable")  # pragma: no cover
+        except BaseException:
+            # a failed connect, or cancelled mid-command: nothing half-open stays behind
+            await connection.close()
+            raise
+        finally:
+            if connection.adb is not None:
+                connection.idle = hass.loop.call_later(
+                    KEY_IDLE_CLOSE, _key_idle_expired, hass, connection
+                )
+
+
+def _key_idle_expired(hass: HomeAssistant, connection: _KeyConnection) -> None:
+    """The idle timer ran out: close the connection, unless a key took it since."""
+    connection.idle = None
+
+    async def _close() -> None:
+        async with connection.lock:
+            if connection.idle is None:
+                await connection.close()
+
+    hass.async_create_background_task(_close(), "pipup_adb_key_idle_close")
+
+
+async def async_close_key_connection(hass: HomeAssistant, host: str) -> None:
+    """Close the TV's kept key connection, if any (2.1.0b2; on unload)."""
+    pool = hass.data.get(DOMAIN, {}).get(_KEY_CONNECTIONS_KEY, {})
+    connection = pool.pop(host, None)
+    if connection is None:
+        return
+    async with connection.lock:
+        await connection.close()
 
 
 def _load_signer(path: str) -> PythonRSASigner:
@@ -440,15 +555,15 @@ class PiPupAdb:
             await self._device.close()
             self._device = None
 
-    async def shell(self, command: str) -> str:
+    async def shell(self, command: str, timeout: float = SHELL_TIMEOUT) -> str:
         """Run one shell command, output stripped."""
         assert self._device is not None
         try:
             out = await self._device.shell(
                 command,
-                transport_timeout_s=SHELL_TIMEOUT,
-                read_timeout_s=SHELL_TIMEOUT,
-                timeout_s=SHELL_TIMEOUT,
+                transport_timeout_s=timeout,
+                read_timeout_s=timeout,
+                timeout_s=timeout,
             )
         except _ADB_ERRORS as err:
             raise AdbError("connection_lost", str(err)) from err

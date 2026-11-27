@@ -9,6 +9,25 @@ full story in English and Dutch. Features marked *(app ≥ x.y.z)* need a matchi
 
 ## [Unreleased]
 
+## [v2.1.0b2] — 2026-11-27 (test release for PiPup #95: quicker keys over ADB, a second wake)
+Pre-release for testing *(app 1.1.0-beta.2)*; HACS only offers it with *Show beta versions* on. After
+@Ltek's test of 2.1.0b1 on a TCL Google TV (Android 14, #66).
+### Changed
+- **Keys over ADB share one connection per TV.** Every key over ADB (D-pad and OK below Android 13,
+  `menu`, any `KEYCODE_*`, the media keys without a session, `close_dialogs`, the wake key) opened a new
+  ADB connection: TCP plus the RSA handshake, 1–5 s per key on the TCL. The connection now stays open for
+  30 s after the last key; keys to the same TV take turns on it. One the TV dropped in the meantime is
+  replaced once, within the same call. Unloading the integration closes it. Installing keeps its own
+  connection.
+- A key over ADB waits at most 10 s for an answer instead of two minutes, so a connection a sleeping TV
+  dropped without a word cannot hold an action that long.
+### Fixed
+- **A wake over ADB that left the screen dark is tried once more.** After `KEYCODE_WAKEUP` (from
+  `wakeup`, the media player's on, the Screen switch or `pipup.launch_app`), ha-pipup asks the app after
+  2 s whether the screen is on, and sends the key once more when it is not, or when the app cannot tell
+  yet. Once the TCL did not wake within 30 s, and the next try worked. The answer has
+  `adb_wake_attempts`.
+
 ## [v2.1.0b1] — 2026-11-25 (test release for PiPup #95: the remote's other buttons, wake, sleep over ADB)
 Pre-release for testing *(app 1.1.0-beta.1)*; HACS only offers it with *Show beta versions* on. Asked for by
 @Ltek (PiPup #95), to control a TV with PiPup alone.
@@ -685,6 +704,7 @@ Companion to [app v0.7.0](https://github.com/mhoogenbosch/PiPup/releases/tag/v0.
 - First releases: sensors, button, select and update entity, name suffix, own brand images, `muted`
   (on by default), per-TV defaults for every field, and MJPEG camera mode as the safe default.
 
+[v2.1.0b2]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.1.0b2
 [v2.1.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.1.0b1
 [v2.0.0]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0
 [v2.0.0b1]: https://github.com/mhoogenbosch/ha-pipup/releases/tag/v2.0.0b1

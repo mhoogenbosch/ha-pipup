@@ -11,7 +11,9 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.pipup.adb import (
     ADB_CLOSE_DIALOGS,
+    KEY_SHELL_TIMEOUT,
     AdbError,
+    async_close_key_connection,
     async_adb_close_dialogs,
     async_adb_key,
     valid_adb_keycode,
@@ -39,6 +41,8 @@ def _coordinator(data: dict, options: dict, keys: list[str] | None = None) -> Pi
     coordinator.client.key = AsyncMock(return_value={"ok": True})
     coordinator.client.volume = AsyncMock(return_value={"ok": True})
     coordinator.client.power = AsyncMock(return_value={"state": "off", "ok": True})
+    # 2.1.0b2: the ADB wake asks /state whether the screen came on
+    coordinator.client.state = AsyncMock(return_value={"screenOn": True})
     return coordinator
 
 
@@ -95,15 +99,15 @@ async def test_adb_key_refuses_a_bad_name_before_connecting() -> None:
     adb.assert_not_called()
 
 
-async def test_close_dialogs_over_adb_is_one_fixed_command() -> None:
+async def test_close_dialogs_over_adb_is_one_fixed_command(hass: HomeAssistant) -> None:
     device = MagicMock()
     device.connect = AsyncMock()
     device.shell = AsyncMock(return_value="Broadcast completed: result=0")
-    device.__aenter__ = AsyncMock(return_value=device)
-    device.__aexit__ = AsyncMock(return_value=False)
+    device.close = AsyncMock()
     with patch("custom_components.pipup.adb.PiPupAdb", return_value=device):
-        out = await async_adb_close_dialogs(MagicMock(), "192.168.1.21", ADB)
-    device.shell.assert_awaited_once_with(ADB_CLOSE_DIALOGS)
+        out = await async_adb_close_dialogs(hass, "192.168.1.21", ADB)
+    await async_close_key_connection(hass, "192.168.1.21")
+    device.shell.assert_awaited_once_with(ADB_CLOSE_DIALOGS, timeout=KEY_SHELL_TIMEOUT)
     assert ADB_CLOSE_DIALOGS == "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS"
     assert out.startswith("Broadcast completed")
 
