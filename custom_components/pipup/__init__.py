@@ -19,6 +19,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
+from .adb import async_close_key_connection
 from .api import PiPupClient, PiPupError
 from .const import (  # noqa: F401
     CONF_NAME_SUFFIX,
@@ -278,7 +279,11 @@ async def _async_update_listener(hass: HomeAssistant, entry: PiPupConfigEntry) -
 
 async def async_unload_entry(hass: HomeAssistant, entry: PiPupConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        # 2.1.0b2 (PiPup #95): the key path's kept-open ADB connection
+        await async_close_key_connection(hass, entry.data[CONF_HOST])
+    return unloaded
 
 
 async def _async_cancel_overlay_popups(

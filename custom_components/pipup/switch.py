@@ -121,7 +121,8 @@ class PiPupScreenSwitch(PiPupEntity, SwitchEntity):
                 # 1.32.0b3: over ADB as well when the app could not wake the screen
                 await self.coordinator.async_screen_on()
             else:
-                await self.coordinator.client.power(state)
+                # 2.1.0b1 (PiPup #95): or the sleep key over ADB, when chosen
+                await self.coordinator.async_screen_off()
         except PiPupUnsupportedError as err:
             raise HomeAssistantError(
                 f"{self.entity_id}: this device has no granted way to switch its "

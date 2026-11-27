@@ -1,6 +1,7 @@
 """1.32.0b3 (PiPup #83): method ok (OK over ADB below Android 13), waking over ADB, beta APKs."""
 from __future__ import annotations
 
+from functools import partial
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,6 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.pipup.adb import (
+    KEY_SHELL_TIMEOUT,
+    async_close_key_connection,
     AdbError,
     KEYCODE_DPAD_CENTER,
     KEYCODE_WAKEUP,
@@ -75,11 +78,13 @@ async def test_adb_key_only_sends_known_keys(hass: HomeAssistant) -> None:
     adb = MagicMock()
     adb.connect = AsyncMock()
     adb.shell = AsyncMock(return_value="")
-    adb.__aenter__ = AsyncMock(return_value=adb)
-    adb.__aexit__ = AsyncMock(return_value=None)
+    adb.close = AsyncMock()
     with patch("custom_components.pipup.adb.PiPupAdb", return_value=adb):
         await async_adb_key(hass, "192.168.1.21", {}, KEYCODE_WAKEUP)
-    adb.shell.assert_awaited_once_with("input keyevent KEYCODE_WAKEUP")
+    adb.shell.assert_awaited_once_with("input keyevent KEYCODE_WAKEUP", timeout=KEY_SHELL_TIMEOUT)
+    # 2.1.0b2: the connection stays open for the next key; close it for the test
+    await async_close_key_connection(hass, "192.168.1.21")
+    adb.close.assert_awaited_once()
 
 
 # ------------------------------------------------------------------ method ok
@@ -186,6 +191,10 @@ async def test_launch_wakes_a_dark_screen_first(hass: HomeAssistant, tvs) -> Non
 def _coordinator(power_answer: dict, options: dict) -> MagicMock:
     coordinator = MagicMock()
     coordinator.client.power = AsyncMock(return_value=power_answer)
+    # 2.1.0b2: the ADB wake asks /state whether the screen came on
+    coordinator.client.state = AsyncMock(return_value={"screenOn": True})
+    coordinator._async_adb_wake = partial(PiPupCoordinator._async_adb_wake, coordinator)
+    coordinator._async_screen_on_now = partial(PiPupCoordinator._async_screen_on_now, coordinator)
     coordinator.client.host = "192.168.1.21"
     coordinator.config_entry.options = options
     coordinator.config_entry.title = "TCL"

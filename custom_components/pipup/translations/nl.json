@@ -88,7 +88,8 @@
               "media_access": "Wat er speelt (toegang tot mediasessie)",
               "click_packages": "Apps waarin PiPup knoppen mag indrukken",
               "foreground_app": "De app op het scherm (gebruikstoegang)",
-              "screenshot": "Een afbeelding van het scherm"
+              "screenshot": "Een afbeelding van het scherm",
+              "sleep_over_adb": "Uitzetten met de slaaptoets via ADB"
             },
             "data_description": {
               "install_method": "Self-update van de app: zoals voorheen; op Android < 12 vraagt de tv om een druk op OK. Automatisch: de eigen update van de app op Android 12+ (stil), een ADB-install op oudere versies. ADB: altijd ADB. Bij kiezen van Automatisch of ADB wordt de verbinding getest zodra je opslaat.",
@@ -99,7 +100,8 @@
               "media_access": "Laat PiPup de actieve mediasessie van elke app lezen (titel, spelen of pauze, positie) en erin zoeken, voor de mediaspeler. Wordt bij opslaan via ADB gegeven; het is een toegang voor meldingen-luisteraars, maar PiPup leest geen meldingen. Android negeert hem op toestellen met weinig geheugen. App 1.0.0 of nieuwer.",
               "click_packages": "Pakketnamen gescheiden door komma's, bijv. com.plexapp.android. Ingevuld: zet de aparte bedieningsdienst van PiPup aan (een toegankelijkheidsdienst die alleen tijdens een klik-aanroep naar het scherm kijkt, alleen in deze apps, en er niets van teruggeeft) en zet deze lijst bij opslaan via ADB. Leeg: zet de bedieningsdienst uit. App 1.0.0 of nieuwer.",
               "foreground_app": "Laat PiPup melden welke app op het scherm staat, ook als er niets speelt (de launcher, een menu): de bron van de mediaspeler, en zijn app als er geen mediasessie actief is. Wordt bij opslaan via ADB gegeven. PiPup leest alleen pakketnamen en tijden, niets van wat er op het scherm staat. App 1.0.0 of nieuwer.",
-              "screenshot": "Voegt een camera toe met wat er op het tv-scherm staat, en toont het scherm als afbeelding van de mediaspeler zolang er niets met artwork speelt. Opslaan maakt een token, stuurt dat via ADB naar de app en zet de bedieningsdienst van PiPup aan (die de afbeelding maakt). De app antwoordt alleen op een verzoek met dat token, één afbeelding per verzoek; beveiligde video (Netflix en dergelijke) komt er zwart uit. Android 11 of nieuwer, app 1.0.0 of nieuwer. Uit: wist het token op de tv."
+              "screenshot": "Voegt een camera toe met wat er op het tv-scherm staat, en toont het scherm als afbeelding van de mediaspeler zolang er niets met artwork speelt. Opslaan maakt een token, stuurt dat via ADB naar de app en zet de bedieningsdienst van PiPup aan (die de afbeelding maakt). De app antwoordt alleen op een verzoek met dat token, één afbeelding per verzoek; beveiligde video (Netflix en dergelijke) komt er zwart uit. Android 11 of nieuwer, app 1.0.0 of nieuwer. Uit: wist het token op de tv.",
+              "sleep_over_adb": "Uitzetten (de mediaspeler en de schermschakelaar) stuurt KEYCODE_SLEEP via ADB, zoals de aan/uit-knop van de afstandsbediening, in plaats van de eigen route van de app (apparaatbeheer). Op sommige tv's (TCL) is de route van de app een diepe slaap waar alleen de echte afstandsbediening hem uit wekt. Vereist ADB op deze tv (installatiemethode ADB, of een van de ADB-schakelaars hierboven)."
             }
           }
         }
@@ -120,7 +122,8 @@
       "invalid_click_packages": "Gebruik pakketnamen gescheiden door komma's, bijv. com.plexapp.android,com.google.android.youtube.tv.",
       "media_click_needs_app": "Niet opgeslagen: toegang tot de mediasessie en klikken vereisen PiPup-app 1.0.0 of nieuwer op deze tv. Werk eerst de app bij en zet dit daarna aan.",
       "adb_grant_failed": "ADB is verbonden, maar de tv nam de wijziging niet aan. Het logboek bevat het antwoord van de tv.",
-      "foreground_screen_needs_app": "Niet opgeslagen: de app op het scherm en de afbeelding van het scherm vereisen PiPup-app 1.0.0 of nieuwer op deze tv. Werk eerst de app bij (voor een testversie: zet Bèta-versies van de app aan, sla op en druk op Installeren bij de update-entiteit) en zet dit daarna aan."
+      "foreground_screen_needs_app": "Niet opgeslagen: de app op het scherm en de afbeelding van het scherm vereisen PiPup-app 1.0.0 of nieuwer op deze tv. Werk eerst de app bij (voor een testversie: zet Bèta-versies van de app aan, sla op en druk op Installeren bij de update-entiteit) en zet dit daarna aan.",
+      "sleep_needs_adb": "Uitzetten met de slaaptoets vereist ADB op deze tv: zet de installatiemethode op ADB (of zet een van de ADB-opties hierboven aan) en sla opnieuw op."
     }
   },
   "entity": {
@@ -379,7 +382,25 @@
         "rewind": "Terugspoelen",
         "fast_forward": "Vooruitspoelen",
         "home": "Home",
-        "back": "Terug"
+        "back": "Terug",
+        "up": "Omhoog",
+        "down": "Omlaag",
+        "left": "Links",
+        "right": "Rechts",
+        "ok": "OK",
+        "menu": "Menu",
+        "power": "Aan/uit",
+        "sleep": "Slaapstand",
+        "wakeup": "Wekken",
+        "volume_up": "Volume omhoog",
+        "volume_down": "Volume omlaag",
+        "mute": "Dempen",
+        "channel_up": "Zender omhoog",
+        "channel_down": "Zender omlaag",
+        "info": "Info",
+        "guide": "Gids",
+        "settings": "Instellingen",
+        "close_dialogs": "Systeemvensters sluiten"
       }
     },
     "install_method": {
@@ -706,11 +727,11 @@
     },
     "send_key": {
       "name": "Toets sturen",
-      "description": "Stuurt een mediatoets naar de app die speelt, of home/terug (die hebben de toegankelijkheidsdienst nodig). App 0.29.0 of nieuwer.",
+      "description": "Stuurt een toets naar de tv, zoals de afstandsbediening. Mediatoetsen gaan naar de app die speelt; volume gaat via de app; wekken zet het scherm aan en beëindigt de screensaver zonder iets in te drukken. Omhoog/omlaag/links/rechts/OK, home en terug gaan via de app waar die het kan (D-pad en OK vanaf Android 13, home/terug met de toegankelijkheidsdienst), en systeemvensters sluiten tot en met Android 11. Al het andere, en elke Android-toetsnaam zoals KEYCODE_TV_INPUT, heeft ADB nodig, in te stellen onder Geavanceerd installeren. App 0.29.0 of nieuwer.",
       "fields": {
         "key": {
           "name": "Toets",
-          "description": "De toets om te sturen."
+          "description": "Een toets uit de lijst, of een Android-toetsnaam zoals KEYCODE_TV_INPUT (gaat via ADB)."
         }
       }
     },

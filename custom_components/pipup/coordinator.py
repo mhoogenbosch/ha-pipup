@@ -25,16 +25,23 @@ from homeassistant.helpers.update_coordinator import (
 
 from .adb import (
     ADB_MEDIA_KEYS,
+    ADB_NAMED_KEYS,
     AdbError,
+    KEYCODE_SLEEP,
     KEYCODE_WAKEUP,
     adb_ready,
+    async_adb_close_dialogs,
     async_adb_key,
     auto_update_installs,
+    valid_adb_keycode,
 )
 from .api import PiPupClient, PiPupError
 from .const import (
+    POWER_STATE_OFF,
     POWER_STATE_ON,
     CONF_PUSH_WEBHOOK_ID,
+    CONF_SLEEP_OVER_ADB,
+    KEY_ALIASES,
     CONF_SCAN_INTERVAL,
     CONF_UPDATE_SOURCE,
     DEFAULT_UPDATE_SOURCE,
@@ -49,6 +56,10 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# 2.1.0b2 (PiPup #95): after KEYCODE_WAKEUP over ADB, how long the screen gets before
+# the app is asked whether it is on, and the key is sent once more if it is not
+ADB_WAKE_RETRY_DELAY = 2.0
 
 # The app answers /notify and /cancel before the popup view is actually created or
 # torn down: measured on a Nokia 8010, /state read ~20 ms after the reply still had no
@@ -414,42 +425,183 @@ class PiPupCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             return answer
         try:
-            await async_adb_key(self.hass, self.client.host, options, KEYCODE_WAKEUP)
+            attempts = await self._async_adb_wake()
         except AdbError as err:
             raise PiPupError(
                 f"the screen stayed off, and waking it over ADB failed: {err}"
             ) from err
         _LOGGER.debug("PiPup %s: screen woken over ADB", title)
-        return {**answer, "woken_over_adb": True}
+        return {**answer, "woken_over_adb": True, "adb_wake_attempts": attempts}
+
+    async def _async_adb_wake(self) -> int:
+        """KEYCODE_WAKEUP over ADB, and once more after a short wait if still dark.
+
+        2.1.0b2 (PiPup #95): once @Ltek's TCL did not wake within 30 s, and the next
+        try worked. After the first key the app's /state says whether the screen is
+        on; an unknown answer (the app not reachable yet) also gets the second key,
+        which does nothing to a screen that is on. Returns the keys sent; raises
+        AdbError.
+        """
+        host, options = self.client.host, self.config_entry.options
+        await async_adb_key(self.hass, host, options, KEYCODE_WAKEUP)
+        await asyncio.sleep(ADB_WAKE_RETRY_DELAY)
+        if await self._async_screen_on_now() is True:
+            return 1
+        _LOGGER.debug(
+            "PiPup %s: still dark after KEYCODE_WAKEUP; sending it once more",
+            self.config_entry.title,
+        )
+        await async_adb_key(self.hass, host, options, KEYCODE_WAKEUP)
+        return 2
+
+    async def _async_screen_on_now(self) -> bool | None:
+        """The app's screenOn right now; None when it cannot tell."""
+        try:
+            state = await self.client.state()
+        except PiPupError:
+            return None
+        value = state.get("screenOn") if isinstance(state, dict) else None
+        return value if isinstance(value, bool) else None
 
     async def async_send_key(self, key: str) -> dict[str, Any]:
-        """Send a key to the TV; a media key over ADB when the app sees no media session.
+        """Send a key to the TV: through the app where it can, else over ADB.
 
         1.32.0b4 (PiPup #83): app >= 0.32.0-beta.4 sends a media key straight to the
         session of the app that plays (MediaController transport controls). Without a
         session - no media access, nothing reported, an older app - the app can only
         hand Android a media-button event, and Plex ignored that on @Ltek's TCL. ADB
         presses the key in the app on screen, as the remote does. Only on a TV with a
-        tested ADB setup (`adb_ready`): elsewhere, and for home/back, the app sends it.
-        Returns the app's answer, or one with `via: adb`.
+        tested ADB setup (`adb_ready`): elsewhere the app sends it.
+
+        2.1.0b1 (PiPup #95): the remote's other buttons. A key the app lists in
+        /state.control.keys goes through the app (D-pad/OK on Android 13+, close_dialogs
+        up to Android 11, home/back with the accessibility service); volume goes through
+        the app's /volume; `wakeup` wakes without pressing anything; any other key, or a
+        `KEYCODE_*` name, goes over ADB on a TV with a tested ADB setup, and otherwise
+        fails with a hint. Returns the app's answer, or one with `via: adb`.
         """
-        adb_key = ADB_MEDIA_KEYS.get(key)
+        key = KEY_ALIASES.get(key, key)
         data = self.data or {}
-        media = data.get("media")
-        session = (
-            isinstance(media, dict)
-            and media.get("access") is True
-            and bool(media.get("package"))
-        )
         options = self.config_entry.options
-        if adb_key is None or session or not adb_ready(options, data):
+        if key in ADB_MEDIA_KEYS:
+            media = data.get("media")
+            session = (
+                isinstance(media, dict)
+                and media.get("access") is True
+                and bool(media.get("package"))
+            )
+            if session or not adb_ready(options, data):
+                return await self.client.key(key)
+            return await self._async_adb_key(key, ADB_MEDIA_KEYS[key])
+        # 2.1.0b1 (PiPup #95): the remote's other buttons
+        if key == "wakeup":
+            return await self._async_wakeup()
+        if key in ("volume_up", "volume_down", "mute"):
+            # the app's /volume (0.29.0) needs no ADB and shows the volume bar
+            if key == "mute":
+                return await self.client.volume(mute="toggle")
+            return await self.client.volume(step="up" if key == "volume_up" else "down")
+        if key in self._app_keys():
+            # what the app can do now: D-pad/OK on Android 13+, close_dialogs up to
+            # Android 11, home/back with the accessibility service
             return await self.client.key(key)
+        if key == "close_dialogs":
+            return await self._async_adb_close_dialogs()
+        adb_key = ADB_NAMED_KEYS.get(key, key)
+        if not valid_adb_keycode(adb_key):
+            raise PiPupError(f"unknown key {key}")
+        return await self._async_adb_key(key, adb_key)
+
+    def _app_keys(self) -> list[str]:
+        """The keys the app says it can send right now (/state.control.keys, app >= 0.29.0)."""
+        control = (self.data or {}).get("control")
+        keys = control.get("keys") if isinstance(control, dict) else None
+        return [k for k in keys if isinstance(k, str)] if isinstance(keys, list) else []
+
+    def _require_adb(self, what: str) -> None:
+        """Raise when this TV has no tested ADB setup (2.1.0b1, PiPup #95).
+
+        Opening ADB on a TV that does not know our key shows "Allow debugging?" to
+        whoever is watching, so a service call never does that by itself.
+        """
+        if not adb_ready(self.config_entry.options, self.data or {}):
+            raise PiPupError(
+                f"{what} needs ADB on this TV: the app cannot do it itself. Set up ADB "
+                "under the integration's options, Advanced install (install method ADB)"
+            )
+
+    async def _async_adb_key(self, key: str, keycode: str) -> dict[str, Any]:
+        """Press `keycode` over ADB, as the remote does."""
+        self._require_adb(key)
         try:
-            await async_adb_key(self.hass, self.client.host, options, adb_key)
+            await async_adb_key(self.hass, self.client.host, self.config_entry.options, keycode)
         except AdbError as err:
             raise PiPupError(f"{key} over ADB failed: {err}") from err
-        _LOGGER.debug("PiPup %s: %s sent over ADB", self.config_entry.title, key)
-        return {"ok": True, "message": f"sent {key} over ADB", "via": "adb"}
+        _LOGGER.debug("PiPup %s: %s sent over ADB", self.config_entry.title, keycode)
+        if key == keycode or key in ADB_MEDIA_KEYS:
+            # media keys keep the 1.32.0b4 answer
+            return {"ok": True, "message": f"sent {key} over ADB", "via": "adb"}
+        return {"ok": True, "message": f"sent {key} over ADB", "via": "adb", "keycode": keycode}
+
+    async def _async_adb_close_dialogs(self) -> dict[str, Any]:
+        """Close the system dialogs over ADB: since Android 12 only the shell may."""
+        self._require_adb("close_dialogs")
+        try:
+            out = await async_adb_close_dialogs(
+                self.hass, self.client.host, self.config_entry.options
+            )
+        except AdbError as err:
+            raise PiPupError(f"close_dialogs over ADB failed: {err}") from err
+        _LOGGER.debug("PiPup %s: close_dialogs over ADB: %s", self.config_entry.title, out)
+        return {"ok": True, "message": "closed the system dialogs over ADB", "via": "adb"}
+
+    async def _async_wakeup(self) -> dict[str, Any]:
+        """Wake the screen and end the screensaver, without pressing anything else.
+
+        2.1.0b1 (PiPup #95). App >= 1.1.0 knows the `wakeup` key and does nothing when
+        the screen is on without a screensaver (its wake activity could pause the app
+        on screen). An older app only gets /power on when the screen is off or a
+        screensaver runs. The screen still off: KEYCODE_WAKEUP over ADB, on a TV with
+        a tested ADB setup.
+        """
+        data = self.data or {}
+        if "wakeup" in self._app_keys():
+            answer = await self.client.key("wakeup")
+        elif data.get("screenOn") is False or data.get("dreaming") is True:
+            answer = await self.client.power(POWER_STATE_ON)
+        else:
+            return {"ok": True, "message": "the screen is on already", "woke": False,
+                    "screenOn": True}
+        if answer.get("screenOn") is not False:
+            return answer
+        if not adb_ready(self.config_entry.options, data):
+            _LOGGER.warning(
+                "PiPup %s: the screen stayed off after the wake request. Set up ADB under "
+                "Advanced install so Home Assistant can wake it with KEYCODE_WAKEUP",
+                self.config_entry.title,
+            )
+            return answer
+        try:
+            attempts = await self._async_adb_wake()
+        except AdbError as err:
+            raise PiPupError(f"wakeup over ADB failed: {err}") from err
+        _LOGGER.debug("PiPup %s: woken over ADB", self.config_entry.title)
+        return {**answer, "woken_over_adb": True, "adb_wake_attempts": attempts}
+
+    async def async_screen_off(self) -> dict[str, Any]:
+        """Turn the screen off: the app's /power off, or KEYCODE_SLEEP over ADB.
+
+        2.1.0b1 (PiPup #95): with the option *Turn off with the sleep key over ADB*
+        (Advanced install), the sleep key the remote's power button sends. The app's
+        lockNow put a TCL in a deep sleep that only the physical remote woke it from.
+        Without a tested ADB setup the option is refused when saving; should that setup
+        be gone since, the app's route is used.
+        """
+        options = self.config_entry.options
+        if options.get(CONF_SLEEP_OVER_ADB) is True and adb_ready(options, self.data or {}):
+            answer = await self._async_adb_key("sleep", KEYCODE_SLEEP)
+            return {**answer, "state": "off"}
+        return await self.client.power(POWER_STATE_OFF)
 
     async def async_refresh_soon(self) -> None:
         """Refresh state right after a show/dismiss call.

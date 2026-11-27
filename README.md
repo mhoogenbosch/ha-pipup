@@ -281,9 +281,10 @@ the same "display over other apps" permission popups already need.
 | Start an app | `media_player.select_source` with the app's name (the source list is the installed TV apps), or `pipup.launch_app` with `package` |
 | Open a link | `pipup.launch_app` with `uri` (and optionally `package` to force the app) |
 | Play/pause, next, … | the media player's transport buttons, or `pipup.send_key` |
-| Home / back | `pipup.send_key` — needs the accessibility service on the TV (`install.sh --accessibility`) |
+| Home / back | `pipup.send_key` — through the app with its accessibility service (`install.sh --accessibility`), otherwise over ADB (2.1.0) |
+| D-pad, OK, menu, … | `pipup.send_key` (2.1.0) — see [The remote's other buttons](#the-remotes-other-buttons-210) |
 | Volume | the media player's volume slider, up/down and mute |
-| On / off | the media player's power button (off needs the screen-off route, as for the Screen switch) |
+| On / off | the media player's power button (off needs the screen-off route, as for the Screen switch, or the sleep key over ADB, 2.1.0) |
 
 ```yaml
 - action: pipup.launch_app
@@ -309,8 +310,52 @@ hidden; up/down and mute are passed on.
 play, pause, stop, next and previous **straight to the media session** of the app that plays (its transport controls). Without that, the app hands Android a media-button event, which
 some apps ignore: Plex did on a TCL. A TV without a session but with a tested ADB setup (*Advanced
 install*: install method ADB, media access or a click list) then gets the key **over ADB**, pressed in the
-app on screen as the remote does. `pipup.send_key` takes the same route for media keys; home and back
-always go through the app.
+app on screen as the remote does. `pipup.send_key` takes the same route for media keys.
+
+#### The remote's other buttons (2.1.0)
+
+`pipup.send_key` also takes the remote's other buttons (PiPup #95): `up`, `down`, `left`, `right`, `ok`
+(also `center` or `select`), `menu`, `power`, `sleep`, `wakeup`, `volume_up`, `volume_down`, `mute`,
+`channel_up`, `channel_down`, `info`, `guide`, `settings`, `close_dialogs`, and **any Android key name**
+such as `KEYCODE_TV_INPUT` (exactly capitals, digits and underscores). An app cannot press most of these
+keys itself (that needs a system permission), so:
+
+| Key | How it is sent |
+|---|---|
+| `up` `down` `left` `right` `ok` | the app, on Android 13 or newer with its accessibility service (app ≥ 1.1.0); else over ADB |
+| `home` `back` | the app with its accessibility service; else over ADB |
+| `volume_up` `volume_down` `mute` | the app's volume control (no ADB needed) |
+| `wakeup` | the app (app ≥ 1.1.0): the screen on and the screensaver ended, **nothing else pressed**, and nothing at all when the screen is on already. When the screen stays off: `KEYCODE_WAKEUP` over ADB, and once more after 2 s if it is still dark (2.1.0b2) |
+| `close_dialogs` | the app up to Android 11; from Android 12 only over ADB (`am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`), since Android refuses it to apps |
+| everything else, `KEYCODE_*` | over ADB |
+
+"Over ADB" needs a tested ADB setup on that TV: install method ADB under *Advanced install*, or one of
+its ADB switches. Without it the action fails with a hint, rather than making the TV ask *Allow
+debugging?* in front of whoever is watching.
+
+Since 2.1.0b2 the keys share one ADB connection per TV, kept open for 30 seconds after the last key, so
+a series of D-pad presses does not set up a new connection (1–5 s) for every key. A connection the TV
+dropped in the meantime (standby) is replaced at the next key, within the same call. Installing still
+uses a connection of its own.
+
+```yaml
+- action: pipup.send_key
+  target:
+    entity_id: media_player.pipup_living_room
+  data:
+    key: KEYCODE_TV_INPUT
+```
+
+**Turn off with the sleep key over ADB** (*Advanced install*, 2.1.0). The app turns the screen off with
+Android's device-admin lock. On some TVs (TCL) that is a deep sleep that only the physical remote wakes
+from. With this switch on, the media player's off and the Screen switch send `KEYCODE_SLEEP` over ADB,
+as the remote's power button does. Saving refuses it on a TV without a tested ADB setup.
+
+**More about what is playing** (app ≥ 1.1.0). When the app's media session reports them, the media
+player shows `media_subtitle`, `media_description`, `media_album_artist`, `media_disc_number` and
+`media_track_number` as attributes, as the app reports them. Apps use these differently (a series in the
+subtitle, the season and episode as disc and track number); they are not yet mapped to series, season
+and episode.
 
 ### What is playing, seek and click (app ≥ 1.0.0)
 
@@ -990,6 +1035,7 @@ The integration can do that ADB install itself, in pure Python, so it also works
 | Apps PiPup may press buttons in | comma-separated packages; filled in switches PiPup control on, empty switches it off (app ≥ 1.0.0) | empty |
 | The app in front (usage access) | on / off — granted or withdrawn over ADB when it changes (app ≥ 1.0.0, see [The app in front and a picture of the screen](#the-app-in-front-and-a-picture-of-the-screen-app--100)) | off |
 | A picture of the screen | on / off — saving makes a token, sends it over ADB and switches PiPup control on (app ≥ 1.0.0, Android 11+) | off |
+| Turn off with the sleep key over ADB | on / off — off on the media player and the Screen switch sends `KEYCODE_SLEEP` over ADB (2.1.0, see [The remote's other buttons](#the-remotes-other-buttons-210)) | off |
 
 Turn on **network debugging (ADB)** in the TV's developer options first. Choosing Auto or ADB tests the
 connection when you save. With a key the TV does not know yet, the TV shows *Allow debugging from this

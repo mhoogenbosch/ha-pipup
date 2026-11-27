@@ -37,7 +37,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import PiPupError, PiPupUnsupportedError
-from .const import POWER_STATE_OFF
+from .adb import adb_ready
+from .const import CONF_SLEEP_OVER_ADB
 from .coordinator import PiPupCoordinator
 from .entity import PiPupEntity, screen_token
 
@@ -55,6 +56,15 @@ POSITION_TOLERANCE_MS = 1500
 # Without artwork the entity picture is the screen (1.33.0): a new picture at most this
 # often, and only when the state is written anyway (a poll or a push).
 SCREEN_PICTURE_SECONDS = 30
+
+# 2.1.0b1 (PiPup #95): media player attribute -> field of the app's /media (app >= 1.1.0)
+SESSION_EXTRA_ATTRS = {
+    "media_subtitle": "subtitle",
+    "media_description": "description",
+    "media_album_artist": "albumArtist",
+    "media_disc_number": "discNumber",
+    "media_track_number": "trackNumber",
+}
 
 # the app's media session states (GET /media, /state.media)
 MEDIA_STATES = {
@@ -198,7 +208,7 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
             | MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.VOLUME_MUTE
         )
-        if self._power.get("canSleep"):
+        if self._power.get("canSleep") or self._sleeps_over_adb:
             features |= MediaPlayerEntityFeature.TURN_OFF
         if self._volume and not self._volume.get("fixed"):
             features |= MediaPlayerEntityFeature.VOLUME_SET
@@ -386,6 +396,14 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         return label
 
     @property
+    def _sleeps_over_adb(self) -> bool:
+        """Whether turning off goes over ADB with the sleep key (2.1.0b1, PiPup #95)."""
+        options = self.coordinator.config_entry.options
+        return options.get(CONF_SLEEP_OVER_ADB) is True and adb_ready(
+            options, self.coordinator.data or {}
+        )
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """What the TV reports about its controls."""
         attrs = {
@@ -404,6 +422,14 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         if "click" in self._control:
             attrs["click_service"] = bool(self._control.get("click"))
             attrs["click_packages"] = self._control.get("clickPackages") or []
+        # 2.1.0b1 (PiPup #95, app >= 1.1.0): what else the session says about the item, as
+        # the app reports it. Not yet mapped to series/season/episode: apps fill these
+        # differently, and Plex's choice is not known yet.
+        session = self._session or {}
+        for attr, field in SESSION_EXTRA_ATTRS.items():
+            value = session.get(field)
+            if value not in (None, ""):
+                attrs[attr] = value
         return attrs
 
     # ------------------------------------------------------------ actions
@@ -423,8 +449,8 @@ class PiPupMediaPlayer(PiPupEntity, MediaPlayerEntity):
         await self._call(self.coordinator.async_screen_on())
 
     async def async_turn_off(self) -> None:
-        """Put the TV in standby."""
-        await self._call(self.coordinator.client.power(POWER_STATE_OFF))
+        """Put the TV in standby (with the sleep key over ADB when chosen; 2.1.0b1)."""
+        await self._call(self.coordinator.async_screen_off())
 
     async def async_select_source(self, source: str) -> None:
         """Start the app with this label (or package name)."""

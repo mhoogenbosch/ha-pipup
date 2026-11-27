@@ -396,6 +396,8 @@ send_key:
       selector:
         select:
           translation_key: key
+          # 2.1.0b1 (PiPup #95): any Android key name (KEYCODE_...) may be typed too
+          custom_value: true
           options:
             - play_pause
             - play
@@ -407,6 +409,24 @@ send_key:
             - fast_forward
             - home
             - back
+            - up
+            - down
+            - left
+            - right
+            - ok
+            - menu
+            - volume_up
+            - volume_down
+            - mute
+            - channel_up
+            - channel_down
+            - info
+            - guide
+            - settings
+            - power
+            - sleep
+            - wakeup
+            - close_dialogs
 
 click:
   target:

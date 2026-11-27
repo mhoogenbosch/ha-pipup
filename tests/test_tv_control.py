@@ -65,5 +65,6 @@ def test_service_schemas() -> None:
     with pytest.raises(vol.Invalid):
         LAUNCH_APP_SCHEMA({"package": "rm -rf /"})
     assert SEND_KEY_SCHEMA({"key": "play_pause"})["key"] == "play_pause"
+    # 2.1.0b1 (PiPup #95): "power" is a key now; a made-up name is still refused
     with pytest.raises(vol.Invalid):
-        SEND_KEY_SCHEMA({"key": "power"})
+        SEND_KEY_SCHEMA({"key": "launch_rockets"})
